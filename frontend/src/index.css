@@ -1,0 +1,283 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CryptoSignal Pro — Cryptory / Crypto Portfolio Tracker (design/style.txt)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  :root {
+    /* Фоны — design/style.txt Crypto Portfolio */
+    --bg-base: #242424;
+    --bg-surface: linear-gradient(108.21deg, rgba(73, 73, 73, 0.9) 0%, rgba(73, 73, 73, 0.054) 100%);
+    --bg-topbar: linear-gradient(89.81deg, #3D3D3D 0.15%, #303030 99.83%);
+    --bg-elevated: linear-gradient(108.21deg, rgba(73, 73, 73, 0.3) 0%, rgba(73, 73, 73, 0.018) 100%);
+    --bg-card: rgba(49, 49, 49, 0.6);
+    --bg-card-solid: #303030;
+    --bg-hover: rgba(73, 73, 73, 0.4);
+
+    /* Зелёный акцент — Cryptory */
+    --accent: #57CA7A;
+    --accent-dark: #47A663;
+    --accent-gradient: linear-gradient(253.96deg, #3D8F55 6.39%, #62BC7C 50.79%, #3D8F55 114.31%);
+    --accent-dim: rgba(71, 166, 99, 0.2);
+    --accent-hover: #62BC7C;
+
+    /* Кнопки — style.txt */
+    --btn-green: linear-gradient(90deg, #57BC76 0%, #399252 100%);
+
+    /* Семантика */
+    --success: #47A663;
+    --success-dim: rgba(71, 166, 99, 0.15);
+    --danger: #ef4444;
+    --danger-dim: rgba(239, 68, 68, 0.15);
+    --warning: #f59e0b;
+    --chart-line: #57CA7A;
+
+    /* Текст */
+    --text-primary: #FFFFFF;
+    --text-secondary: rgba(255, 255, 255, 0.7);
+    --text-muted: rgba(255, 255, 255, 0.5);
+
+    /* Границы */
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(255, 255, 255, 0.15);
+    --border-input: 1.5px solid #47A663;
+
+    /* Тени */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
+    --shadow-glow: 0px 4px 100px rgba(0, 0, 0, 0.72);
+
+    /* Радиусы */
+    --radius: 8px;
+    --radius-sm: 6px;
+
+    /* Алиасы */
+    --primary: var(--accent);
+    --link-color: var(--accent);
+    --text-section: var(--text-muted);
+    --success-bg: var(--success-dim);
+    --danger-bg: var(--danger-dim);
+    --danger-light: var(--danger);
+    --gradient-button: var(--btn-green);
+    --gradient-cyan: var(--btn-green);
+    --gradient-magenta: linear-gradient(90deg, #ec4899 0%, #be185d 100%);
+    --gradient-green: var(--btn-green);
+    --bg-sidebar: var(--bg-surface);
+    --bg-modal: var(--bg-card-solid);
+    --bg-card-hover: var(--bg-hover);
+    --glow-primary-soft: 0 0 20px rgba(87, 202, 122, 0.2);
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  .card {
+    background: var(--bg-elevated);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .card:hover {
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-md);
+  }
+  .card-highlight {
+    border-left: 3px solid var(--accent);
+    background: linear-gradient(90deg, rgba(71, 166, 99, 0.06) 0%, transparent 100%);
+  }
+  .card-danger {
+    border-left: 3px solid var(--danger);
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.06) 0%, transparent 100%);
+  }
+
+  .card-glass {
+    background: var(--bg-elevated);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    @apply p-6;
+  }
+
+  .btn-primary {
+    background: var(--btn-green);
+    color: white;
+    @apply font-medium px-5 py-2.5 rounded-lg transition-all duration-200;
+    border: none;
+  }
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+
+  .btn-secondary {
+    background: var(--bg-card-solid);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    @apply font-medium px-4 py-2 rounded-lg transition-all;
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--accent);
+  }
+
+  .badge-long {
+    background: var(--success-dim);
+    color: var(--success);
+    border: 1.5px solid rgba(71, 166, 99, 0.5);
+    @apply font-medium text-xs uppercase tracking-wide px-2.5 py-1 rounded-md;
+  }
+
+  .badge-short {
+    background: var(--danger-dim);
+    color: var(--danger);
+    border: 1.5px solid rgba(239, 68, 68, 0.4);
+    @apply font-medium text-xs uppercase tracking-wide px-2.5 py-1 rounded-md;
+  }
+
+  .input-field {
+    background: rgba(38, 50, 56, 0.5);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    @apply w-full px-4 py-2.5 rounded-lg outline-none transition-all;
+  }
+  .input-field:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-dim);
+  }
+  .input-field::placeholder {
+    color: var(--text-muted);
+  }
+
+  /* Range slider — CryptoSignal Pro */
+  .slider-track {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    outline: none;
+  }
+  .slider-track::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(135deg, #57CA7A 0%, #47A663 100%);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(71, 166, 99, 0.4);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .slider-track::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 16px rgba(71, 166, 99, 0.5);
+  }
+  .slider-track::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(135deg, #57CA7A 0%, #47A663 100%);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 8px rgba(71, 166, 99, 0.4);
+  }
+  .slider-track::-moz-range-thumb:hover {
+    transform: scale(1.1);
+  }
+
+  .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .nav-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all;
+    color: var(--text-muted);
+  }
+  .nav-item:hover {
+    color: var(--text-secondary);
+    background: var(--bg-hover);
+  }
+  .nav-item.active {
+    color: var(--accent);
+    background: var(--accent-dim);
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+
+  .tab-btn {
+    @apply px-4 py-2 rounded-lg text-sm font-medium transition-all;
+    color: var(--text-muted);
+    background: transparent;
+  }
+  .tab-btn:hover {
+    color: var(--text-secondary);
+  }
+  .tab-btn.active {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  .notification-badge {
+    background: var(--accent);
+    color: var(--bg-base);
+    @apply rounded-md px-2 py-0.5 text-xs font-semibold;
+  }
+
+  .toast {
+    background: var(--bg-card-solid);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    @apply px-4 py-3 flex items-center gap-3 min-w-[280px];
+    animation: toastSlide 0.25s ease-out;
+  }
+
+  /* Контент — отступы от краёв, читаемость */
+  .content-wrap {
+    @apply max-w-6xl mx-auto w-full;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+  .content-section {
+    @apply py-5;
+  }
+  .content-section h2,
+  .content-section h3 {
+    @apply mb-4;
+    letter-spacing: 0.02em;
+    line-height: 1.4;
+  }
+  .content-section p {
+    line-height: 1.6;
+    letter-spacing: 0.01em;
+  }
+}
+
+@keyframes toastSlide {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

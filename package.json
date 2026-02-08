@@ -1,0 +1,51 @@
+{
+  "name": "crypto-signal-pro",
+  "version": "1.0.0",
+  "description": "Система анализа криптовалютных рынков и генерации торговых сигналов",
+  "main": "electron/main.js",
+  "author": "CryptoSignal Pro",
+  "build": {
+    "appId": "com.cryptosignal.pro",
+    "productName": "CryptoSignal Pro",
+    "directories": { "output": "release" },
+    "files": [
+      "electron/**/*",
+      "backend/dist/**/*",
+      "backend/node_modules/**/*",
+      "frontend/dist/**/*"
+    ],
+    "win": {
+      "target": ["nsis", "portable"],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "portable": { "artifactName": "CryptoSignalPro-Portable.exe" }
+  },
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "start": "cd backend && npm run start",
+    "electron": "electron .",
+    "electron:dev": "npm run build && electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:portable": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --config.win.target=portable"
+  },
+  "dependencies": {
+    "electron-store": "^8.1.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  }
+}
