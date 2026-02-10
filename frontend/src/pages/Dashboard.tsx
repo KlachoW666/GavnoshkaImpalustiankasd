@@ -60,24 +60,60 @@ export default function Dashboard() {
     return () => ws.close();
   }, [token]);
 
-  return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      {!user?.activationActive && (
-        <div className="card p-5 border-2 rounded-xl" style={{ borderColor: 'var(--accent)', background: 'var(--bg-card-solid)' }}>
-          <p className="font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-            Для доступа к PREMIUM-версии необходимо приобрести ключ в нашем Telegram-боте
+  // Новому пользователю без подписки показываем только экран покупки ключа
+  if (!user?.activationActive) {
+    return (
+      <div className="max-w-xl mx-auto py-8 md:py-12 px-4">
+        <div
+          className="rounded-2xl border-2 p-8 md:p-10 text-center shadow-lg"
+          style={{ borderColor: 'var(--accent)', background: 'var(--bg-card-solid)', boxShadow: '0 0 0 1px var(--border)' }}
+        >
+          <div className="w-14 h-14 mx-auto mb-5 rounded-full flex items-center justify-center text-2xl" style={{ background: 'var(--accent)', color: 'white' }}>
+            🔑
+          </div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-3" style={{ color: 'var(--text-primary)' }}>
+            PREMIUM-доступ к CLABX
+          </h1>
+          <p className="text-base mb-6" style={{ color: 'var(--text-secondary)' }}>
+            Для работы с сервисом нужен ключ активации. Приобретите его в нашем Telegram-боте — оплата через Telegram Stars, ключ приходит сразу после оплаты.
           </p>
+          <ol className="text-left text-sm mb-8 space-y-3 max-w-sm mx-auto" style={{ color: 'var(--text-muted)' }}>
+            <li className="flex gap-3">
+              <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--accent)', color: 'white' }}>1</span>
+              Откройте бота в Telegram
+            </li>
+            <li className="flex gap-3">
+              <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--accent)', color: 'white' }}>2</span>
+              Выберите тариф (1–90 дней)
+            </li>
+            <li className="flex gap-3">
+              <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--accent)', color: 'white' }}>3</span>
+              Оплатите Stars — ключ придёт в чат
+            </li>
+            <li className="flex gap-3">
+              <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--accent)', color: 'white' }}>4</span>
+              Вставьте ключ во вкладку «Активировать»
+            </li>
+          </ol>
           <a
             href="https://t.me/clabx_bot"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white text-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
             style={{ background: 'var(--accent)' }}
           >
             @clabx_bot — приобрести ключ
           </a>
+          <p className="text-sm mt-6" style={{ color: 'var(--text-muted)' }}>
+            Уже есть ключ? Перейдите во вкладку <strong style={{ color: 'var(--text-secondary)' }}>Активировать</strong> и введите его.
+          </p>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 max-w-6xl mx-auto">
       {/* Статистика приложения — ордера, пользователи, объём, статус */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card p-5 md:p-6">

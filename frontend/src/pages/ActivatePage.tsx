@@ -57,10 +57,27 @@ export default function ActivatePage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      {/* Где купить ключ */}
+      <div className="rounded-2xl border-2 p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--accent)' }}>
+        <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Где купить ключ</h3>
+        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+          Ключ активации приобретается в нашем Telegram-боте. Оплата — через Telegram Stars, ключ приходит в чат сразу после оплаты. Затем вставьте его в поле ниже.
+        </p>
+        <a
+          href="https://t.me/clabx_bot"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white text-sm"
+          style={{ background: 'var(--accent)' }}
+        >
+          @clabx_bot — приобрести ключ
+        </a>
+      </div>
+
       <div className="rounded-2xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
         <h2 className="text-xl font-bold tracking-tight">Активация доступа</h2>
         <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>
-          Введите ключ, который выдал супер-администратор. После активации откроются дополнительные вкладки на заданный срок.
+          Введите ключ, который вы получили в Telegram-боте после оплаты. После активации откроются все вкладки сервиса на указанный в ключе срок.
         </p>
 
         <div className="mt-5 space-y-3">
@@ -70,7 +87,7 @@ export default function ActivatePage() {
           <input
             value={key}
             onChange={(e) => setKey(e.target.value)}
-            placeholder="Например: ABCD... "
+            placeholder="Например: ABCD1234EFGH5678..."
             className="input-field w-full"
             autoComplete="off"
           />
