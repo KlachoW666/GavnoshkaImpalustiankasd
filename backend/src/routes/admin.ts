@@ -19,7 +19,9 @@ import {
   banUser,
   unbanUser,
   getOnlineUserIds,
-  deleteUser
+  deleteUser,
+  getTelegramIdForUser,
+  extendUserSubscription
 } from '../db/authDb';
 import {
   listSubscriptionPlans,
@@ -211,11 +213,11 @@ router.get('/logs', requireAdmin, (req: Request, res: Response) => {
 
 /** ——— Super-Admin: пользователи и группы ——— */
 
-/** GET /api/admin/users — список пользователей */
-router.get('/users', requireAdmin, (_req: Request, res: Response) => {
+/** GET /api/admin/users — список пользователей (опционально ?search= по user_id, нику, telegram id) */
+router.get('/users', requireAdmin, (req: Request, res: Response) => {
   try {
     const onlineIds = new Set(getOnlineUserIds());
-    const users = listUsers().map((u) => ({
+    let users = listUsers().map((u) => ({
       id: u.id,
       username: u.username,
       groupId: u.group_id,
@@ -225,10 +227,92 @@ router.get('/users', requireAdmin, (_req: Request, res: Response) => {
       createdAt: u.created_at,
       online: onlineIds.has(u.id)
     }));
+    const search = (req.query.search as string)?.trim();
+    if (search) {
+      const keys = listActivationKeys(2000);
+      const telegramByUserId = new Map<string, string>();
+      for (const k of keys) {
+        if (k.used_by_user_id && k.note) telegramByUserId.set(k.used_by_user_id, k.note);
+      }
+      const q = search.toLowerCase();
+      users = users.filter((u) => {
+        if (u.id.toLowerCase().includes(q) || u.username.toLowerCase().includes(q)) return true;
+        const tg = telegramByUserId.get(u.id);
+        return tg != null && String(tg).includes(search);
+      });
+    }
     res.json(users);
   } catch (e) {
     logger.error('Admin', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** GET /api/admin/users/:id — детали пользователя: ордера, PnL, telegram_id, подписка */
+router.get('/users/:id', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id;
+    const allUsers = listUsers();
+    const u = allUsers.find((x) => x.id === userId) as (typeof allUsers[0] & { activation_expires_at?: string | null }) | undefined;
+    if (!u) {
+      res.status(404).json({ error: 'Пользователь не найден' });
+      return;
+    }
+    const onlineIds = new Set(getOnlineUserIds());
+    const orders = listOrders({ clientId: userId, status: 'closed', limit: 500 });
+    const totalPnl = orders.reduce((s, o) => s + (o.pnl ?? 0), 0);
+    const telegramId = getTelegramIdForUser(userId);
+    res.json({
+      id: u.id,
+      username: u.username,
+      groupId: u.group_id,
+      groupName: u.group_name,
+      banned: u.banned ?? 0,
+      banReason: u.ban_reason ?? null,
+      createdAt: u.created_at,
+      online: onlineIds.has(userId),
+      activationExpiresAt: u.activation_expires_at ?? null,
+      telegramId,
+      totalPnl,
+      ordersCount: orders.length,
+      orders: orders.slice(0, 100).map((o) => ({
+        id: o.id,
+        pair: o.pair,
+        direction: o.direction,
+        openPrice: o.open_price,
+        closePrice: o.close_price,
+        pnl: o.pnl,
+        pnlPercent: o.pnl_percent,
+        openTime: o.open_time,
+        closeTime: o.close_time,
+        status: o.status
+      }))
+    });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/admin/users/:id/extend-subscription — продлить подписку (duration: 1h, 99d, 30m) */
+router.post('/users/:id/extend-subscription', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id;
+    const duration = (req.body?.duration as string)?.trim();
+    if (!duration) {
+      res.status(400).json({ error: 'Укажите duration, например 1h или 99d' });
+      return;
+    }
+    const { activationExpiresAt } = extendUserSubscription(userId, duration);
+    res.json({ ok: true, activationExpiresAt });
+  } catch (e) {
+    const msg = (e as Error).message;
+    logger.error('Admin', msg);
+    if (msg.includes('Пользователь') || msg.includes('Формат')) {
+      res.status(400).json({ error: msg });
+      return;
+    }
+    res.status(500).json({ error: msg });
   }
 });
 

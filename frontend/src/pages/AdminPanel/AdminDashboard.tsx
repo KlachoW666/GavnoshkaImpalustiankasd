@@ -24,7 +24,6 @@ interface DashboardData {
     openPositionsCount: number;
     openPositions: unknown[];
   };
-  activeSignals: Array<{ symbol: string; direction: string; confidence: number; trigger: string }>;
   risk: {
     dailyDrawdownPercent: number;
     dailyDrawdownLimitPercent: number;
@@ -35,6 +34,13 @@ interface DashboardData {
     canOpenTrade: boolean;
     reason: string;
   };
+  keysStats: {
+    byDuration: Record<number, { used: number; total: number }>;
+    totalUsed: number;
+    totalCreated: number;
+  };
+  topUsers: Array<{ userId: string; username: string; totalPnl: number; okxBalance: number | null }>;
+  usersStats: { total: number; premium: number; inactive: number; online: number };
 }
 
 function formatUptime(sec: number): string {
@@ -48,7 +54,6 @@ export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const fetchDashboard = async () => {
     try {
@@ -68,30 +73,6 @@ export default function AdminDashboard() {
     const id = setInterval(fetchDashboard, 10000);
     return () => clearInterval(id);
   }, []);
-
-  const stopTrading = async () => {
-    setActionLoading('stop');
-    try {
-      await adminApi.post('/admin/trading/stop');
-      await fetchDashboard();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ошибка');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const emergencyStop = async () => {
-    setActionLoading('emergency');
-    try {
-      await adminApi.post('/admin/trading/emergency');
-      await fetchDashboard();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ошибка');
-    } finally {
-      setActionLoading(null);
-    }
-  };
 
   if (loading) {
     return (
@@ -171,17 +152,38 @@ export default function AdminDashboard() {
         </section>
       </div>
 
-      {/* Active Signals */}
+      {/* 1) Статистика покупок ключей */}
       <section className="rounded-xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-        <h3 className="text-lg font-semibold mb-4">🔔 Active Signals (Top 5)</h3>
-        {d.activeSignals.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Нет активных сигналов</p>
+        <h3 className="text-lg font-semibold mb-4">🔑 Покупки ключей</h3>
+        <ul className="space-y-2 text-sm">
+          <li>Всего ключей создано: <strong>{d.keysStats.totalCreated}</strong></li>
+          <li>Использовано: <strong>{d.keysStats.totalUsed}</strong></li>
+          {Object.keys(d.keysStats.byDuration).length > 0 && (
+            <li className="pt-2 mt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+              По срокам: {Object.entries(d.keysStats.byDuration)
+                .sort(([a], [b]) => Number(a) - Number(b))
+                .map(([days, { used, total }]) => `${days}д — ${used}/${total}`)
+                .join(', ')}
+            </li>
+          )}
+        </ul>
+      </section>
+
+      {/* 2) Топ 5 пользователей по заработку + баланс OKX */}
+      <section className="rounded-xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
+        <h3 className="text-lg font-semibold mb-4">👥 Топ 5 пользователей (заработок)</h3>
+        {d.topUsers.length === 0 ? (
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Нет данных по сделкам</p>
         ) : (
           <ul className="space-y-2">
-            {d.activeSignals.map((s, i) => (
-              <li key={i} className="flex items-center gap-4 text-sm">
-                <span className={s.direction === 'LONG' ? 'text-[var(--success)]' : 'text-[var(--danger)]'}>
-                  {s.direction === 'LONG' ? '🟢' : '🔴'} {s.symbol} {s.direction} {s.confidence}% {s.trigger}
+            {d.topUsers.map((u, i) => (
+              <li key={u.userId} className="flex items-center justify-between text-sm gap-4">
+                <span><strong>{i + 1}.</strong> {u.username}</span>
+                <span style={{ color: u.totalPnl >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                  {u.totalPnl >= 0 ? '+' : ''}${u.totalPnl.toFixed(2)}
+                </span>
+                <span style={{ color: 'var(--text-muted)' }}>
+                  OKX: {u.okxBalance != null ? `$${u.okxBalance.toFixed(2)}` : '—'}
                 </span>
               </li>
             ))}
@@ -189,40 +191,15 @@ export default function AdminDashboard() {
         )}
       </section>
 
-      {/* Quick Actions */}
+      {/* 3) Пользователи: зарегистрировано, премиум, неактивные, онлайн */}
       <section className="rounded-xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-        <h3 className="text-lg font-semibold mb-4">⚡ Quick Actions</h3>
-        <div className="flex flex-wrap gap-4">
-          <button
-            type="button"
-            onClick={stopTrading}
-            disabled={actionLoading !== null}
-            className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-            style={{ background: 'var(--warning-dim)', color: 'var(--warning)' }}
-          >
-            {actionLoading === 'stop' ? '…' : '⏸️ PAUSE Trading'}
-          </button>
-          <button
-            type="button"
-            onClick={emergencyStop}
-            disabled={actionLoading !== null}
-            className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-            style={{ background: 'var(--danger-dim)', color: 'var(--danger)' }}
-          >
-            {actionLoading === 'emergency' ? '…' : '🛑 EMERGENCY STOP'}
-          </button>
-          <button
-            type="button"
-            onClick={fetchDashboard}
-            className="px-4 py-2 rounded-lg text-sm font-medium"
-            style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)' }}
-          >
-            🔄 Обновить
-          </button>
-        </div>
-        <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
-          Запуск авто-торговли: перейдите в раздел «Авто» и включите переключатель.
-        </p>
+        <h3 className="text-lg font-semibold mb-4">📊 Пользователи</h3>
+        <ul className="space-y-2 text-sm">
+          <li>Зарегистрировано: <strong>{d.usersStats.total}</strong></li>
+          <li>Активных (PREMIUM): <strong style={{ color: 'var(--success)' }}>{d.usersStats.premium}</strong></li>
+          <li>Неактивных (обычный): <strong>{d.usersStats.inactive}</strong></li>
+          <li>Онлайн: <strong style={{ color: 'var(--accent)' }}>{d.usersStats.online}</strong></li>
+        </ul>
       </section>
     </div>
   );

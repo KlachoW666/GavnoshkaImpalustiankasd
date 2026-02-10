@@ -398,6 +398,60 @@ export function revokeActivationKeyByKey(key: string): { revoked: boolean; banne
   return { revoked: true, bannedUserId };
 }
 
+/** Telegram ID пользователя из note ключа активации (бот сохраняет при регистрации ключа). */
+export function getTelegramIdForUser(userId: string): string | null {
+  ensureAuthTables();
+  if (isMemoryStore()) {
+    const key = memoryActivationKeys.filter((k) => k.used_by_user_id === userId && k.note).sort((a, b) => (b.used_at || '').localeCompare(a.used_at || ''))[0];
+    return key?.note ?? null;
+  }
+  const db = getDb();
+  if (!db) return null;
+  const row = db.prepare('SELECT note FROM activation_keys WHERE used_by_user_id = ? AND note IS NOT NULL AND note != "" ORDER BY used_at DESC LIMIT 1').get(userId) as { note: string } | undefined;
+  return row?.note ?? null;
+}
+
+/** Продление подписки на время (1h, 99d, 30m и т.д.). Базовое время — текущий срок или сейчас. */
+export function extendUserSubscription(userId: string, durationStr: string): { activationExpiresAt: string } {
+  ensureAuthTables();
+  const match = (durationStr || '').trim().match(/^(\d+)(h|d|m)$/i);
+  if (!match) throw new Error('Формат: число + h (часы), d (дни) или m (минуты), например 1h или 99d');
+  const num = parseInt(match[1], 10);
+  const unit = match[2].toLowerCase();
+  if (num < 1) throw new Error('Число должно быть >= 1');
+  const nowMs = Date.now();
+  let addMs = 0;
+  if (unit === 'm') addMs = num * 60 * 1000;
+  else if (unit === 'h') addMs = num * 60 * 60 * 1000;
+  else addMs = num * 24 * 60 * 60 * 1000;
+
+  let baseMs = nowMs;
+  if (isMemoryStore()) {
+    const u = memoryUsers.find((x) => x.id === userId);
+    if (!u) throw new Error('Пользователь не найден');
+    const exp = u.activation_expires_at;
+    if (exp) {
+      const expMs = new Date(exp).getTime();
+      if (expMs > nowMs) baseMs = expMs;
+    }
+    const newExpiry = new Date(baseMs + addMs).toISOString();
+    u.activation_expires_at = newExpiry;
+    return { activationExpiresAt: newExpiry };
+  }
+  const db = getDb();
+  if (!db) throw new Error('DB unavailable');
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as (UserRow & { activation_expires_at?: string | null }) | undefined;
+  if (!u) throw new Error('Пользователь не найден');
+  const exp = u.activation_expires_at;
+  if (exp) {
+    const expMs = new Date(exp).getTime();
+    if (expMs > nowMs) baseMs = expMs;
+  }
+  const newExpiry = new Date(baseMs + addMs).toISOString();
+  db.prepare('UPDATE users SET activation_expires_at = ? WHERE id = ?').run(newExpiry, userId);
+  return { activationExpiresAt: newExpiry };
+}
+
 export function redeemActivationKeyForUser(opts: { userId: string; key: string; proGroupId?: number }): { activationExpiresAt: string; groupId: number } {
   ensureAuthTables();
   const proGroupId = opts.proGroupId ?? 4;

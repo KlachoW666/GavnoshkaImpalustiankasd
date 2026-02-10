@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { isAdminAuthenticated, clearAdminToken } from '../../utils/adminApi';
 import AdminLogin from './AdminLogin';
 import AdminDashboard from './AdminDashboard';
-import AdminTrading from './AdminTrading';
 import AdminAnalytics from './AdminAnalytics';
 import AdminLogs from './AdminLogs';
 import AdminUsers from './AdminUsers';
@@ -10,11 +9,10 @@ import AdminGroups from './AdminGroups';
 import AdminActivationKeys from './AdminActivationKeys';
 import AdminSubscriptionPlans from './AdminSubscriptionPlans';
 
-type AdminTab = 'dashboard' | 'trading' | 'analytics' | 'logs' | 'users' | 'groups' | 'keys' | 'plans';
+type AdminTab = 'dashboard' | 'analytics' | 'logs' | 'users' | 'groups' | 'keys' | 'plans';
 
 const TABS: { id: AdminTab; label: string }[] = [
   { id: 'dashboard', label: 'Dashboard' },
-  { id: 'trading', label: 'Торговля' },
   { id: 'analytics', label: 'Аналитика' },
   { id: 'logs', label: 'Логи' },
   { id: 'users', label: 'Пользователи' },
@@ -72,7 +70,6 @@ export default function AdminPanel() {
         </button>
       </div>
       {tab === 'dashboard' && <AdminDashboard />}
-      {tab === 'trading' && <AdminTrading />}
       {tab === 'analytics' && <AdminAnalytics />}
       {tab === 'logs' && <AdminLogs />}
       {tab === 'users' && <AdminUsers />}

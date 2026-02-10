@@ -2,9 +2,9 @@
  * Admin Service — агрегация данных для админ-панели.
  */
 
-import { getSignals } from '../routes/signals';
 import { getAutoAnalyzeStatus } from '../routes/market';
 import { listOrders, isMemoryStore } from '../db';
+import { listActivationKeys, listUsers, getOnlineUserIds } from '../db/authDb';
 import { emotionalFilterInstance } from './emotionalFilter';
 import { config } from '../config';
 import { logger } from '../lib/logger';
@@ -51,7 +51,6 @@ export interface DashboardData {
     openPositionsCount: number;
     openPositions: Array<{ pair: string; direction: string; pnl: number; pnlPercent: number }>;
   };
-  activeSignals: Array<{ symbol: string; direction: string; confidence: number; trigger: string }>;
   risk: {
     dailyDrawdownPercent: number;
     dailyDrawdownLimitPercent: number;
@@ -62,6 +61,13 @@ export interface DashboardData {
     canOpenTrade: boolean;
     reason: string;
   };
+  keysStats: {
+    byDuration: Record<number, { used: number; total: number }>;
+    totalUsed: number;
+    totalCreated: number;
+  };
+  topUsers: Array<{ userId: string; username: string; totalPnl: number; okxBalance: number | null }>;
+  usersStats: { total: number; premium: number; inactive: number; online: number };
 }
 
 const startTime = Date.now();
@@ -87,14 +93,51 @@ export async function getDashboardData(): Promise<DashboardData> {
   const openOrders = listOrders({ status: 'open', limit: 20 });
   const efState = emotionalFilter.getState();
   const canOpen = emotionalFilter.canOpenTrade();
-  const signals = getSignals(10);
   const autoStatus = getAutoAnalyzeStatus();
-  const activeSignals = signals.slice(0, 5).map((s) => ({
-    symbol: s.symbol ?? '',
-    direction: s.direction ?? 'LONG',
-    confidence: Math.round((s.confidence ?? 0) * 100),
-    trigger: Array.isArray(s.triggers) && s.triggers.length ? s.triggers[0] : 'signal'
+
+  const keys = listActivationKeys(1000);
+  const byDuration: Record<number, { used: number; total: number }> = {};
+  let totalUsed = 0;
+  for (const k of keys) {
+    const d = k.duration_days;
+    if (!byDuration[d]) byDuration[d] = { used: 0, total: 0 };
+    byDuration[d].total++;
+    if (k.used_at) {
+      byDuration[d].used++;
+      totalUsed++;
+    }
+  }
+
+  const closedOrders = listOrders({ status: 'closed', limit: 2000 });
+  const pnlByUser: Record<string, number> = {};
+  for (const o of closedOrders) {
+    const id = o.client_id;
+    if (!id) continue;
+    pnlByUser[id] = (pnlByUser[id] ?? 0) + (o.pnl ?? 0);
+  }
+  const userIds = Object.keys(pnlByUser).sort((a, b) => (pnlByUser[b] ?? 0) - (pnlByUser[a] ?? 0)).slice(0, 5);
+  const users = listUsers();
+  const userMap = new Map(users.map((u) => [u.id, u]));
+  const topUsers = userIds.map((userId) => ({
+    userId,
+    username: userMap.get(userId)?.username ?? userId,
+    totalPnl: pnlByUser[userId] ?? 0,
+    okxBalance: null as number | null
   }));
+
+  const now = Date.now();
+  let premium = 0;
+  for (const u of users) {
+    const exp = (u as { activation_expires_at?: string | null }).activation_expires_at;
+    if (exp && new Date(exp).getTime() > now) premium++;
+  }
+  const onlineIds = getOnlineUserIds();
+  const usersStats = {
+    total: users.length,
+    premium,
+    inactive: users.length - premium,
+    online: onlineIds.length
+  };
 
   const dayStart = efState.dayStartBalance > 0 ? efState.dayStartBalance : 1;
   const dailyDrawdownPct = ((efState.currentBalance - dayStart) / dayStart) * 100;
@@ -137,7 +180,6 @@ export async function getDashboardData(): Promise<DashboardData> {
       openPositionsCount: openOrders.length,
       openPositions: []
     },
-    activeSignals,
     risk: {
       dailyDrawdownPercent: dailyDrawdownPct,
       dailyDrawdownLimitPercent: -5,
@@ -147,6 +189,9 @@ export async function getDashboardData(): Promise<DashboardData> {
       maxConsecutiveLosses: 3,
       canOpenTrade: canOpen.allowed,
       reason: canOpen.reason ?? ''
-    }
+    },
+    keysStats: { byDuration, totalUsed, totalCreated: keys.length },
+    topUsers,
+    usersStats
   };
 }
