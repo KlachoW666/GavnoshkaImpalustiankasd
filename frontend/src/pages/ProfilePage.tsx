@@ -18,8 +18,12 @@ function daysLeft(iso: string | null): number | null {
 }
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, token, fetchMe } = useAuth();
   const [stats, setStats] = useState<{ orders: { total: number; wins: number; losses: number }; volumeEarned?: number } | null>(null);
+  const [activationKey, setActivationKey] = useState('');
+  const [keyLoading, setKeyLoading] = useState(false);
+  const [keyError, setKeyError] = useState('');
+  const [keySuccess, setKeySuccess] = useState('');
 
   useEffect(() => {
     api.get('/stats').then((data: any) => setStats(data)).catch(() => setStats(null));
@@ -28,6 +32,36 @@ export default function ProfilePage() {
   const expiresAt = user?.activationExpiresAt ?? null;
   const active = !!user?.activationActive;
   const days = daysLeft(expiresAt);
+
+  const onAddKey = async () => {
+    const k = activationKey.trim();
+    if (!k) {
+      setKeyError('Введите ключ активации');
+      return;
+    }
+    if (!token) return;
+    setKeyError('');
+    setKeySuccess('');
+    setKeyLoading(true);
+    try {
+      const res = await api.post<{ ok: boolean; activationExpiresAt?: string; error?: string }>(
+        '/auth/activate',
+        { key: k },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.ok) {
+        setKeySuccess(res.activationExpiresAt ? `Ключ применён. Доступ до: ${formatDate(res.activationExpiresAt)}` : 'Ключ применён, доступ продлён.');
+        setActivationKey('');
+        await fetchMe();
+      } else {
+        setKeyError((res as any).error || 'Неверный или использованный ключ');
+      }
+    } catch (e) {
+      setKeyError(e instanceof Error ? e.message : 'Ошибка активации');
+    } finally {
+      setKeyLoading(false);
+    }
+  };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -74,13 +108,37 @@ export default function ProfilePage() {
           )}
           {!expiresAt && (
             <p style={{ color: 'var(--text-muted)' }}>
-              Активируйте ключ в разделе «Активировать» (если вкладка доступна) или приобретите ключ у{' '}
+              Введите ключ ниже или приобретите у{' '}
               <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
                 @clabx_bot
               </a>
               .
             </p>
           )}
+          <div className="pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+            <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Добавить ключ (доступ плюсуется к текущему)</p>
+            <div className="flex flex-wrap gap-2 items-center">
+              <input
+                value={activationKey}
+                onChange={(e) => { setActivationKey(e.target.value); setKeyError(''); setKeySuccess(''); }}
+                placeholder="Ключ активации"
+                className="input-field flex-1 min-w-[180px]"
+                autoComplete="off"
+                disabled={keyLoading}
+              />
+              <button
+                type="button"
+                onClick={onAddKey}
+                disabled={keyLoading || !token}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 shrink-0"
+                style={{ background: 'var(--accent)' }}
+              >
+                {keyLoading ? '…' : 'Добавить ключ'}
+              </button>
+            </div>
+            {keyError && <p className="text-sm mt-2" style={{ color: 'var(--danger)' }}>{keyError}</p>}
+            {keySuccess && <p className="text-sm mt-2" style={{ color: 'var(--success)' }}>{keySuccess}</p>}
+          </div>
         </div>
       </div>
 
