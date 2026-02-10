@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createChart, IChartApi, ISeriesApi, CandlestickData, HistogramData } from 'lightweight-charts';
 import { OHLCVCandle } from '../types/signal';
 import { fetchPrice, normSymbol } from '../utils/fetchPrice';
+import { getSettings } from '../store/settingsStore';
 
 const API = '/api';
 const PLATFORMS = [{ id: 'okx', label: 'OKX', exchange: 'okx' }];
@@ -61,12 +62,21 @@ export default function ChartView() {
   const volumeRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const lastCandleTimeRef = useRef<number | null>(null);
   const [platform, setPlatform] = useState('okx');
-  const [symbol, setSymbol] = useState('BTC-USDT');
+  const initialSymbol = (() => {
+    if (typeof window === 'undefined') return 'BTC-USDT';
+    const q = new URLSearchParams(window.location.search);
+    const s = q.get('symbol')?.trim();
+    return s && /^[A-Z0-9\-/]+$/i.test(s) ? s.replace(/\//g, '-') : 'BTC-USDT';
+  })();
+  const [symbol, setSymbol] = useState(initialSymbol);
   const [timeframe, setTimeframe] = useState('5m');
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState(true);
   const [orderbook, setOrderbook] = useState<{ bids: [number, number][]; asks: [number, number][] } | null>(null);
-  const [orderbookView, setOrderbookView] = useState<'list' | 'depth'>('list');
+  const settings = getSettings();
+  const [orderbookView, setOrderbookView] = useState<'list' | 'depth'>(
+    settings.display.orderbookStyle === 'heatmap' ? 'depth' : 'list'
+  );
   const [trades, setTrades] = useState<{ price: number; amount: number; time: number; isBuy: boolean }[]>([]);
   const [lastSignal, setLastSignal] = useState<any>(null);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
@@ -373,31 +383,33 @@ export default function ChartView() {
               </button>
             </div>
           </div>
-          {orderbook ? (
-            orderbookView === 'depth' ? (
-              <div className="mt-2"><OrderbookDepthChart bids={orderbook.bids || []} asks={orderbook.asks || []} /></div>
+          <div style={{ minHeight: '480px' }}>
+            {orderbook ? (
+              orderbookView === 'depth' ? (
+                <div className="mt-2"><OrderbookDepthChart bids={orderbook.bids || []} asks={orderbook.asks || []} /></div>
+              ) : (
+                <div className="space-y-2 text-sm font-mono mt-2 px-1">
+                  <div className="text-xs mb-2 uppercase tracking-wider py-1" style={{ color: 'var(--danger)' }}>Продажи (Ask)</div>
+                  {orderbook.asks?.slice(0, 8).reverse().map(([price, amt], i) => (
+                    <div key={i} className="flex justify-between items-center py-0.5 gap-4" style={{ color: 'var(--danger)' }}>
+                      <span className="min-w-0 flex-1">{Number(price).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</span>
+                      <span className="text-right min-w-[4rem]" style={{ color: 'var(--text-muted)' }}>{Number(amt).toFixed(4)}</span>
+                    </div>
+                  ))}
+                  <div className="border-t my-3 pt-3 font-bold text-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--warning)' }}>Спред</div>
+                  <div className="text-xs mb-2 uppercase tracking-wider py-1" style={{ color: 'var(--success)' }}>Покупки (Bid)</div>
+                  {orderbook.bids?.slice(0, 8).map(([price, amt], i) => (
+                    <div key={i} className="flex justify-between items-center py-0.5 gap-4" style={{ color: 'var(--success)' }}>
+                      <span className="min-w-0 flex-1">{Number(price).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</span>
+                      <span className="text-right min-w-[4rem]" style={{ color: 'var(--text-muted)' }}>{Number(amt).toFixed(4)}</span>
+                    </div>
+                  ))}
+                </div>
+              )
             ) : (
-              <div className="space-y-2 text-sm font-mono mt-2 px-1">
-                <div className="text-xs mb-2 uppercase tracking-wider py-1" style={{ color: 'var(--danger)' }}>Продажи (Ask)</div>
-                {orderbook.asks?.slice(0, 8).reverse().map(([price, amt], i) => (
-                  <div key={i} className="flex justify-between items-center py-0.5 gap-4" style={{ color: 'var(--danger)' }}>
-                    <span className="min-w-0 flex-1">{Number(price).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</span>
-                    <span className="text-right min-w-[4rem]" style={{ color: 'var(--text-muted)' }}>{Number(amt).toFixed(4)}</span>
-                  </div>
-                ))}
-                <div className="border-t my-3 pt-3 font-bold text-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--warning)' }}>Спред</div>
-                <div className="text-xs mb-2 uppercase tracking-wider py-1" style={{ color: 'var(--success)' }}>Покупки (Bid)</div>
-                {orderbook.bids?.slice(0, 8).map(([price, amt], i) => (
-                  <div key={i} className="flex justify-between items-center py-0.5 gap-4" style={{ color: 'var(--success)' }}>
-                    <span className="min-w-0 flex-1">{Number(price).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</span>
-                    <span className="text-right min-w-[4rem]" style={{ color: 'var(--text-muted)' }}>{Number(amt).toFixed(4)}</span>
-                  </div>
-                ))}
-              </div>
-            )
-          ) : (
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Загрузка стакана...</p>
-          )}
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Загрузка стакана...</p>
+            )}
+          </div>
         </div>
 
         <div className="card p-5">

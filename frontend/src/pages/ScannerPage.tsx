@@ -13,6 +13,24 @@ interface CoinScore {
   [key: string]: unknown;
 }
 
+interface LevelRow {
+  price: number;
+  type: string;
+  strength: number;
+  touches?: number;
+  volume?: number;
+  lastTouch?: number;
+}
+
+interface LevelsResponse {
+  success: boolean;
+  symbol: string;
+  currentPrice: number;
+  levelsCount: number;
+  levels: LevelRow[];
+  nearestLevel: LevelRow | null;
+}
+
 interface FullAnalysisItem {
   coin: CoinScore;
   levelsCount: number;
@@ -32,6 +50,8 @@ export default function ScannerPage() {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [limit, setLimit] = useState(10);
+  const [levelsModal, setLevelsModal] = useState<{ symbol: string; data: LevelsResponse } | null>(null);
+  const [levelsLoading, setLevelsLoading] = useState(false);
 
   const fetchTop = () => {
     setLoading(true);
@@ -58,16 +78,30 @@ export default function ScannerPage() {
       .finally(() => setAnalyzing(false));
   };
 
-  const symbolForChart = (s: string) => (s || '').replace(/\//g, '-').replace(/:USDT$/i, '');
+  const symbolForChart = (s: string) => {
+    const base = (s || '').replace(/[-:\/]USDT$/i, '').replace(/\//g, '-');
+    return base ? base + '-USDT' : 'BTC-USDT';
+  };
   const goToChart = (symbol: string) => {
     const p = symbolForChart(symbol);
     if ((window as any).__navigateTo) {
       (window as any).__navigateTo('chart');
-      setTimeout(() => {
-        const inp = document.querySelector('input[placeholder*="BTC"]') as HTMLInputElement;
-        if (inp) inp.value = p;
-      }, 100);
+      const path = `/chart?symbol=${encodeURIComponent(p)}`;
+      if (typeof window !== 'undefined' && window.history) {
+        window.history.pushState({}, '', path);
+      }
     }
+  };
+
+  const openLevels = (symbol: string) => {
+    const sym = symbolForChart(symbol);
+    setLevelsLoading(true);
+    setLevelsModal(null);
+    api
+      .get<LevelsResponse>(`/scanner/levels/${encodeURIComponent(sym)}`)
+      .then((data) => setLevelsModal({ symbol: sym, data }))
+      .catch(() => setLevelsModal(null))
+      .finally(() => setLevelsLoading(false));
   };
 
   return (
@@ -121,19 +155,19 @@ export default function ScannerPage() {
                       {(c as any).metrics?.volatility24h != null ? (c as any).metrics.volatility24h.toFixed(2) + '%' : (c as any).volatility24h != null ? (c as any).volatility24h.toFixed(2) + '%' : '—'}
                     </td>
                     <td className="py-2 px-2">
-                      <a
-                        href={`/api/scanner/levels/${encodeURIComponent((c.symbol || '').replace(/\//g, '-').replace(/:USDT$/i, ''))}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mr-2 text-xs"
+                      <button
+                        type="button"
+                        onClick={() => openLevels(c.symbol)}
+                        disabled={levelsLoading}
+                        className="mr-2 text-xs hover:underline disabled:opacity-50"
                         style={{ color: 'var(--accent)' }}
                       >
                         Уровни
-                      </a>
+                      </button>
                       <button
                         type="button"
                         onClick={() => goToChart(c.symbol)}
-                        className="text-xs"
+                        className="text-xs hover:underline"
                         style={{ color: 'var(--accent)' }}
                       >
                         График
@@ -146,6 +180,51 @@ export default function ScannerPage() {
           </div>
         )}
       </div>
+
+      {levelsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => setLevelsModal(null)}>
+          <div
+            className="card p-6 max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Уровни {levelsModal.symbol}</h3>
+              <button type="button" onClick={() => setLevelsModal(null)} className="text-lg leading-none opacity-70 hover:opacity-100" style={{ color: 'var(--text-muted)' }}>×</button>
+            </div>
+            <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
+              Цена: {levelsModal.data.currentPrice} • Уровней: {levelsModal.data.levelsCount}
+              {levelsModal.data.nearestLevel && (
+                <> • Ближайший: {levelsModal.data.nearestLevel.price} ({levelsModal.data.nearestLevel.type})</>
+              )}
+            </p>
+            <div className="overflow-y-auto flex-1 text-sm">
+              <table className="w-full">
+                <thead>
+                  <tr style={{ borderColor: 'var(--border)' }}>
+                    <th className="text-left py-1 px-2">Цена</th>
+                    <th className="text-left py-1 px-2">Тип</th>
+                    <th className="text-right py-1 px-2">Сила</th>
+                    <th className="text-right py-1 px-2">Касания</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(levelsModal.data.levels || []).slice(0, 15).map((l, i) => (
+                    <tr key={i} className="border-b" style={{ borderColor: 'var(--border)' }}>
+                      <td className="py-1 px-2 font-mono">{l.price}</td>
+                      <td className="py-1 px-2">{l.type === 'support' ? 'Поддержка' : 'Сопротивление'}</td>
+                      <td className="text-right py-1 px-2">{l.strength}</td>
+                      <td className="text-right py-1 px-2">{l.touches ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button type="button" onClick={() => goToChart(levelsModal.symbol)} className="mt-4 btn-primary text-sm w-full">
+              Открыть график
+            </button>
+          </div>
+        </div>
+      )}
 
       {analysis.length > 0 && (
         <div className="card p-6">

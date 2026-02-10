@@ -100,6 +100,8 @@ CREATE TABLE IF NOT EXISTS users (
     group_id INTEGER NOT NULL DEFAULT 1,
     proxy_url TEXT,
     activation_expires_at TEXT,
+    banned INTEGER NOT NULL DEFAULT 0,
+    ban_reason TEXT,
     created_at TEXT DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
@@ -127,6 +129,6 @@ CREATE TABLE IF NOT EXISTS activation_keys (
 CREATE INDEX IF NOT EXISTS idx_activation_keys_key ON activation_keys(key);
 CREATE INDEX IF NOT EXISTS idx_activation_keys_used ON activation_keys(used_at);
 
--- Pro группа (после активации). Вкладка activate доступна всегда.
+-- PREMIUM группа (после активации). Вкладка activate доступна всегда.
 INSERT OR IGNORE INTO groups (id, name, allowed_tabs) VALUES
-(4, 'pro', '["dashboard","signals","chart","demo","autotrade","scanner","pnl","settings","activate"]');
+(4, 'PREMIUM', '["dashboard","signals","chart","demo","autotrade","scanner","pnl","settings","activate"]');

@@ -1,9 +1,9 @@
 #!/bin/bash
-# CryptoSignal Pro — отдельная настройка домена (Nginx reverse proxy) под Debian 12 / Ubuntu
+# CLABX — настройка домена (Nginx reverse proxy) под Debian 12 / Ubuntu
 #
 # Примеры:
-#   sudo ./domain.sh cryptosignalpro.titanrust.ru 3000
-#   sudo ./domain.sh cryptosignalpro.titanrust.ru 3000 --ssl admin@example.com
+#   sudo ./domain.sh clabx.ru 3000
+#   sudo ./domain.sh clabx.ru 3000 --ssl admin@example.com
 #
 # Переменные окружения (альтернатива аргументам):
 #   DOMAIN   — домен
@@ -15,8 +15,8 @@ set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
-log() { echo "[CryptoSignal][domain] $*"; }
-err() { echo "[CryptoSignal][domain][ERROR] $*" >&2; }
+log() { echo "[CLABX][domain] $*"; }
+err() { echo "[CLABX][domain][ERROR] $*" >&2; }
 
 if [ "$(id -u)" -ne 0 ]; then
   err "Запустите скрипт от root: sudo ./domain.sh <domain> [port] [--ssl email]"
@@ -39,8 +39,8 @@ fi
 if [ -z "$DOMAIN" ]; then
   err "Не указан домен."
   echo "Usage:"
-  echo "  sudo $0 cryptosignalpro.titanrust.ru 3000"
-  echo "  sudo $0 cryptosignalpro.titanrust.ru 3000 --ssl admin@example.com"
+  echo "  sudo $0 clabx.ru 3000"
+  echo "  sudo $0 clabx.ru 3000 --ssl admin@example.com"
   exit 1
 fi
 
@@ -67,6 +67,22 @@ server {
 
     client_max_body_size 10m;
 
+    # WebSocket поддержка для /ws
+    location /ws {
+        proxy_pass http://127.0.0.1:__PORT__;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+    }
+
+    # Основное приложение
     location / {
         proxy_pass http://127.0.0.1:__PORT__;
         proxy_http_version 1.1;
@@ -103,9 +119,25 @@ if [ "$SSL" = "1" ]; then
   log "HTTPS включён для $DOMAIN"
 fi
 
-log "Готово."
-echo "  Домен:   http://$DOMAIN"
-echo "  Порт:    $APP_PORT (проксируется на 127.0.0.1:$APP_PORT)"
-echo "  Проверка: curl -I http://$DOMAIN"
-echo "  Статус:  systemctl status nginx"
-
+log "Готово!"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  🚀 CLABX Crypto Trading Platform"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+if [ "$SSL" = "1" ]; then
+  echo "  ✅ Домен:   https://$DOMAIN"
+else
+  echo "  ✅ Домен:   http://$DOMAIN"
+fi
+echo "  ✅ Порт:    $APP_PORT (проксируется с 127.0.0.1:$APP_PORT)"
+echo "  ✅ WebSocket: Настроен для /ws"
+echo ""
+echo "Полезные команды:"
+echo "  curl -I http://$DOMAIN          # Проверка HTTP"
+echo "  systemctl status nginx          # Статус Nginx"
+echo "  systemctl status clabx          # Статус приложения"
+echo "  journalctl -u clabx -f          # Логи приложения"
+echo "  tail -f /var/log/nginx/error.log # Логи Nginx"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

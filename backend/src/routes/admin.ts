@@ -6,7 +6,19 @@ import { Router, Request, Response } from 'express';
 import { getDashboardData, validateAdminPassword, createAdminToken, validateAdminToken } from '../services/adminService';
 import { stopAutoAnalyze } from './market';
 import { listOrders } from '../db';
-import { listUsers, listGroups, updateUserGroup, updateGroupTabs, createActivationKeys, listActivationKeys, revokeActivationKey } from '../db/authDb';
+import {
+  listUsers,
+  listGroups,
+  updateUserGroup,
+  updateGroupTabs,
+  createActivationKeys,
+  listActivationKeys,
+  revokeActivationKey,
+  createGroup,
+  deleteGroup,
+  banUser,
+  unbanUser
+} from '../db/authDb';
 import { getSignals } from './signals';
 import { logger, getRecentLogs } from '../lib/logger';
 
@@ -177,6 +189,8 @@ router.get('/users', requireAdmin, (_req: Request, res: Response) => {
       username: u.username,
       groupId: u.group_id,
       groupName: u.group_name,
+      banned: u.banned ?? 0,
+      banReason: u.ban_reason ?? null,
       createdAt: u.created_at
     }));
     res.json(users);
@@ -197,6 +211,41 @@ router.put('/users/:id', requireAdmin, (req: Request, res: Response) => {
     }
     updateUserGroup(userId, groupId);
     res.json({ ok: true, userId, groupId });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/admin/users/:id/ban — забанить пользователя */
+router.post('/users/:id/ban', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id;
+    const reason = (req.body?.reason as string) || 'Нарушение правил';
+    if (!userId) {
+      res.status(400).json({ error: 'userId обязателен' });
+      return;
+    }
+    banUser(userId, reason);
+    logger.info('Admin', `User banned: ${userId}, reason: ${reason}`);
+    res.json({ ok: true, userId, banned: true, reason });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/admin/users/:id/unban — разбанить пользователя */
+router.post('/users/:id/unban', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id;
+    if (!userId) {
+      res.status(400).json({ error: 'userId обязателен' });
+      return;
+    }
+    unbanUser(userId);
+    logger.info('Admin', `User unbanned: ${userId}`);
+    res.json({ ok: true, userId, banned: false });
   } catch (e) {
     logger.error('Admin', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });
@@ -232,6 +281,41 @@ router.put('/groups/:id', requireAdmin, (req: Request, res: Response) => {
   } catch (e) {
     logger.error('Admin', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/admin/groups — создать новую группу */
+router.post('/groups', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const name = String(req.body?.name ?? '').trim();
+    const allowedTabs = (req.body?.allowedTabs as string[] | undefined) ?? [];
+    if (!name) {
+      res.status(400).json({ error: 'name обязателен' });
+      return;
+    }
+    const row = createGroup(name, JSON.stringify(allowedTabs));
+    res.json({ id: row.id, name: row.name, allowedTabs });
+  } catch (e) {
+    const msg = (e as Error).message || 'Ошибка создания группы';
+    const status = msg.includes('уже существует') ? 400 : 500;
+    res.status(status).json({ error: msg });
+  }
+});
+
+/** DELETE /api/admin/groups/:id — удалить группу (если не системная и без пользователей) */
+router.delete('/groups/:id', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const groupId = parseInt(req.params.id, 10);
+    if (!Number.isInteger(groupId) || groupId < 1) {
+      res.status(400).json({ error: 'Некорректный groupId' });
+      return;
+    }
+    deleteGroup(groupId);
+    res.json({ ok: true, groupId });
+  } catch (e) {
+    const msg = (e as Error).message || 'Ошибка удаления группы';
+    const status = msg.includes('Нельзя удалить') ? 400 : 500;
+    res.status(status).json({ error: msg });
   }
 });
 

@@ -71,5 +71,13 @@ export const adminApi = {
   async get<T>(path: string): Promise<T> {
     const res = await fetch(`${API_BASE}${path}`, { headers: headers() });
     return handleResponse<T>(res);
+  },
+
+  async del<T>(path: string): Promise<T> {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: 'DELETE',
+      headers: headers()
+    });
+    return handleResponse<T>(res);
   }
 };

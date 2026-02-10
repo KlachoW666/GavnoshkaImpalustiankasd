@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { createChart, IChartApi, ISeriesApi, CandlestickData } from 'lightweight-charts';
+import { createChart, IChartApi, ISeriesApi, CandlestickData, LineData } from 'lightweight-charts';
+import { getSettings } from '../store/settingsStore';
 
 const API = '/api';
 const TF_SECONDS: Record<string, number> = {
@@ -35,7 +36,9 @@ interface PositionChartProps {
 /** Нормализация символа для API: всегда BASE-USDT */
 function chartSymbol(s: string): string {
   if (!s) return '';
-  return s.replace(/:USDT$/i, '').replace(/\//g, '-');
+  // Убираем любой суффикс USDT и слэши, затем добавляем -USDT
+  const base = s.replace(/[-:\/]USDT$/i, '').replace(/\//g, '-');
+  return base + '-USDT';
 }
 
 export default function PositionChart({
@@ -47,13 +50,15 @@ export default function PositionChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
-  const symbolRef = useRef(symbol);
-  symbolRef.current = symbol;
 
   useEffect(() => {
     if (!containerRef.current || !symbol) return;
     const el = containerRef.current;
     const requestedSymbol = chartSymbol(symbol);
+    let cancelled = false;
+    const settings = getSettings();
+    const chartStyle = settings.display.chartStyle;
+
     const chart = createChart(el, {
       layout: { background: { color: 'transparent' }, textColor: 'rgba(255,255,255,0.6)' },
       grid: { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
@@ -62,36 +67,60 @@ export default function PositionChart({
       handleScale: { axisPressedMouseMove: false },
       handleScroll: { vertTouchDrag: false }
     });
-    const candlestickSeries = chart.addCandlestickSeries({
-      upColor: '#47A663',
-      downColor: '#ef4444',
-      borderUpColor: '#47A663',
-      borderDownColor: '#ef4444'
-    });
+
+    let candlestickSeries: ISeriesApi<'Candlestick'> | ISeriesApi<'Line'>;
+    if (chartStyle === 'line') {
+      candlestickSeries = chart.addLineSeries({
+        color: '#40DDFF',
+        lineWidth: 2
+      }) as any;
+    } else {
+      candlestickSeries = chart.addCandlestickSeries({
+        upColor: '#47A663',
+        downColor: '#ef4444',
+        borderUpColor: '#47A663',
+        borderDownColor: '#ef4444'
+      });
+    }
     chartRef.current = chart;
-    seriesRef.current = candlestickSeries;
+    seriesRef.current = candlestickSeries as ISeriesApi<'Candlestick'>;
 
     const loadCandles = (isInitial: boolean) => {
       const sym = requestedSymbol || chartSymbol(symbol);
       fetch(`${API}/market/candles/${encodeURIComponent(sym)}?timeframe=${timeframe}&limit=100&exchange=okx`)
         .then((r) => r.json())
         .then((data) => {
-          if (symbolRef.current !== symbol) return;
+          if (cancelled) return;
           const candles = Array.isArray(data) ? data : [];
           if (!candles.length || !seriesRef.current) return;
-          const candleData: CandlestickData[] = candles.map((c: OHLCVCandle) => ({
-            time: toChartTime(c.timestamp, timeframe) as any,
-            open: c.open,
-            high: c.high,
-            low: c.low,
-            close: c.close
-          }));
-          if (isInitial) {
-            seriesRef.current.setData(candleData);
-            chart.timeScale().fitContent();
+
+          if (chartStyle === 'line') {
+            const lineData: LineData[] = candles.map((c: OHLCVCandle) => ({
+              time: toChartTime(c.timestamp, timeframe) as any,
+              value: c.close
+            }));
+            if (isInitial) {
+              (seriesRef.current as any).setData(lineData);
+              chart.timeScale().fitContent();
+            } else {
+              const last = lineData[lineData.length - 1];
+              if (last) (seriesRef.current as any).update(last);
+            }
           } else {
-            const last = candleData[candleData.length - 1];
-            if (last) seriesRef.current.update(last);
+            const candleData: CandlestickData[] = candles.map((c: OHLCVCandle) => ({
+              time: toChartTime(c.timestamp, timeframe) as any,
+              open: c.open,
+              high: c.high,
+              low: c.low,
+              close: c.close
+            }));
+            if (isInitial) {
+              seriesRef.current.setData(candleData);
+              chart.timeScale().fitContent();
+            } else {
+              const last = candleData[candleData.length - 1];
+              if (last) seriesRef.current.update(last);
+            }
           }
         })
         .catch(() => {});
@@ -138,6 +167,7 @@ export default function PositionChart({
     resize();
 
     return () => {
+      cancelled = true;
       ro.disconnect();
       if (intervalId) clearInterval(intervalId);
       if (ws) {

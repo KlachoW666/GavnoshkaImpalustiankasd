@@ -10,12 +10,58 @@ import ScannerPage from './pages/ScannerPage';
 import ActivatePage from './pages/ActivatePage';
 import AdminPanel from './pages/AdminPanel';
 import AuthPage from './pages/AuthPage';
+import PrivacyPage from './pages/PrivacyPage';
+import TermsPage from './pages/TermsPage';
+import ProfilePage from './pages/ProfilePage';
 import { getSavedPage, savePage } from './store/appStore';
 import { useNotifications } from './contexts/NotificationContext';
 import { useAuth } from './contexts/AuthContext';
 import { getSettings } from './store/settingsStore';
 
-type Page = 'dashboard' | 'signals' | 'chart' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'settings' | 'activate' | 'admin';
+type Page = 'dashboard' | 'signals' | 'chart' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms';
+
+const PAGE_PATHS: Record<Page, string> = {
+  dashboard: '/',
+  signals: '/signals',
+  chart: '/chart',
+  demo: '/demo',
+  autotrade: '/auto',
+  scanner: '/scanner',
+  pnl: '/pnl',
+  settings: '/settings',
+  activate: '/activate',
+  admin: '/admin',
+  profile: '/profile',
+  privacy: '/privacy',
+  terms: '/terms'
+};
+
+const PATH_TO_PAGE: Record<string, Page> = Object.entries(PAGE_PATHS).reduce(
+  (acc, [page, path]) => {
+    acc[path] = page as Page;
+    return acc;
+  },
+  {} as Record<string, Page>
+);
+
+function normalizePath(pathname: string): string {
+  let p = pathname || '/';
+  const q = p.indexOf('?');
+  if (q >= 0) p = p.slice(0, q);
+  if (!p.startsWith('/')) p = '/' + p;
+  if (p.length > 1 && p.endsWith('/')) p = p.slice(0, -1);
+  return p;
+}
+
+function getPageFromLocation(allowed: Set<Page>): Page {
+  if (typeof window === 'undefined') return 'dashboard';
+  const path = normalizePath(window.location.pathname);
+  const candidate = PATH_TO_PAGE[path];
+  if (candidate && allowed.has(candidate)) return candidate;
+  if (allowed.has('dashboard')) return 'dashboard';
+  const first = (Array.from(allowed)[0] ?? 'dashboard') as Page;
+  return first;
+}
 
 const ALL_PAGES: { id: Page; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Обзор', icon: '◉' },
@@ -92,26 +138,31 @@ function useSignalToasts() {
 const FALLBACK_TABS: Page[] = ['dashboard', 'settings'];
 
 export default function App() {
+  const year = new Date().getFullYear();
   const { user, loading, logout } = useAuth();
   const allowedSet = useMemo(() => {
     const tabs = user?.allowedTabs ?? [];
     const set = new Set(tabs.length > 0 ? tabs : FALLBACK_TABS);
+    set.add('privacy');
+    set.add('terms');
+    set.add('profile');
     return set;
   }, [user?.allowedTabs]);
   const PAGES = useMemo(() => {
-    const list = ALL_PAGES.filter((p) => allowedSet.has(p.id));
+    let list = ALL_PAGES.filter((p) => allowedSet.has(p.id));
+    if (user?.activationActive) list = list.filter((p) => p.id !== 'activate');
     return list.length > 0 ? list : ALL_PAGES.filter((p) => p.id !== 'admin');
-  }, [allowedSet]);
+  }, [allowedSet, user?.activationActive]);
 
   const [page, setPage] = useState<Page>(() => {
+    const baseAllowed = new Set<Page>(FALLBACK_TABS);
+    const fromLocation = getPageFromLocation(baseAllowed);
     const saved = getSavedPage() as Page | null;
-    const allowed = new Set<Page>((user?.allowedTabs?.length ? user.allowedTabs : FALLBACK_TABS) as Page[]);
-    if (saved && allowed.has(saved)) return saved;
-    if (allowed.has('dashboard')) return 'dashboard';
-    const first = (user?.allowedTabs?.length ? user.allowedTabs[0] : 'dashboard') as Page;
-    return allowed.has(first) ? first : 'dashboard';
+    const candidate = saved && baseAllowed.has(saved) ? saved : fromLocation;
+    return candidate ?? 'dashboard';
   });
   const [notifOpen, setNotifOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { toasts, clearAll } = useNotifications();
 
   useSignalToasts();
@@ -120,8 +171,9 @@ export default function App() {
     if (user) {
       const allowed = new Set((user.allowedTabs?.length ? user.allowedTabs : FALLBACK_TABS) as Page[]);
       setPage((prev) => {
-        const valid = allowed.has(prev) ? prev : (allowed.has('dashboard') ? 'dashboard' : (PAGES[0]?.id ?? 'dashboard'));
-        return valid as Page;
+        const fromLoc = getPageFromLocation(allowed);
+        const candidate = allowed.has(prev) ? prev : fromLoc;
+        return candidate as Page;
       });
     }
   }, [user?.id]);
@@ -133,15 +185,41 @@ export default function App() {
   }, [user, page, allowedSet]);
 
   useEffect(() => {
+    if (user?.activationActive && page === 'activate' && typeof window !== 'undefined') {
+      setPage('dashboard');
+      window.history.replaceState({}, '', '/');
+    }
+  }, [user?.activationActive, page]);
+
+  useEffect(() => {
     savePage(page);
   }, [page]);
 
   const setPageSafe = (p: Page) => {
-    if (allowedSet.has(p)) setPage(p);
+    if (!allowedSet.has(p)) return;
+    if (typeof window !== 'undefined') {
+      const path = PAGE_PATHS[p];
+      const current = normalizePath(window.location.pathname);
+      if (current !== path) {
+        window.history.pushState({}, '', path);
+      }
+    }
+    setPage(p);
   };
+
   useEffect(() => {
     (window as any).__navigateTo = setPageSafe;
     return () => { delete (window as any).__navigateTo; };
+  }, [allowedSet]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onPopState = () => {
+      const next = getPageFromLocation(allowedSet);
+      setPage(next);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, [allowedSet]);
 
   useEffect(() => {
@@ -182,19 +260,14 @@ export default function App() {
         style={{ background: 'var(--bg-topbar)', borderColor: 'var(--border)' }}
       >
         <div className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded flex items-center justify-center font-bold text-lg"
-            style={{ background: 'var(--accent-gradient)', color: 'white', letterSpacing: '-0.05em' }}
-          >
-            C
-          </div>
-          <h1 className="text-lg font-semibold tracking-tight">CryptoSignal Pro</h1>
+          <img src="/logo.png" alt="CLABX" className="h-8 w-auto object-contain" />
+          <h1 className="text-lg font-semibold tracking-tight">CLABX 🚀 Crypto Trading Soft</h1>
         </div>
         <nav className="flex items-center gap-1">
           {PAGES.map((p) => (
             <button
               key={p.id}
-              onClick={() => setPage(p.id)}
+              onClick={() => setPageSafe(p.id)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all relative ${
                 safePage === p.id ? 'text-[var(--accent)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
               }`}
@@ -206,11 +279,52 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <div className="flex items-center gap-4">
-          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{user.username}</span>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => { setUserMenuOpen(!userMenuOpen); setNotifOpen(false); }}
+              className="px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[var(--bg-hover)]"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              {user.username}
+            </button>
+            {userMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                <div
+                  className="absolute right-0 top-full mt-1 py-1 min-w-[160px] rounded-lg border z-50"
+                  style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => { setPageSafe('profile'); setUserMenuOpen(false); }}
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors"
+                  >
+                    Профиль
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setPageSafe('settings'); setUserMenuOpen(false); }}
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors"
+                  >
+                    Настройки
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setUserMenuOpen(false); logout(); }}
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors"
+                    style={{ color: 'var(--danger)' }}
+                  >
+                    Выйти
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
           <button
             type="button"
-            onClick={() => setNotifOpen(!notifOpen)}
+            onClick={() => { setNotifOpen(!notifOpen); setUserMenuOpen(false); }}
             className="relative p-2 rounded-full transition-colors hover:bg-[var(--bg-hover)]"
             style={{ background: toasts.length > 0 ? 'var(--accent-dim)' : 'transparent' }}
           >
@@ -223,14 +337,6 @@ export default function App() {
                 {Math.min(toasts.length, 99)}
               </span>
             )}
-          </button>
-          <button
-            type="button"
-            onClick={logout}
-            className="px-3 py-1.5 rounded-lg text-sm"
-            style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
-          >
-            Выйти
           </button>
         </div>
       </header>
@@ -301,7 +407,85 @@ export default function App() {
         <div className={safePage === 'admin' ? 'block' : 'hidden'}>
           <AdminPanel />
         </div>
+        <div className={safePage === 'profile' ? 'block' : 'hidden'}>
+          <ProfilePage />
+        </div>
+        <div className={safePage === 'privacy' ? 'block' : 'hidden'}>
+          <PrivacyPage />
+        </div>
+        <div className={safePage === 'terms' ? 'block' : 'hidden'}>
+          <TermsPage />
+        </div>
       </main>
+
+      <footer
+        className="shrink-0 border-t mt-4 px-6 md:px-8 lg:px-10 py-4 text-xs leading-relaxed"
+        style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)', color: 'var(--text-muted)' }}
+      >
+        <div className="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <div>
+            <span className="font-semibold" style={{ color: 'var(--accent)' }}>CLABX 💸</span>
+            <span> — ваше приложение для быстрой и выгодной торговли криптой.</span>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <span>
+              Наш сайт:{' '}
+              <a href="https://clabx.ru" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
+                clabx.ru
+              </a>
+            </span>
+            <span>
+              Покупка ключа:{' '}
+              <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
+                @clabx_bot
+              </a>
+            </span>
+            <span>
+              🆘 Support:{' '}
+              <a href="https://t.me/clabxartur" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
+                @clabxartur
+              </a>
+              ,{' '}
+              <a href="https://t.me/clabxsupport" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
+                @clabxsupport
+              </a>
+            </span>
+          </div>
+        </div>
+        <div className="max-w-5xl mx-auto mt-2 text-[10px] md:text-[11px]" style={{ color: 'var(--text-muted)' }}>
+          <p>
+            © {year} CLABX 💸. Все права защищены. Торговля криптовалютой связана с повышенным риском потери капитала, вы действуете на
+            свой страх и риск.
+          </p>
+          <p className="mt-1">
+            Используя сервис, вы подтверждаете, что ознакомились и согласны с{' '}
+            <a
+              href="/privacy"
+              onClick={(e) => {
+                e.preventDefault();
+                setPageSafe('privacy');
+                if (typeof window !== 'undefined') window.history.pushState({}, '', '/privacy');
+              }}
+              style={{ color: 'var(--accent)' }}
+            >
+              Политикой конфиденциальности
+            </a>{' '}
+            и{' '}
+            <a
+              href="/terms"
+              onClick={(e) => {
+                e.preventDefault();
+                setPageSafe('terms');
+                if (typeof window !== 'undefined') window.history.pushState({}, '', '/terms');
+              }}
+              style={{ color: 'var(--accent)' }}
+            >
+              Пользовательским соглашением
+            </a>
+            .
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

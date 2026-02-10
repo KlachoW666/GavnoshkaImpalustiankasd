@@ -1211,7 +1211,7 @@ export default function AutoTradingPage() {
               <p className="font-semibold">{profitFactor.toFixed(2)}</p>
             </div>
             <div className="p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)' }}>
-              <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Средний выигрыш</p>
+              <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Средний доход</p>
               <p className="font-semibold text-[var(--success)]">+${avgWin.toFixed(2)}</p>
             </div>
             <div className="p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)' }}>
@@ -1332,7 +1332,11 @@ export default function AutoTradingPage() {
                     <div className="flex-1 min-h-[200px]">
                       <PositionChart
                         key={`position-chart-${pos.id}`}
-                        symbol={(pos.signal.symbol || '').replace(/:USDT$/i, '').replace(/\//g, '-')}
+                        symbol={(() => {
+                          const s = pos.signal.symbol || '';
+                          const base = s.replace(/[-:\/]USDT$/i, '').replace(/\//g, '-');
+                          return base ? base + '-USDT' : 'BTC-USDT';
+                        })()}
                         timeframe="5m"
                         height={200}
                         live={true}

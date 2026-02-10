@@ -12,6 +12,8 @@ export interface UserRow {
   group_id: number;
   proxy_url: string | null;
   activation_expires_at?: string | null;
+  banned?: number;
+  ban_reason?: string | null;
   created_at: string;
 }
 
@@ -26,7 +28,7 @@ const memoryGroups: GroupRow[] = [
   { id: 1, name: 'user', allowed_tabs: '["dashboard","settings","activate"]' },
   { id: 2, name: 'viewer', allowed_tabs: '["dashboard","signals","chart"]' },
   { id: 3, name: 'admin', allowed_tabs: '["dashboard","signals","chart","demo","autotrade","scanner","pnl","settings","admin"]' },
-  { id: 4, name: 'pro', allowed_tabs: '["dashboard","signals","chart","demo","autotrade","scanner","pnl","settings","activate"]' }
+  { id: 4, name: 'PREMIUM', allowed_tabs: '["dashboard","signals","chart","demo","autotrade","scanner","pnl","settings","activate"]' }
 ];
 const memorySessions: Map<string, string> = new Map(); // token -> userId
 const memoryActivationKeys: ActivationKeyRow[] = [];
@@ -66,16 +68,16 @@ export function createUser(username: string, passwordHash: string, groupId = 1):
   const id = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 11);
   const created_at = new Date().toISOString();
   if (isMemoryStore()) {
-    const row: UserRow = { id, username: username.trim(), password_hash: passwordHash, group_id: groupId, proxy_url: null, activation_expires_at: null, created_at };
+    const row: UserRow = { id, username: username.trim(), password_hash: passwordHash, group_id: groupId, proxy_url: null, activation_expires_at: null, banned: 0, ban_reason: null, created_at };
     memoryUsers.push(row);
     return row;
   }
   const db = getDb();
   if (!db) throw new Error('DB unavailable');
   db.prepare(
-    'INSERT INTO users (id, username, password_hash, group_id, activation_expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO users (id, username, password_hash, group_id, activation_expires_at, banned, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)'
   ).run(id, username.trim(), passwordHash, groupId, null, created_at);
-  return { id, username: username.trim(), password_hash: passwordHash, group_id: groupId, proxy_url: null, activation_expires_at: null, created_at };
+  return { id, username: username.trim(), password_hash: passwordHash, group_id: groupId, proxy_url: null, activation_expires_at: null, banned: 0, ban_reason: null, created_at };
 }
 
 export function getUserById(id: string): UserRow | null {
@@ -150,6 +152,53 @@ export function updateGroupTabs(groupId: number, allowedTabs: string): void {
   }
   const db = getDb();
   if (db) db.prepare('UPDATE groups SET allowed_tabs = ? WHERE id = ?').run(allowedTabs, groupId);
+}
+
+export function createGroup(name: string, allowedTabs: string): GroupRow {
+  ensureAuthTables();
+  const cleanName = name.trim();
+  if (!cleanName) throw new Error('Имя группы обязательно');
+  if (isMemoryStore()) {
+    if (memoryGroups.some((g) => g.name.toLowerCase() === cleanName.toLowerCase())) {
+      throw new Error('Группа с таким именем уже существует');
+    }
+    const nextId = memoryGroups.reduce((m, g) => Math.max(m, g.id), 0) + 1;
+    const row: GroupRow = { id: nextId, name: cleanName, allowed_tabs: allowedTabs };
+    memoryGroups.push(row);
+    return row;
+  }
+  const db = getDb();
+  if (!db) {
+    const nextId = memoryGroups.reduce((m, g) => Math.max(m, g.id), 0) + 1;
+    const row: GroupRow = { id: nextId, name: cleanName, allowed_tabs: allowedTabs };
+    memoryGroups.push(row);
+    return row;
+  }
+  const stmt = db.prepare('INSERT INTO groups (name, allowed_tabs) VALUES (?, ?)');
+  stmt.run(cleanName, allowedTabs);
+  const rowId = db.prepare('SELECT last_insert_rowid() AS id').get() as { id: number };
+  return { id: rowId.id, name: cleanName, allowed_tabs: allowedTabs };
+}
+
+export function deleteGroup(groupId: number): void {
+  ensureAuthTables();
+  if (groupId <= 4) {
+    throw new Error('Нельзя удалить системную группу');
+  }
+  if (isMemoryStore()) {
+    const hasUsers = memoryUsers.some((u) => u.group_id === groupId);
+    if (hasUsers) throw new Error('Нельзя удалить группу, к которой привязаны пользователи');
+    const idx = memoryGroups.findIndex((g) => g.id === groupId);
+    if (idx >= 0) memoryGroups.splice(idx, 1);
+    return;
+  }
+  const db = getDb();
+  if (!db) return;
+  const cntRow = db.prepare('SELECT COUNT(*) AS cnt FROM users WHERE group_id = ?').get(groupId) as { cnt: number };
+  if ((cntRow?.cnt ?? 0) > 0) {
+    throw new Error('Нельзя удалить группу, к которой привязаны пользователи');
+  }
+  db.prepare('DELETE FROM groups WHERE id = ?').run(groupId);
 }
 
 export function createSession(token: string, userId: string): void {
@@ -342,4 +391,50 @@ export function redeemActivationKeyForUser(opts: { userId: string; key: string; 
   });
 
   return tx();
+}
+
+export function banUser(userId: string, reason?: string): void {
+  ensureAuthTables();
+  if (isMemoryStore()) {
+    const u = memoryUsers.find((x) => x.id === userId);
+    if (u) {
+      u.banned = 1;
+      u.ban_reason = reason ?? null;
+    }
+    return;
+  }
+  const db = getDb();
+  if (db) db.prepare('UPDATE users SET banned = 1, ban_reason = ? WHERE id = ?').run(reason ?? null, userId);
+}
+
+export function unbanUser(userId: string): void {
+  ensureAuthTables();
+  if (isMemoryStore()) {
+    const u = memoryUsers.find((x) => x.id === userId);
+    if (u) {
+      u.banned = 0;
+      u.ban_reason = null;
+    }
+    return;
+  }
+  const db = getDb();
+  if (db) db.prepare('UPDATE users SET banned = 0, ban_reason = NULL WHERE id = ?').run(userId);
+}
+
+export function getActiveSessionsCount(): number {
+  ensureAuthTables();
+  if (isMemoryStore()) return memorySessions.size;
+  const db = getDb();
+  if (!db) return 0;
+  const row = db.prepare('SELECT COUNT(DISTINCT user_id) AS cnt FROM sessions').get() as { cnt: number } | undefined;
+  return row?.cnt ?? 0;
+}
+
+export function getTotalUsersCount(): number {
+  ensureAuthTables();
+  if (isMemoryStore()) return memoryUsers.length;
+  const db = getDb();
+  if (!db) return 0;
+  const row = db.prepare('SELECT COUNT(*) AS cnt FROM users').get() as { cnt: number } | undefined;
+  return row?.cnt ?? 0;
 }

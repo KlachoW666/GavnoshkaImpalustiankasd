@@ -5,7 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import { listOrders } from '../db';
-import { listUsers } from '../db/authDb';
+import { listUsers, getActiveSessionsCount, getTotalUsersCount } from '../db/authDb';
 import { isMemoryStore } from '../db';
 import { config } from '../config';
 
@@ -22,6 +22,7 @@ export interface StatsResponse {
     openCount: number;
   };
   usersCount: number;
+  onlineUsersCount: number;
   volumeEarned: number;
   status: 'ok' | 'degraded';
   databaseMode: 'sqlite' | 'memory';
@@ -40,8 +41,8 @@ router.get('/', (_req: Request, res: Response) => {
     const totalTrades = withPnl.length;
     const winRate = totalTrades > 0 ? (wins.length / totalTrades) * 100 : 0;
 
-    const users = listUsers();
-    const usersCount = users.length;
+    const usersCount = getTotalUsersCount();
+    const onlineUsersCount = getActiveSessionsCount();
 
     res.json({
       orders: {
@@ -54,6 +55,7 @@ router.get('/', (_req: Request, res: Response) => {
         openCount: open.length
       },
       usersCount,
+      onlineUsersCount,
       volumeEarned: Math.round(totalPnl * 100) / 100,
       status: 'ok',
       databaseMode: isMemoryStore() ? 'memory' : 'sqlite',
@@ -63,6 +65,7 @@ router.get('/', (_req: Request, res: Response) => {
     res.status(500).json({
       orders: { total: 0, wins: 0, losses: 0, totalPnl: 0, totalPnlPercent: 0, winRate: 0, openCount: 0 },
       usersCount: 0,
+      onlineUsersCount: 0,
       volumeEarned: 0,
       status: 'degraded',
       databaseMode: 'memory',
