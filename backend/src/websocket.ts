@@ -4,8 +4,9 @@ import { addSignal } from './routes/signals';
 import { subscribeCandle } from './services/realtimeStream';
 import { getOkxStream } from './services/okxStream';
 import { logger } from './lib/logger';
+import { findSessionUserId } from './db/authDb';
 
-type ExtWebSocket = WebSocket & { unsubCandles?: Map<string, () => void>; unsubStream?: () => void };
+type ExtWebSocket = WebSocket & { unsubCandles?: Map<string, () => void>; unsubStream?: () => void; userId?: string };
 
 export function createWebSocketServer(server: import('http').Server) {
   const wss = new WebSocketServer({ server, path: '/ws' });
@@ -17,6 +18,12 @@ export function createWebSocketServer(server: import('http').Server) {
     ws.on('message', (data) => {
       try {
         const msg = JSON.parse(data.toString());
+        if (msg.type === 'auth' && msg.token) {
+          const token = String(msg.token).trim();
+          const userId = findSessionUserId(token);
+          if (userId) (ws as ExtWebSocket).userId = userId;
+          return;
+        }
         if (msg.type === 'subscribe_candle' && msg.symbol && msg.timeframe) {
           const key = `${msg.symbol}_${msg.timeframe}`;
           if (ws.unsubCandles?.has(key)) return;
@@ -58,12 +65,13 @@ export function createWebSocketServer(server: import('http').Server) {
     });
   });
 
-  const broadcastSignal = (signal: TradingSignal, breakdown?: unknown) => {
+  const broadcastSignal = (signal: TradingSignal, breakdown?: unknown, targetUserId?: string) => {
     addSignal(signal);
+    if (targetUserId == null) return;
     const payload = breakdown ? { signal, breakdown } : signal;
     const msg = JSON.stringify({ type: 'signal', data: payload });
     wss.clients.forEach((c) => {
-      if (c.readyState === 1) c.send(msg);
+      if (c.readyState === 1 && (c as ExtWebSocket).userId === targetUserId) c.send(msg);
     });
   };
   const broadcastBreakout = (data: unknown) => {
@@ -77,7 +85,7 @@ export function createWebSocketServer(server: import('http').Server) {
   return { broadcastSignal, broadcastBreakout };
 }
 
-export function getBroadcastSignal(): ((s: TradingSignal, b?: unknown) => void) | null {
+export function getBroadcastSignal(): ((s: TradingSignal, b?: unknown, targetUserId?: string) => void) | null {
   return (global as any).__broadcastSignal ?? null;
 }
 

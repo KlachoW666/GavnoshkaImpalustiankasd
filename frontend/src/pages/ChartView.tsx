@@ -3,6 +3,7 @@ import { createChart, IChartApi, ISeriesApi, CandlestickData, HistogramData } fr
 import { OHLCVCandle } from '../types/signal';
 import { fetchPrice, normSymbol } from '../utils/fetchPrice';
 import { getSettings, updateSettings } from '../store/settingsStore';
+import { useAuth } from '../contexts/AuthContext';
 
 const API = '/api';
 const PLATFORMS = [{ id: 'okx', label: 'OKX', exchange: 'okx' }];
@@ -50,8 +51,8 @@ function OrderbookDepthChart({ bids, asks }: { bids: [number, number][]; asks: [
   return (
     <div className="space-y-2 text-xs font-mono px-1">
       <div className="text-[10px] uppercase tracking-wider py-1" style={{ color: 'var(--danger)' }}>Ask</div>
-      {askRows.map(([price, amt], i) => (
-        <div key={`a-${i}`} className="flex items-center gap-3 py-0.5">
+      {askRows.map(([price, amt]) => (
+        <div key={`ask-${price}`} className="flex items-center gap-3 py-0.5">
           <div className="min-w-[4.5rem] flex-shrink-0" style={{ color: 'var(--danger)' }}>{Number(price).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</div>
           <div className="flex-1 h-4 rounded overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
             <div className="h-full rounded" style={{ width: `${Math.min(100, (amt / maxVol) * 100)}%`, background: 'var(--danger)', opacity: 0.7 }} />
@@ -61,8 +62,8 @@ function OrderbookDepthChart({ bids, asks }: { bids: [number, number][]; asks: [
       ))}
       <div className="border-t py-2 my-1 font-bold text-center text-[10px]" style={{ borderColor: 'var(--border)', color: 'var(--warning)' }}>Спред</div>
       <div className="text-[10px] uppercase tracking-wider py-1" style={{ color: 'var(--success)' }}>Bid</div>
-      {bidRows.map(([price, amt], i) => (
-        <div key={`b-${i}`} className="flex items-center gap-3 py-0.5">
+      {bidRows.map(([price, amt]) => (
+        <div key={`bid-${price}`} className="flex items-center gap-3 py-0.5">
             <div className="min-w-[4.5rem] flex-shrink-0" style={{ color: 'var(--primary)' }}>{Number(price).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</div>
           <div className="flex-1 h-4 rounded overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
             <div className="h-full rounded" style={{ width: `${Math.min(100, (amt / maxVol) * 100)}%`, background: 'var(--success)', opacity: 0.7 }} />
@@ -94,6 +95,7 @@ export default function ChartView() {
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState(true);
   const [orderbook, setOrderbook] = useState<{ bids: [number, number][]; asks: [number, number][] } | null>(null);
+  const orderbookSigRef = useRef<string>('');
   const displaySettings = getSettings().display;
   const orderbookView: 'list' | 'depth' = displaySettings.orderbookStyle === 'heatmap' ? 'depth' : 'list';
   const [trades, setTrades] = useState<{ price: number; amount: number; time: number; isBuy: boolean }[]>([]);
@@ -101,7 +103,7 @@ export default function ChartView() {
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
 
   const exchangeId = 'okx';
-
+  const { token } = useAuth();
   const chartStyle = displaySettings.chartStyle;
 
   useEffect(() => {
@@ -113,7 +115,8 @@ export default function ChartView() {
       rightPriceScale: { scaleMargins: { top: 0.05, bottom: 0.15 } },
       timeScale: {
         visible: true,
-        rightOffset: 12
+        rightOffset: 12,
+        timeVisible: true
       },
       handleScale: { axisPressedMouseMove: true, pinch: true },
       handleScroll: { vertTouchDrag: true, horzTouchDrag: true }
@@ -265,6 +268,7 @@ export default function ChartView() {
     const ws = new WebSocket(wsUrl);
     const sym = symbol.replace(/_/g, '-');
     ws.onopen = () => {
+      if (token) ws.send(JSON.stringify({ type: 'auth', token }));
       ws.send(JSON.stringify({ type: 'subscribe_candle', symbol: sym, timeframe }));
       ws.send(JSON.stringify({ type: 'subscribe_market', symbol: sym }));
     };
@@ -303,7 +307,16 @@ export default function ChartView() {
               color: c.close >= c.open ? 'rgba(76,175,80,0.5)' : 'rgba(255,82,82,0.5)'
             });
           }
-        } else if (msg.type === 'orderbook' && msg.data) setOrderbook(msg.data);
+        } else if (msg.type === 'orderbook' && msg.data) {
+          const data = msg.data as { bids?: [number, number][]; asks?: [number, number][] };
+          const topBid = data.bids?.[0]?.[0] ?? 0;
+          const topAsk = data.asks?.[0]?.[0] ?? 0;
+          const sig = `${topBid}-${topAsk}-${(data.bids?.length ?? 0)}-${(data.asks?.length ?? 0)}`;
+          if (sig !== orderbookSigRef.current) {
+            orderbookSigRef.current = sig;
+            setOrderbook({ bids: data.bids ?? [], asks: data.asks ?? [] });
+          }
+        }
         else if (msg.type === 'trade' && msg.data) setTrades((prev) => [{ ...msg.data }, ...prev.slice(0, 29)]);
         else if (msg.type === 'signal') setLastSignal(msg.data);
       } catch {}
@@ -315,21 +328,35 @@ export default function ChartView() {
       } catch {}
       ws.close();
     };
-  }, [symbol, timeframe, live]);
+  }, [symbol, timeframe, live, token]);
 
   useEffect(() => {
     const sym = normSymbol(symbol) || symbol.replace(/_/g, '-');
     if (!sym) return;
+    const applyOrderbook = (data: { bids?: [number, number][]; asks?: [number, number][] } | null) => {
+      if (!data?.bids?.length && !data?.asks?.length) {
+        setOrderbook(data);
+        orderbookSigRef.current = '';
+        return;
+      }
+      const topBid = data.bids?.[0]?.[0] ?? 0;
+      const topAsk = data.asks?.[0]?.[0] ?? 0;
+      const sig = `${topBid}-${topAsk}-${(data.bids?.length ?? 0)}-${(data.asks?.length ?? 0)}`;
+      if (sig !== orderbookSigRef.current) {
+        orderbookSigRef.current = sig;
+        setOrderbook({ bids: data.bids ?? [], asks: data.asks ?? [] });
+      }
+    };
     fetch(`${API}/market/orderbook/${encodeURIComponent(sym)}?limit=15&exchange=${exchangeId}`)
       .then((r) => r.json())
-      .then((data) => setOrderbook(data))
+      .then(applyOrderbook)
       .catch(() => setOrderbook(null));
     const tid = setInterval(() => {
       fetch(`${API}/market/orderbook/${encodeURIComponent(sym)}?limit=15&exchange=${exchangeId}`)
         .then((r) => r.json())
-        .then((data) => setOrderbook(data))
+        .then(applyOrderbook)
         .catch(() => {});
-    }, live ? 500 : 5000);
+    }, live ? 1000 : 5000);
     return () => clearInterval(tid);
   }, [symbol, live, platform]);
 
@@ -423,11 +450,32 @@ export default function ChartView() {
           {live && <span className="text-[var(--primary)] text-sm flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] animate-pulse" style={{ boxShadow: '0 0 8px var(--primary)' }} /> Live</span>}
         </div>
 
-        <div
-          ref={chartRef}
-          className="w-full rounded-[14px] overflow-hidden shrink-0 card"
-          style={{ height: 'min(70vh, 650px)' }}
-        />
+        <div className="rounded-[14px] overflow-hidden shrink-0 card">
+          <div className="px-4 py-2 flex flex-wrap items-center gap-3 border-b" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
+            <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+              Инструмент: <strong style={{ color: 'var(--text-primary)' }}>{symbol || 'BTC-USDT'}</strong>
+            </span>
+            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>•</span>
+            <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+              Таймфрейм: <strong style={{ color: 'var(--text-primary)' }}>{timeframe}</strong>
+            </span>
+            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>•</span>
+            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{platform.toUpperCase()}</span>
+            {currentPrice != null && (
+              <>
+                <span className="text-sm" style={{ color: 'var(--text-muted)' }}>•</span>
+                <span className="text-sm font-mono" style={{ color: 'var(--primary)' }}>
+                  Цена: {currentPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </>
+            )}
+          </div>
+          <div
+            ref={chartRef}
+            className="w-full"
+            style={{ height: 'min(70vh, 620px)' }}
+          />
+        </div>
       </div>
 
       <div className="w-full lg:w-72 space-y-4 shrink-0">
@@ -467,16 +515,16 @@ export default function ChartView() {
               ) : (
                 <div className="space-y-2 text-sm font-mono mt-2 px-1">
                   <div className="text-xs mb-2 uppercase tracking-wider py-1" style={{ color: 'var(--danger)' }}>Продажи (Ask)</div>
-                  {orderbook.asks?.slice(0, 8).reverse().map(([price, amt], i) => (
-                    <div key={i} className="flex justify-between items-center py-0.5 gap-4" style={{ color: 'var(--danger)' }}>
+                  {orderbook.asks?.slice(0, 8).reverse().map(([price, amt]) => (
+                    <div key={`ask-${price}`} className="flex justify-between items-center py-0.5 gap-4" style={{ color: 'var(--danger)' }}>
                       <span className="min-w-0 flex-1">{Number(price).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</span>
                       <span className="text-right min-w-[4rem]" style={{ color: 'var(--text-muted)' }}>{Number(amt).toFixed(4)}</span>
                     </div>
                   ))}
                   <div className="border-t my-3 pt-3 font-bold text-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--warning)' }}>Спред</div>
                   <div className="text-xs mb-2 uppercase tracking-wider py-1" style={{ color: 'var(--success)' }}>Покупки (Bid)</div>
-                  {orderbook.bids?.slice(0, 8).map(([price, amt], i) => (
-                    <div key={i} className="flex justify-between items-center py-0.5 gap-4" style={{ color: 'var(--success)' }}>
+                  {orderbook.bids?.slice(0, 8).map(([price, amt]) => (
+                    <div key={`bid-${price}`} className="flex justify-between items-center py-0.5 gap-4" style={{ color: 'var(--success)' }}>
                       <span className="min-w-0 flex-1">{Number(price).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</span>
                       <span className="text-right min-w-[4rem]" style={{ color: 'var(--text-muted)' }}>{Number(amt).toFixed(4)}</span>
                     </div>

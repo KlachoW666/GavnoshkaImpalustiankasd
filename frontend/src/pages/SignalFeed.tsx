@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { TradingSignal } from '../types/signal';
+import { useAuth } from '../contexts/AuthContext';
 
 const API = '/api';
 
@@ -7,6 +8,7 @@ export default function SignalFeed() {
   const [signals, setSignals] = useState<TradingSignal[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'LONG' | 'SHORT'>('all');
+  const { token } = useAuth();
 
   useEffect(() => {
     fetch(`${API}/signals?limit=50`)
@@ -16,6 +18,9 @@ export default function SignalFeed() {
 
     const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
     const ws = new WebSocket(wsUrl);
+    ws.onopen = () => {
+      if (token) ws.send(JSON.stringify({ type: 'auth', token }));
+    };
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
@@ -27,7 +32,7 @@ export default function SignalFeed() {
       } catch {}
     };
     return () => ws.close();
-  }, []);
+  }, [token]);
 
   const filtered =
     filter === 'all' ? signals : signals.filter((s) => s.direction === filter);

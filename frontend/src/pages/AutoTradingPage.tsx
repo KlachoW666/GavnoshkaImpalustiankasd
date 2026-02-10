@@ -4,6 +4,7 @@ import { notifyTelegram } from '../utils/notifyTelegram';
 import { fetchPrice, normSymbol } from '../utils/fetchPrice';
 import { getPositionSize } from '../utils/positionSizing';
 import { api } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 import AnalysisBreakdown, { AnalysisBreakdown as BreakdownType } from '../components/AnalysisBreakdown';
 import PositionChart from '../components/PositionChart';
 import TradingAnalytics from '../components/TradingAnalytics';
@@ -384,6 +385,7 @@ export default function AutoTradingPage() {
   const symbols = settings.symbols;
   const mode = settings.mode;
   const leverage = mode === 'spot' ? 1 : settings.leverage;
+  const { token } = useAuth();
 
   const updateSetting = <K extends keyof AutoTradingSettings>(key: K, value: AutoTradingSettings[K]) => {
     setSettings((prev) => {
@@ -442,7 +444,7 @@ export default function AutoTradingPage() {
         };
     fetch(`${API}/market/auto-analyze/start`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify(payload)
     })
       .then((r) => r.json())
@@ -451,14 +453,17 @@ export default function AutoTradingPage() {
       })
       .catch(() => setStatus('error'));
     return () => {
-      fetch(`${API}/market/auto-analyze/stop`, { method: 'POST', headers: { 'Content-Type': 'application/json' } }).catch(() => {});
+      fetch(`${API}/market/auto-analyze/stop`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } }).catch(() => {});
       setStatus('idle');
     };
-  }, [enabled, symbols, settings.intervalMs, settings.scalpingMode, settings.strategy, settings.fullAuto, settings.useScanner]);
+  }, [enabled, symbols, settings.intervalMs, settings.scalpingMode, settings.strategy, settings.fullAuto, settings.useScanner, token]);
 
   useEffect(() => {
     const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
     const ws = new WebSocket(wsUrl);
+    ws.onopen = () => {
+      if (token) ws.send(JSON.stringify({ type: 'auth', token }));
+    };
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
@@ -517,7 +522,7 @@ export default function AutoTradingPage() {
       } catch {}
     };
     return () => ws.close();
-  }, [enabled, symbols]);
+  }, [enabled, symbols, token]);
 
   const balanceRef = useRef(balance);
   balanceRef.current = balance;

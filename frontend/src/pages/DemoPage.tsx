@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { TradingSignal } from '../types/signal';
 import { notifyTelegram } from '../utils/notifyTelegram';
 import { fetchPrice, normSymbol } from '../utils/fetchPrice';
+import { useAuth } from '../contexts/AuthContext';
 
 const API = '/api';
 
@@ -64,10 +65,14 @@ export default function DemoPage() {
   const [pendingAutoOpen, setPendingAutoOpen] = useState<TradingSignal | null>(null);
   const closePositionRef = useRef<(pos: DemoPosition, price?: number) => void>(() => {});
   const closingIdsRef = useRef<Set<string>>(new Set());
+  const { token } = useAuth();
 
   useEffect(() => {
     const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
     const ws = new WebSocket(wsUrl);
+    ws.onopen = () => {
+      if (token) ws.send(JSON.stringify({ type: 'auth', token }));
+    };
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
@@ -80,7 +85,7 @@ export default function DemoPage() {
       } catch {}
     };
     return () => ws.close();
-  }, [autoOpen]);
+  }, [autoOpen, token]);
 
   useEffect(() => {
     if (!pendingAutoOpen || !autoOpen) return;
@@ -137,7 +142,7 @@ export default function DemoPage() {
   const startAutoAnalyze = () => {
     fetch(`${API}/market/auto-analyze/start`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ symbol: analyzeSymbol, timeframe: '5m', intervalMs: 120000 })
     })
       .then((r) => r.json())
@@ -145,7 +150,7 @@ export default function DemoPage() {
       .catch(() => {});
   };
   const stopAutoAnalyze = () => {
-    fetch(`${API}/market/auto-analyze/stop`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+    fetch(`${API}/market/auto-analyze/stop`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } })
       .then((r) => r.json())
       .then(() => setAutoAnalyze(false))
       .catch(() => {});

@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { DataAggregator } from '../services/dataAggregator';
 import { getBroadcastSignal } from '../websocket';
+import { findSessionUserId } from '../db/authDb';
+import { requireAuth } from './auth';
 import { CandleAnalyzer } from '../services/candleAnalyzer';
 import { SignalGenerator } from '../services/signalGenerator';
 import { addSignal, getSignalsSince } from './signals';
@@ -23,12 +25,22 @@ import { executeSignal } from '../services/autoTrader';
 
 const router = Router();
 
-/** Флаги исполнения при авто-анализе (устанавливаются из POST /auto-analyze/start) */
+/** Глобальные флаги (fallback при отсутствии per-user опций) */
 let autoAnalyzeExecuteOrders = false;
 let autoAnalyzeUseTestnet = true;
 let autoAnalyzeMaxPositions = 2;
 let autoAnalyzeSizePercent = 5;
 let autoAnalyzeLeverage = 25;
+
+interface PerUserAutoState {
+  timer: ReturnType<typeof setInterval>;
+  executeOrders: boolean;
+  useTestnet: boolean;
+  maxPositions: number;
+  sizePercent: number;
+  leverage: number;
+}
+const autoAnalyzeByUser = new Map<string, PerUserAutoState>();
 const faFilter = new FundamentalFilter();
 const aggregator = new DataAggregator();
 const candleAnalyzer = new CandleAnalyzer();
@@ -99,8 +111,6 @@ function detectThreeWhiteSoldiers(candles: { open: number; high: number; close: 
   return a.close > a.open && b.close > b.open && c.close > c.open &&
     b.high > a.high && c.high > b.high && a.close < b.open && b.close < c.open;
 }
-
-let autoAnalyzeTimer: NodeJS.Timeout | null = null;
 
 function candlesFor48h(timeframe: string): number {
   const needed = config.timeframes[timeframe] ?? 192;
@@ -173,7 +183,7 @@ function detectPatterns(candles: { open: number; high: number; low: number; clos
   return patterns;
 }
 
-export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'default', opts?: { silent?: boolean }) {
+export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'default', opts?: { silent?: boolean; userId?: string }) {
   const sym = normalizeSymbol(symbol) || 'BTC-USDT';
   const { limits } = config;
 
@@ -473,7 +483,7 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
   };
   if (!opts?.silent) {
     addSignal(signal);
-    getBroadcastSignal()?.(signal, breakdown);
+    getBroadcastSignal()?.(signal, breakdown, opts?.userId);
   }
   return { signal, analysis: { patterns, rsi, macd: macd ?? undefined, bb: bb ?? undefined }, breakdown };
 }
@@ -510,7 +520,10 @@ router.post('/analyze/:symbol', async (req, res) => {
   try {
     const symbol = normalizeSymbol(decodeURIComponent(req.params.symbol || 'BTC-USDT')) || 'BTC-USDT';
     const timeframe = (req.body?.timeframe as string) || '5m';
-    const result = await runAnalysis(symbol, timeframe);
+    const auth = req.headers.authorization;
+    const token = auth?.startsWith('Bearer ') ? auth.slice(7).trim() : null;
+    const userId = token ? findSessionUserId(token) : undefined;
+    const result = await runAnalysis(symbol, timeframe, 'default', { userId });
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });
@@ -533,7 +546,13 @@ function scannerSymbolToMarket(s: string): string {
  * Если useScanner === true — сначала получаем топ монет из скринера (волатильность, объём, BB squeeze).
  * TP/SL, leverage, mode — определяются по анализу (ATR, волатильность, confluence).
  */
-async function runAutoTradingBestCycle(symbols: string[], timeframe = '5m', useScanner = false): Promise<void> {
+async function runAutoTradingBestCycle(
+  symbols: string[],
+  timeframe = '5m',
+  useScanner = false,
+  userId?: string,
+  execOpts?: { executeOrders: boolean; useTestnet: boolean; maxPositions: number; sizePercent: number; leverage: number }
+): Promise<void> {
   let syms = symbols.slice(0, MAX_SYMBOLS);
   if (useScanner) {
     try {
@@ -555,11 +574,17 @@ async function runAutoTradingBestCycle(symbols: string[], timeframe = '5m', useS
   }
   if (syms.length === 0) syms = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT'];
 
+  const executeOrders = execOpts?.executeOrders ?? autoAnalyzeExecuteOrders;
+  const useTestnet = execOpts?.useTestnet ?? autoAnalyzeUseTestnet;
+  const maxPositions = execOpts?.maxPositions ?? autoAnalyzeMaxPositions;
+  const sizePercent = execOpts?.sizePercent ?? autoAnalyzeSizePercent;
+  const leverage = execOpts?.leverage ?? autoAnalyzeLeverage;
+
   const results: Array<{ signal: Awaited<ReturnType<typeof runAnalysis>>['signal']; breakdown: any; score: number }> = [];
   await Promise.all(
     syms.map(async (sym) => {
       try {
-        const r = await runAnalysis(sym, timeframe, 'futures25x', { silent: true });
+        const r = await runAnalysis(sym, timeframe, 'futures25x', { silent: true, userId });
         const sig = r.signal;
         const conf = sig.confidence ?? 0;
         const rr = sig.risk_reward ?? 1;
@@ -581,16 +606,16 @@ async function runAutoTradingBestCycle(symbols: string[], timeframe = '5m', useS
   results.sort((a, b) => b.score - a.score);
   const best = results[0];
   addSignal(best.signal);
-  (best.breakdown as any).autoSettings = { leverage: autoAnalyzeLeverage, sizePercent: autoAnalyzeSizePercent, minConfidence: 82 };
-  getBroadcastSignal()?.(best.signal, best.breakdown);
+  (best.breakdown as any).autoSettings = { leverage, sizePercent, minConfidence: 82 };
+  getBroadcastSignal()?.(best.signal, best.breakdown, userId);
   logger.info('runAutoTradingBestCycle', `Best: ${best.signal.symbol} ${best.signal.direction} conf=${((best.signal.confidence ?? 0) * 100).toFixed(0)}% score=${best.score.toFixed(3)}`);
 
-  if (config.autoTradingExecutionEnabled && autoAnalyzeExecuteOrders && config.okx.hasCredentials) {
+  if (config.autoTradingExecutionEnabled && executeOrders && config.okx.hasCredentials) {
     executeSignal(best.signal, {
-      sizePercent: autoAnalyzeSizePercent,
-      leverage: autoAnalyzeLeverage,
-      maxPositions: autoAnalyzeMaxPositions,
-      useTestnet: autoAnalyzeUseTestnet
+      sizePercent,
+      leverage,
+      maxPositions,
+      useTestnet
     }).then((result) => {
       if (result.ok) {
         logger.info('runAutoTradingBestCycle', `OKX order placed: ${result.orderId}`);
@@ -601,27 +626,29 @@ async function runAutoTradingBestCycle(symbols: string[], timeframe = '5m', useS
   }
 }
 
-router.post('/auto-analyze/start', (req, res) => {
-  if (autoAnalyzeTimer) {
-    res.json({ status: 'already_running' });
-    return;
+export function startAutoAnalyzeForUser(userId: string, body: Record<string, unknown>): { status: string; symbols: string[]; timeframe: string; intervalMs: number; mode: string; fullAuto: boolean; useScanner?: boolean; executeOrders?: boolean; useTestnet?: boolean } {
+  const existing = autoAnalyzeByUser.get(userId);
+  if (existing?.timer) {
+    clearInterval(existing.timer);
+    autoAnalyzeByUser.delete(userId);
   }
-  const symbolsRaw = req.body?.symbols ?? req.body?.symbol;
+
+  const symbolsRaw = body?.symbols ?? body?.symbol;
   const symbols: string[] = Array.isArray(symbolsRaw)
     ? symbolsRaw.slice(0, MAX_SYMBOLS).map((s: string) => String(s || '').replace(/_/g, '-')).filter(Boolean)
     : [String(symbolsRaw || 'BTC-USDT').replace(/_/g, '-')];
-  const syms = [...new Set(symbols)].slice(0, MAX_SYMBOLS);
-  if (syms.length === 0) syms.push('BTC-USDT');
-  const timeframe = (req.body?.timeframe as string) || '5m';
-  const mode = (req.body?.mode as string) || 'default';
-  const intervalMs = Math.max(30000, Math.min(300000, parseInt(String(req.body?.intervalMs)) || 60000));
-  const fullAuto = Boolean(req.body?.fullAuto);
-  const useScanner = Boolean(req.body?.useScanner);
-  const executeOrders = Boolean(req.body?.executeOrders);
-  const useTestnet = req.body?.useTestnet !== false;
-  const maxPositions = Math.max(1, Math.min(10, parseInt(String(req.body?.maxPositions)) || 2));
-  const sizePercent = Math.max(1, Math.min(50, parseInt(String(req.body?.sizePercent)) || 5));
-  const leverage = Math.max(1, Math.min(125, parseInt(String(req.body?.leverage)) || 25));
+  let syms = [...new Set(symbols)].slice(0, MAX_SYMBOLS);
+  if (syms.length === 0) syms = ['BTC-USDT'];
+  const timeframe = (body?.timeframe as string) || '5m';
+  const mode = (body?.mode as string) || 'default';
+  const intervalMs = Math.max(30000, Math.min(300000, parseInt(String(body?.intervalMs)) || 60000));
+  const fullAuto = Boolean(body?.fullAuto);
+  const useScanner = Boolean(body?.useScanner);
+  const executeOrders = Boolean(body?.executeOrders);
+  const useTestnet = (body?.useTestnet as boolean) !== false;
+  const maxPositions = Math.max(1, Math.min(10, parseInt(String(body?.maxPositions)) || 2));
+  const sizePercent = Math.max(1, Math.min(50, parseInt(String(body?.sizePercent)) || 5));
+  const leverage = Math.max(1, Math.min(125, parseInt(String(body?.leverage)) || 25));
 
   autoAnalyzeExecuteOrders = fullAuto && executeOrders;
   autoAnalyzeUseTestnet = useTestnet;
@@ -631,16 +658,23 @@ router.post('/auto-analyze/start', (req, res) => {
 
   const runAll = () => {
     if (fullAuto) {
-      runAutoTradingBestCycle(syms, timeframe, useScanner).catch((e) => logger.error('auto-analyze', (e as Error).message));
+      runAutoTradingBestCycle(syms, timeframe, useScanner, userId, {
+        executeOrders: fullAuto && executeOrders,
+        useTestnet,
+        maxPositions,
+        sizePercent,
+        leverage
+      }).catch((e) => logger.error('auto-analyze', (e as Error).message));
     } else {
       for (const sym of syms) {
-        runAnalysis(sym, timeframe, mode).catch((e) => logger.error('auto-analyze', (e as Error).message));
+        runAnalysis(sym, timeframe, mode, { userId }).catch((e) => logger.error('auto-analyze', (e as Error).message));
       }
     }
   };
   runAll();
-  autoAnalyzeTimer = setInterval(runAll, intervalMs);
-  res.json({
+  const timer = setInterval(runAll, intervalMs);
+  autoAnalyzeByUser.set(userId, { timer, executeOrders: fullAuto && executeOrders, useTestnet, maxPositions, sizePercent, leverage });
+  return {
     status: 'started',
     symbols: syms,
     timeframe,
@@ -648,34 +682,54 @@ router.post('/auto-analyze/start', (req, res) => {
     mode,
     fullAuto,
     useScanner: fullAuto ? useScanner : undefined,
-    executeOrders: fullAuto ? autoAnalyzeExecuteOrders : undefined,
-    useTestnet: fullAuto ? autoAnalyzeUseTestnet : undefined
-  });
+    executeOrders: fullAuto ? executeOrders : undefined,
+    useTestnet: fullAuto ? useTestnet : undefined
+  };
+}
+
+router.post('/auto-analyze/start', requireAuth, (req, res) => {
+  try {
+    const userId = (req as any).userId as string;
+    const result = startAutoAnalyzeForUser(userId, req.body);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
 });
 
-export function stopAutoAnalyze(): void {
-  if (autoAnalyzeTimer) {
-    clearInterval(autoAnalyzeTimer);
-    autoAnalyzeTimer = null;
+export function stopAutoAnalyze(userId?: string): void {
+  if (userId) {
+    const state = autoAnalyzeByUser.get(userId);
+    if (state?.timer) {
+      clearInterval(state.timer);
+      autoAnalyzeByUser.delete(userId);
+    }
+  } else {
+    autoAnalyzeByUser.forEach((state) => clearInterval(state.timer));
+    autoAnalyzeByUser.clear();
   }
 }
 
-router.post('/auto-analyze/stop', (_req, res) => {
-  stopAutoAnalyze();
+router.post('/auto-analyze/stop', requireAuth, (req, res) => {
+  const userId = (req as any).userId as string;
+  stopAutoAnalyze(userId);
   res.json({ status: 'stopped' });
 });
 
-export function getAutoAnalyzeStatus(): { running: boolean } {
-  return { running: !!autoAnalyzeTimer };
+export function getAutoAnalyzeStatus(userId?: string): { running: boolean } {
+  if (userId) return { running: !!autoAnalyzeByUser.get(userId)?.timer };
+  return { running: autoAnalyzeByUser.size > 0 };
 }
 
-router.get('/auto-analyze/status', (_req, res) => {
-  res.json(getAutoAnalyzeStatus());
+router.get('/auto-analyze/status', requireAuth, (req, res) => {
+  const userId = (req as any).userId as string;
+  res.json(getAutoAnalyzeStatus(userId));
 });
 
 /** Тестовый сигнал для проверки потока (демо). Не исполняется на OKX. */
-router.post('/test-signal', (req, res) => {
+router.post('/test-signal', requireAuth, (req, res) => {
   try {
+    const userId = (req as any).userId as string;
     const symbol = (req.body?.symbol as string) || 'BTC-USDT';
     const direction = (req.body?.direction as 'LONG' | 'SHORT') || 'LONG';
     const entryPrice = Number(req.body?.entryPrice) || 97000;
@@ -704,7 +758,7 @@ router.post('/test-signal', (req, res) => {
       }
     };
     addSignal(signal);
-    getBroadcastSignal()?.(signal, { autoSettings: { test: true } });
+    getBroadcastSignal()?.(signal, { autoSettings: { test: true } }, userId);
     res.json({ ok: true, signal });
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });

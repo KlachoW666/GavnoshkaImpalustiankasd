@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { TradingSignal } from '../types/signal';
 import { api } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
 export interface AppStats {
   orders: {
@@ -23,6 +24,7 @@ export interface AppStats {
 export default function Dashboard() {
   const [signals, setSignals] = useState<TradingSignal[]>([]);
   const [stats, setStats] = useState<AppStats | null>(null);
+  const { token } = useAuth();
 
   useEffect(() => {
     const fetchStats = () => {
@@ -31,7 +33,7 @@ export default function Dashboard() {
         .catch(() => setStats(null));
     };
     fetchStats();
-    const id = setInterval(fetchStats, 30000);
+    const id = setInterval(fetchStats, 15000);
     return () => clearInterval(id);
   }, []);
 
@@ -42,6 +44,9 @@ export default function Dashboard() {
 
     const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
     const ws = new WebSocket(wsUrl);
+    ws.onopen = () => {
+      if (token) ws.send(JSON.stringify({ type: 'auth', token }));
+    };
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
@@ -53,7 +58,7 @@ export default function Dashboard() {
       } catch {}
     };
     return () => ws.close();
-  }, []);
+  }, [token]);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">

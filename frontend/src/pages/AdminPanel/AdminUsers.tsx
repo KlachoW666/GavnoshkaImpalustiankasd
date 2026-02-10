@@ -9,6 +9,7 @@ interface UserRow {
   banned?: number;
   banReason?: string | null;
   createdAt: string;
+  online?: boolean;
 }
 
 interface GroupRow {
@@ -53,6 +54,8 @@ export default function AdminUsers() {
 
   useEffect(() => {
     fetchData();
+    const tid = setInterval(fetchData, 15000);
+    return () => clearInterval(tid);
   }, []);
 
   const changeGroup = async (userId: string, groupId: number) => {
@@ -86,6 +89,21 @@ export default function AdminUsers() {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const deleteUser = async (userId: string) => {
+    const u = users.find((x) => x.id === userId);
+    if (!window.confirm(`Удалить пользователя ${u?.username ?? userId}? Это действие нельзя отменить.`)) return;
+    setUpdating(userId);
+    setError('');
+    try {
+      await adminApi.del(`/admin/users/${userId}`);
+      setUsers((prev) => prev.filter((x) => x.id !== userId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка удаления');
     } finally {
       setUpdating(null);
     }
@@ -139,14 +157,19 @@ export default function AdminUsers() {
                     <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--danger-dim)', color: 'var(--danger)' }}>
                       Заблокирован
                     </span>
+                  ) : u.online ? (
+                    <span className="px-2 py-1 rounded text-xs font-medium flex items-center gap-1" style={{ background: 'var(--success-dim)', color: 'var(--success)' }}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)] animate-pulse" />
+                      Онлайн
+                    </span>
                   ) : (
-                    <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--success-dim)', color: 'var(--success)' }}>
-                      Активен
+                    <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
+                      Офлайн
                     </span>
                   )}
                 </td>
                 <td className="p-3" style={{ color: 'var(--text-muted)' }}>{new Date(u.createdAt).toLocaleString('ru-RU')}</td>
-                <td className="p-3">
+                <td className="p-3 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => toggleBan(u.id, (u.banned ?? 0) === 1)}
@@ -159,6 +182,15 @@ export default function AdminUsers() {
                     style={(u.banned ?? 0) === 1 ? { background: 'var(--success-dim)', color: 'var(--success)' } : { background: 'var(--danger-dim)', color: 'var(--danger)' }}
                   >
                     {(u.banned ?? 0) === 1 ? 'Разблокировать' : 'Заблокировать'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteUser(u.id)}
+                    disabled={updating === u.id}
+                    className="px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
+                    style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
+                  >
+                    Удалить
                   </button>
                 </td>
               </tr>

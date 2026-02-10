@@ -4,7 +4,7 @@
 
 import { Router, Request, Response } from 'express';
 import { getDashboardData, validateAdminPassword, createAdminToken, validateAdminToken } from '../services/adminService';
-import { stopAutoAnalyze } from './market';
+import { stopAutoAnalyze, getAutoAnalyzeStatus, startAutoAnalyzeForUser } from './market';
 import { listOrders } from '../db';
 import {
   listUsers,
@@ -17,7 +17,9 @@ import {
   createGroup,
   deleteGroup,
   banUser,
-  unbanUser
+  unbanUser,
+  getOnlineUserIds,
+  deleteUser
 } from '../db/authDb';
 import { getSignals } from './signals';
 import { logger, getRecentLogs } from '../lib/logger';
@@ -71,7 +73,29 @@ router.get('/system/status', requireAdmin, async (_req: Request, res: Response) 
   }
 });
 
-/** POST /api/admin/trading/stop — остановить авто-торговлю */
+/** GET /api/admin/trading/status — статус авто-торговли (у всех пользователей) */
+router.get('/trading/status', requireAdmin, (_req: Request, res: Response) => {
+  try {
+    const status = getAutoAnalyzeStatus();
+    res.json(status);
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/admin/trading/start — запустить авто-торговлю (админ, без привязки к пользователю) */
+router.post('/trading/start', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const result = startAutoAnalyzeForUser('admin_global', req.body);
+    res.json(result);
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/admin/trading/stop — остановить авто-торговлю у всех */
 router.post('/trading/stop', requireAdmin, (_req: Request, res: Response) => {
   try {
     stopAutoAnalyze();
@@ -82,7 +106,7 @@ router.post('/trading/stop', requireAdmin, (_req: Request, res: Response) => {
   }
 });
 
-/** POST /api/admin/trading/emergency — экстренная остановка (стоп анализа + сброс эмоц. фильтра не делаем по умолчанию) */
+/** POST /api/admin/trading/emergency — экстренная остановка у всех */
 router.post('/trading/emergency', requireAdmin, (_req: Request, res: Response) => {
   try {
     stopAutoAnalyze();
@@ -184,6 +208,7 @@ router.get('/logs', requireAdmin, (req: Request, res: Response) => {
 /** GET /api/admin/users — список пользователей */
 router.get('/users', requireAdmin, (_req: Request, res: Response) => {
   try {
+    const onlineIds = new Set(getOnlineUserIds());
     const users = listUsers().map((u) => ({
       id: u.id,
       username: u.username,
@@ -191,7 +216,8 @@ router.get('/users', requireAdmin, (_req: Request, res: Response) => {
       groupName: u.group_name,
       banned: u.banned ?? 0,
       banReason: u.ban_reason ?? null,
-      createdAt: u.created_at
+      createdAt: u.created_at,
+      online: onlineIds.has(u.id)
     }));
     res.json(users);
   } catch (e) {
@@ -246,6 +272,23 @@ router.post('/users/:id/unban', requireAdmin, (req: Request, res: Response) => {
     unbanUser(userId);
     logger.info('Admin', `User unbanned: ${userId}`);
     res.json({ ok: true, userId, banned: false });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** DELETE /api/admin/users/:id — удалить пользователя */
+router.delete('/users/:id', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id;
+    if (!userId) {
+      res.status(400).json({ error: 'userId обязателен' });
+      return;
+    }
+    deleteUser(userId);
+    logger.info('Admin', `User deleted: ${userId}`);
+    res.json({ ok: true, userId });
   } catch (e) {
     logger.error('Admin', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });

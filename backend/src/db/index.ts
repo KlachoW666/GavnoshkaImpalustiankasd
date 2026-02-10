@@ -82,6 +82,12 @@ export function initDb(): any {
       db.prepare('ALTER TABLE users ADD COLUMN activation_expires_at TEXT').run();
     } catch {}
     try {
+      db.prepare('ALTER TABLE users ADD COLUMN banned INTEGER NOT NULL DEFAULT 0').run();
+    } catch {}
+    try {
+      db.prepare('ALTER TABLE users ADD COLUMN ban_reason TEXT').run();
+    } catch {}
+    try {
       db.exec(`
         CREATE TABLE IF NOT EXISTS activation_keys (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -103,6 +109,20 @@ export function initDb(): any {
     db = null;
     return null;
   }
+}
+
+/** Миграции таблицы users (вызывать при первом обращении к auth, чтобы работало без перезапуска). */
+export function runUserMigrations(database: any): void {
+  if (!database) return;
+  try {
+    database.prepare('ALTER TABLE users ADD COLUMN activation_expires_at TEXT').run();
+  } catch {}
+  try {
+    database.prepare('ALTER TABLE users ADD COLUMN banned INTEGER NOT NULL DEFAULT 0').run();
+  } catch {}
+  try {
+    database.prepare('ALTER TABLE users ADD COLUMN ban_reason TEXT').run();
+  } catch {}
 }
 
 export function getDb(): any {

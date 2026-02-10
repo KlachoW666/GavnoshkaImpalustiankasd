@@ -78,10 +78,14 @@ const ALL_PAGES: { id: Page; label: string; icon: string }[] = [
 
 function useSignalToasts() {
   const { addToast } = useNotifications();
+  const { token } = useAuth();
 
   useEffect(() => {
     const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
     const ws = new WebSocket(wsUrl);
+    ws.onopen = () => {
+      if (token) ws.send(JSON.stringify({ type: 'auth', token }));
+    };
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
@@ -132,7 +136,7 @@ function useSignalToasts() {
       } catch {}
     };
     return () => ws.close();
-  }, [addToast]);
+  }, [addToast, token]);
 }
 
 const FALLBACK_TABS: Page[] = ['dashboard', 'settings'];
@@ -264,7 +268,7 @@ export default function App() {
           <h1 className="text-lg font-semibold tracking-tight">CLABX 🚀 Crypto Trading Soft</h1>
         </div>
         <nav className="flex items-center gap-1">
-          {PAGES.map((p) => (
+          {PAGES.filter((p) => p.id !== 'settings').map((p) => (
             <button
               key={p.id}
               onClick={() => setPageSafe(p.id)}

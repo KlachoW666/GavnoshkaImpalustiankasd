@@ -3,7 +3,7 @@
  * При in-memory режиме БД использует память (данные теряются при перезапуске).
  */
 
-import { getDb, initDb, isMemoryStore } from './index';
+import { getDb, initDb, isMemoryStore, runUserMigrations } from './index';
 
 export interface UserRow {
   id: string;
@@ -37,7 +37,7 @@ function ensureAuthTables(): void {
   initDb();
   const db = getDb();
   if (!db) return;
-  // Таблицы создаются из schema.sql при initDb
+  runUserMigrations(db);
 }
 
 export interface ActivationKeyRow {
@@ -423,11 +423,37 @@ export function unbanUser(userId: string): void {
 
 export function getActiveSessionsCount(): number {
   ensureAuthTables();
-  if (isMemoryStore()) return memorySessions.size;
+  if (isMemoryStore()) return new Set(memorySessions.values()).size;
   const db = getDb();
   if (!db) return 0;
   const row = db.prepare('SELECT COUNT(DISTINCT user_id) AS cnt FROM sessions').get() as { cnt: number } | undefined;
   return row?.cnt ?? 0;
+}
+
+/** Список user_id с активной сессией (для отображения «Онлайн» в админке). */
+export function getOnlineUserIds(): string[] {
+  ensureAuthTables();
+  if (isMemoryStore()) return Array.from(new Set(memorySessions.values()));
+  const db = getDb();
+  if (!db) return [];
+  const rows = db.prepare('SELECT DISTINCT user_id AS id FROM sessions').all() as { id: string }[];
+  return rows.map((r) => r.id);
+}
+
+export function deleteUser(userId: string): void {
+  ensureAuthTables();
+  if (isMemoryStore()) {
+    for (const [token, uid] of memorySessions.entries()) {
+      if (uid === userId) memorySessions.delete(token);
+    }
+    const i = memoryUsers.findIndex((u) => u.id === userId);
+    if (i >= 0) memoryUsers.splice(i, 1);
+    return;
+  }
+  const db = getDb();
+  if (!db) return;
+  db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 }
 
 export function getTotalUsersCount(): number {

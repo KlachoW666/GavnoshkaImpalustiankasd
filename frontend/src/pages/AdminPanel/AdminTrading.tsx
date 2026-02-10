@@ -1,17 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { adminApi } from '../../utils/adminApi';
-import { api } from '../../utils/api';
 
 export default function AdminTrading() {
   const [loading, setLoading] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const [status, setStatus] = useState<{ running: boolean } | null>(null);
+
+  const fetchStatus = () => {
+    adminApi.get<{ running: boolean }>('/admin/trading/status').then(setStatus).catch(() => setStatus(null));
+  };
+
+  useEffect(() => {
+    fetchStatus();
+    const t = setInterval(fetchStatus, 10000);
+    return () => clearInterval(t);
+  }, []);
 
   const stopTrading = async () => {
     setLoading('stop');
     setMessage('');
     try {
       await adminApi.post('/admin/trading/stop');
-      setMessage('Авто-торговля остановлена.');
+      setMessage('Авто-торговля остановлена у всех пользователей.');
+      fetchStatus();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Ошибка');
     } finally {
@@ -24,7 +35,8 @@ export default function AdminTrading() {
     setMessage('');
     try {
       await adminApi.post('/admin/trading/emergency');
-      setMessage('Экстренная остановка выполнена.');
+      setMessage('Экстренная остановка выполнена у всех.');
+      fetchStatus();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Ошибка');
     } finally {
@@ -36,7 +48,7 @@ export default function AdminTrading() {
     setLoading('start');
     setMessage('');
     try {
-      await api.post('/api/market/auto-analyze/start', {
+      await adminApi.post('/admin/trading/start', {
         symbols: ['BTC-USDT', 'ETH-USDT'],
         fullAuto: true,
         useScanner: true,
@@ -44,7 +56,8 @@ export default function AdminTrading() {
         executeOrders: false,
         useTestnet: true
       });
-      setMessage('Авто-торговля запущена (демо). Перейдите в раздел «Авто» для деталей.');
+      setMessage('Авто-торговля запущена (админ). Остановка — кнопками ниже.');
+      fetchStatus();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Ошибка');
     } finally {
@@ -55,6 +68,11 @@ export default function AdminTrading() {
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold tracking-tight">Управление торговлей</h2>
+      {status != null && (
+        <div className="p-4 rounded-xl border text-sm" style={{ background: 'var(--bg-hover)', borderColor: 'var(--border)' }}>
+          Статус: <strong>{status.running ? 'Активно (у одного или нескольких пользователей)' : 'Остановлено'}</strong>
+        </div>
+      )}
       {message && (
         <div className="p-4 rounded-xl border text-sm" style={{ background: 'var(--accent-dim)', borderColor: 'var(--accent)' }}>
           {message}
