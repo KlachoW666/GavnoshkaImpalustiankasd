@@ -105,7 +105,16 @@ export default function Dashboard() {
             @clabx_bot — приобрести ключ
           </a>
           <p className="text-sm mt-6" style={{ color: 'var(--text-muted)' }}>
-            Уже есть ключ? Перейдите во вкладку <strong style={{ color: 'var(--text-secondary)' }}>Активировать</strong> и введите его.
+            Уже есть ключ? Перейдите во вкладку{' '}
+            <button
+              type="button"
+              onClick={() => (window as any).__navigateTo?.('activate')}
+              className="font-semibold underline cursor-pointer hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-1 rounded"
+              style={{ color: 'var(--accent)', background: 'transparent', border: 'none' }}
+            >
+              Активировать
+            </button>{' '}
+            и введите его.
           </p>
         </div>
       </div>
