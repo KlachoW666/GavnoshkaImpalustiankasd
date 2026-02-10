@@ -13,12 +13,13 @@ import AuthPage from './pages/AuthPage';
 import PrivacyPage from './pages/PrivacyPage';
 import TermsPage from './pages/TermsPage';
 import ProfilePage from './pages/ProfilePage';
+import HelpPage from './pages/HelpPage';
 import { getSavedPage, savePage } from './store/appStore';
 import { useNotifications } from './contexts/NotificationContext';
 import { useAuth } from './contexts/AuthContext';
 import { getSettings } from './store/settingsStore';
 
-type Page = 'dashboard' | 'signals' | 'chart' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms';
+type Page = 'dashboard' | 'signals' | 'chart' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms' | 'help';
 
 const PAGE_PATHS: Record<Page, string> = {
   dashboard: '/',
@@ -33,7 +34,8 @@ const PAGE_PATHS: Record<Page, string> = {
   admin: '/admin',
   profile: '/profile',
   privacy: '/privacy',
-  terms: '/terms'
+  terms: '/terms',
+  help: '/help'
 };
 
 const PATH_TO_PAGE: Record<string, Page> = Object.entries(PAGE_PATHS).reduce(
@@ -150,6 +152,7 @@ export default function App() {
     set.add('privacy' as Page);
     set.add('terms' as Page);
     set.add('profile' as Page);
+    set.add('help' as Page);
     return set;
   }, [user?.allowedTabs]);
   const PAGES = useMemo(() => {
@@ -326,6 +329,13 @@ export default function App() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => { setPageSafe('help'); setUserMenuOpen(false); }}
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors"
+                  >
+                    Помощь
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => { setUserMenuOpen(false); logout(); }}
                     className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors"
                     style={{ color: 'var(--danger)' }}
@@ -423,6 +433,9 @@ export default function App() {
         </div>
         <div className={safePage === 'profile' ? 'block' : 'hidden'}>
           <ProfilePage />
+        </div>
+        <div className={safePage === 'help' ? 'block' : 'hidden'}>
+          <HelpPage />
         </div>
         <div className={safePage === 'privacy' ? 'block' : 'hidden'}>
           <PrivacyPage />
