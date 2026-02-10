@@ -1,6 +1,7 @@
 import ccxt, { Exchange } from 'ccxt';
 import { OHLCVCandle } from '../types/candle';
 import { config } from '../config';
+import { getProxy } from '../db/proxies';
 import { toOkxCcxtSymbol } from '../lib/symbol';
 import { logger } from '../lib/logger';
 
@@ -20,7 +21,7 @@ export class DataAggregator {
       options: { defaultType: 'swap' },
       timeout: 30000, // OKX /asset/currencies и др. могут отвечать медленно
     };
-    const proxyUrl = config.proxy;
+    const proxyUrl = getProxy(config.proxyList) || config.proxy;
     if (proxyUrl) {
       opts.httpsProxy = proxyUrl;
     }

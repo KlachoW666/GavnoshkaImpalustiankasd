@@ -15,10 +15,11 @@ const TABS: { id: SettingsTab; label: string; icon: string }[] = [
 const API = '/api';
 
 export default function SettingsPage() {
-  const { user, updateProxy } = useAuth();
+  const { user, updateProxy, token } = useAuth();
   const [activeTab, setActiveTab] = useState<SettingsTab>('connections');
   const [settings, setSettings] = useState<Settings>(getSettings);
   const [connStatus, setConnStatus] = useState<Record<string, { ok?: boolean; msg?: string; checking?: boolean }>>({});
+  const [saveOkxStatus, setSaveOkxStatus] = useState<{ ok?: boolean; msg?: string; saving?: boolean }>({});
   const [tgTestStatus, setTgTestStatus] = useState<{ ok?: boolean; msg?: string; testing?: boolean }>({});
 
   useEffect(() => {
@@ -62,6 +63,41 @@ export default function SettingsPage() {
       setConnStatus((s) => ({ ...s, okx: { ok: data.ok, msg: data.message } }));
     } catch (e: any) {
       setConnStatus((s) => ({ ...s, okx: { ok: false, msg: e?.message || 'Ошибка сети' } }));
+    }
+  };
+
+  const saveOkxToServer = async () => {
+    const conn = settings.connections.okx;
+    if (!conn.apiKey?.trim() || !conn.apiSecret?.trim()) {
+      setSaveOkxStatus({ ok: false, msg: 'Введите API Key и Secret' });
+      return;
+    }
+    if (!token) {
+      setSaveOkxStatus({ ok: false, msg: 'Нужна авторизация' });
+      return;
+    }
+    setSaveOkxStatus({ saving: true });
+    try {
+      const res = await fetch(`${API}/auth/me/okx-connection`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          apiKey: conn.apiKey.trim(),
+          secret: conn.apiSecret.trim(),
+          passphrase: (conn.passphrase ?? '').trim()
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        setSaveOkxStatus({ ok: true, msg: 'Ключи сохранены. Баланс OKX будет виден в админке.' });
+      } else {
+        setSaveOkxStatus({ ok: false, msg: data.error || 'Ошибка сохранения' });
+      }
+    } catch (e: any) {
+      setSaveOkxStatus({ ok: false, msg: e?.message || 'Ошибка сети' });
     }
   };
 
@@ -191,7 +227,7 @@ export default function SettingsPage() {
                       className="input-field"
                     />
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <button
                       onClick={checkConnection}
                       disabled={connStatus.okx?.checking}
@@ -207,6 +243,14 @@ export default function SettingsPage() {
                     >
                       {connStatus.public_okx?.checking ? '...' : 'Тест публичного API'}
                     </button>
+                    <button
+                      onClick={saveOkxToServer}
+                      disabled={saveOkxStatus.saving || !token}
+                      className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
+                      style={{ background: 'var(--accent)', color: 'white' }}
+                    >
+                      {saveOkxStatus.saving ? 'Сохранение...' : 'Сохранить ключи на сервере'}
+                    </button>
                   </div>
                   {connStatus.okx?.msg && (
                     <p className={`text-sm ${connStatus.okx.ok ? 'text-[var(--primary)]' : 'text-[var(--danger)]'}`}>{connStatus.okx.msg}</p>
@@ -214,6 +258,12 @@ export default function SettingsPage() {
                   {connStatus.public_okx?.msg && (
                     <p className={`text-sm ${connStatus.public_okx.ok ? 'text-[var(--primary)]' : 'text-[var(--warning)]'}`}>Публичный API: {connStatus.public_okx.msg}</p>
                   )}
+                  {saveOkxStatus.msg && (
+                    <p className={`text-sm ${saveOkxStatus.ok ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{saveOkxStatus.msg}</p>
+                  )}
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    Сохранённые ключи используются для отображения вашего баланса OKX (USDT) в карточке пользователя в админ-панели.
+                  </p>
                 </div>
               </div>
               <div className="card p-5 md:p-6">

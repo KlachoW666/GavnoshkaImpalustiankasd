@@ -23,7 +23,16 @@ export interface GroupRow {
   allowed_tabs: string;
 }
 
+export interface UserOkxConnectionRow {
+  user_id: string;
+  api_key: string;
+  secret: string;
+  passphrase: string;
+  updated_at: string;
+}
+
 const memoryUsers: UserRow[] = [];
+const memoryOkxConnections: Map<string, UserOkxConnectionRow> = new Map();
 const memoryGroups: GroupRow[] = [
   { id: 1, name: 'user', allowed_tabs: '["dashboard","settings","activate"]' },
   { id: 2, name: 'viewer', allowed_tabs: '["dashboard","signals","chart"]' },
@@ -557,12 +566,16 @@ export function deleteUser(userId: string): void {
     for (const [token, uid] of memorySessions.entries()) {
       if (uid === userId) memorySessions.delete(token);
     }
+    memoryOkxConnections.delete(userId);
     const i = memoryUsers.findIndex((u) => u.id === userId);
     if (i >= 0) memoryUsers.splice(i, 1);
     return;
   }
   const db = getDb();
   if (!db) return;
+  try {
+    db.prepare('DELETE FROM user_okx_connections WHERE user_id = ?').run(userId);
+  } catch {}
   db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
   db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 }
@@ -574,4 +587,48 @@ export function getTotalUsersCount(): number {
   if (!db) return 0;
   const row = db.prepare('SELECT COUNT(*) AS cnt FROM users').get() as { cnt: number } | undefined;
   return row?.cnt ?? 0;
+}
+
+/** OKX ключи пользователя (для отображения баланса в админке). */
+export function getOkxCredentials(userId: string): { apiKey: string; secret: string; passphrase: string } | null {
+  ensureAuthTables();
+  if (isMemoryStore()) {
+    const row = memoryOkxConnections.get(userId);
+    return row ? { apiKey: row.api_key, secret: row.secret, passphrase: row.passphrase ?? '' } : null;
+  }
+  const db = getDb();
+  if (!db) return null;
+  const row = db.prepare('SELECT api_key, secret, passphrase FROM user_okx_connections WHERE user_id = ?').get(userId) as
+    | { api_key: string; secret: string; passphrase: string | null }
+    | undefined;
+  if (!row) return null;
+  return {
+    apiKey: row.api_key,
+    secret: row.secret,
+    passphrase: row.passphrase ?? ''
+  };
+}
+
+/** Сохранить OKX ключи пользователя. */
+export function setOkxCredentials(userId: string, creds: { apiKey: string; secret: string; passphrase?: string }): void {
+  ensureAuthTables();
+  const now = new Date().toISOString();
+  const apiKey = (creds.apiKey ?? '').trim();
+  const secret = (creds.secret ?? '').trim();
+  const passphrase = (creds.passphrase ?? '').trim();
+  if (isMemoryStore()) {
+    memoryOkxConnections.set(userId, {
+      user_id: userId,
+      api_key: apiKey,
+      secret: secret,
+      passphrase: passphrase,
+      updated_at: now
+    });
+    return;
+  }
+  const db = getDb();
+  if (!db) return;
+  db.prepare(
+    'INSERT INTO user_okx_connections (user_id, api_key, secret, passphrase, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET api_key = ?, secret = ?, passphrase = ?, updated_at = ?'
+  ).run(userId, apiKey, secret, passphrase, now, apiKey, secret, passphrase, now);
 }

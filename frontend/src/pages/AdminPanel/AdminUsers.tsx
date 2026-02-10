@@ -30,6 +30,8 @@ interface UserDetail {
   activationExpiresAt: string | null;
   telegramId: string | null;
   totalPnl: number;
+  okxBalance: number | null;
+  okxBalanceError: string | null;
   ordersCount: number;
   orders: Array<{
     id: string;
@@ -363,6 +365,16 @@ export default function AdminUsers() {
                 <div className="rounded-xl p-4" style={miniCardStyle}>
                   <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Сделок</p>
                   <p className="text-lg font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{userDetail.ordersCount}</p>
+                </div>
+                <div className="rounded-xl p-4" style={miniCardStyle}>
+                  <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>OKX баланс (USDT)</p>
+                  {userDetail.okxBalanceError ? (
+                    <p className="text-sm font-medium" style={{ color: 'var(--danger)' }} title={userDetail.okxBalanceError}>Ошибка</p>
+                  ) : userDetail.okxBalance != null ? (
+                    <p className="text-lg font-bold tabular-nums" style={{ color: 'var(--success)' }}>{userDetail.okxBalance.toFixed(2)} $</p>
+                  ) : (
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Не подключено</p>
+                  )}
                 </div>
               </div>
 

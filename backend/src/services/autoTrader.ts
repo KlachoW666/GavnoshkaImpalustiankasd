@@ -5,6 +5,7 @@
 
 import ccxt, { Exchange } from 'ccxt';
 import { config } from '../config';
+import { getProxy } from '../db/proxies';
 import { toOkxCcxtSymbol } from '../lib/symbol';
 import { normalizeSymbol } from '../lib/symbol';
 import { TradingSignal } from '../types/signal';
@@ -41,7 +42,8 @@ function buildExchange(useTestnet: boolean): Exchange {
     },
     timeout: 20000
   };
-  if (config.proxy) (opts as any).httpsProxy = config.proxy;
+  const proxyUrl = getProxy(config.proxyList) || config.proxy;
+  if (proxyUrl) (opts as any).httpsProxy = proxyUrl;
   return new ccxt.okx(opts);
 }
 

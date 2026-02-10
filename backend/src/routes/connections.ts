@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import ccxt from 'ccxt';
 import { config } from '../config';
+import { getProxy } from '../db/proxies';
 
 const router = Router();
 
 function okxOpts(proxyOverride?: string | null, extra: Record<string, unknown> = {}): Record<string, unknown> {
-  const proxyUrl = (proxyOverride && proxyOverride.trim()) || config.proxy;
+  const proxyUrl = (proxyOverride && proxyOverride.trim()) || getProxy(config.proxyList) || config.proxy;
   const opts: Record<string, unknown> = {
     enableRateLimit: true,
     options: { defaultType: 'swap' },

@@ -121,19 +121,27 @@ export function initDb(): any {
         db.prepare(
           'INSERT INTO subscription_plans (days, price_usd, price_stars, discount_percent, enabled, sort_order) VALUES (?,?,?,?,?,?)'
         ).run(1, 150, 7000, 0, 1, 1);
-        db.prepare(
-          'INSERT INTO subscription_plans (days, price_usd, price_stars, discount_percent, enabled, sort_order) VALUES (?,?,?,?,?,?)'
-        ).run(7, 750, 35000, 0, 1, 2);
-        db.prepare(
-          'INSERT INTO subscription_plans (days, price_usd, price_stars, discount_percent, enabled, sort_order) VALUES (?,?,?,?,?,?)'
-        ).run(14, 1470, 70000, 30, 1, 3);
-        db.prepare(
-          'INSERT INTO subscription_plans (days, price_usd, price_stars, discount_percent, enabled, sort_order) VALUES (?,?,?,?,?,?)'
-        ).run(30, 3150, 150000, 30, 1, 4);
-        db.prepare(
-          'INSERT INTO subscription_plans (days, price_usd, price_stars, discount_percent, enabled, sort_order) VALUES (?,?,?,?,?,?)'
-        ).run(90, 9450, 500000, 30, 1, 5);
       }
+    } catch {}
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS user_okx_connections (
+          user_id TEXT PRIMARY KEY,
+          api_key TEXT NOT NULL,
+          secret TEXT NOT NULL,
+          passphrase TEXT DEFAULT '',
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
+    } catch {}
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS admin_proxies (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          url TEXT NOT NULL UNIQUE,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
     } catch {}
     return db;
   } catch {

@@ -6,6 +6,7 @@
 
 import ccxt, { Exchange } from 'ccxt';
 import { config } from '../config';
+import { getProxy } from '../db/proxies';
 import { toOkxCcxtSymbol } from '../lib/symbol';
 import { normalizeSymbol } from '../lib/symbol';
 import { logger } from '../lib/logger';
@@ -36,7 +37,8 @@ export class FundingRateMonitor {
       opts.secret = config.okx.secret;
       opts.password = config.okx.passphrase;
     }
-    if (config.proxy) (opts as any).httpsProxy = config.proxy;
+    const proxyUrl = getProxy(config.proxyList) || config.proxy;
+    if (proxyUrl) (opts as any).httpsProxy = proxyUrl;
     this.exchange = new ccxt.okx(opts);
   }
 

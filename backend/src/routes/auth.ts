@@ -15,7 +15,8 @@ import {
   deleteSession,
   updateUserProxy,
   updateUserGroup,
-  redeemActivationKeyForUser
+  redeemActivationKeyForUser,
+  setOkxCredentials
 } from '../db/authDb';
 import { logger } from '../lib/logger';
 
@@ -178,6 +179,25 @@ router.get('/me', requireAuth, (req: Request, res: Response) => {
       activationExpiresAt: (user as any).activation_expires_at ?? null,
       activationActive: isActivationActive((user as any).activation_expires_at ?? null)
     });
+  } catch (e) {
+    logger.error('Auth', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** PUT /api/auth/me/okx-connection — сохранить OKX ключи (для отображения баланса в админке) */
+router.put('/me/okx-connection', requireAuth, (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    const apiKey = (req.body?.apiKey as string)?.trim();
+    const secret = (req.body?.secret as string)?.trim();
+    const passphrase = (req.body?.passphrase as string)?.trim() ?? '';
+    if (!apiKey || !secret) {
+      res.status(400).json({ error: 'API Key и Secret обязательны' });
+      return;
+    }
+    setOkxCredentials(userId, { apiKey, secret, passphrase });
+    res.json({ ok: true });
   } catch (e) {
     logger.error('Auth', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });

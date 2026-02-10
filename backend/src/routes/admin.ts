@@ -3,6 +3,8 @@
  */
 
 import { Router, Request, Response } from 'express';
+import ccxt from 'ccxt';
+import { config } from '../config';
 import { getDashboardData, validateAdminPassword, createAdminToken, validateAdminToken } from '../services/adminService';
 import { stopAutoAnalyze, getAutoAnalyzeStatus, startAutoAnalyzeForUser } from './market';
 import { listOrders } from '../db';
@@ -21,7 +23,8 @@ import {
   getOnlineUserIds,
   deleteUser,
   getTelegramIdForUser,
-  extendUserSubscription
+  extendUserSubscription,
+  getOkxCredentials
 } from '../db/authDb';
 import {
   listSubscriptionPlans,
@@ -31,6 +34,7 @@ import {
 } from '../db/subscriptionPlans';
 import { getSignals } from './signals';
 import { logger, getRecentLogs } from '../lib/logger';
+import { listProxiesForAdmin, addProxy, deleteProxy, getProxy } from '../db/proxies';
 
 const router = Router();
 
@@ -256,8 +260,36 @@ router.get('/users', requireAdmin, (req: Request, res: Response) => {
   }
 });
 
-/** GET /api/admin/users/:id — детали пользователя: ордера, PnL, telegram_id, подписка */
-router.get('/users/:id', requireAdmin, (req: Request, res: Response) => {
+/** Получить баланс USDT с OKX по ключам пользователя. */
+async function fetchOkxBalanceForUser(userId: string): Promise<{ okxBalance: number | null; okxBalanceError: string | null }> {
+  const creds = getOkxCredentials(userId);
+  if (!creds) return { okxBalance: null, okxBalanceError: null };
+  const proxyUrl = getProxy(config.proxyList) || config.proxy || '';
+  const opts: Record<string, unknown> = {
+    apiKey: creds.apiKey,
+    secret: creds.secret,
+    password: creds.passphrase || undefined,
+    enableRateLimit: true,
+    options: { defaultType: 'swap' },
+    timeout: 15000
+  };
+  if (proxyUrl) opts.httpsProxy = proxyUrl;
+  try {
+    const exchange = new ccxt.okx(opts);
+    const balance = await exchange.fetchBalance();
+    const usdt = (balance as any).USDT ?? balance?.usdt;
+    const total = usdt?.total ?? 0;
+    const value = typeof total === 'number' ? total : 0;
+    return { okxBalance: value, okxBalanceError: null };
+  } catch (e) {
+    const msg = (e as Error).message || String(e);
+    logger.warn('Admin', 'OKX balance fetch failed', { userId, error: msg });
+    return { okxBalance: null, okxBalanceError: msg };
+  }
+}
+
+/** GET /api/admin/users/:id — детали пользователя: ордера, PnL, telegram_id, подписка, OKX баланс */
+router.get('/users/:id', requireAdmin, async (req: Request, res: Response) => {
   try {
     const userId = req.params.id;
     const allUsers = listUsers();
@@ -270,6 +302,7 @@ router.get('/users/:id', requireAdmin, (req: Request, res: Response) => {
     const orders = listOrders({ clientId: userId, status: 'closed', limit: 500 });
     const totalPnl = orders.reduce((s, o) => s + (o.pnl ?? 0), 0);
     const telegramId = getTelegramIdForUser(userId);
+    const { okxBalance, okxBalanceError } = await fetchOkxBalanceForUser(userId);
     res.json({
       id: u.id,
       username: u.username,
@@ -282,6 +315,8 @@ router.get('/users/:id', requireAdmin, (req: Request, res: Response) => {
       activationExpiresAt: u.activation_expires_at ?? null,
       telegramId,
       totalPnl,
+      okxBalance: okxBalance ?? null,
+      okxBalanceError: okxBalanceError ?? null,
       ordersCount: orders.length,
       orders: orders.slice(0, 100).map((o) => ({
         id: o.id,
@@ -620,6 +655,95 @@ router.delete('/subscription-plans/:id', requireAdmin, (req: Request, res: Respo
       return;
     }
     res.json({ ok: true, id });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** ——— Прокси (OKX обход Cloudflare) ——— */
+
+/** GET /api/admin/proxies — список всех прокси (env + из БД), для отображения в админке */
+router.get('/proxies', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const list = listProxiesForAdmin(config.proxyList);
+    res.json({ proxies: list });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/admin/proxies — добавить прокси (в БД) */
+router.post('/proxies', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const url = (req.body?.url as string)?.trim();
+    if (!url) {
+      res.status(400).json({ error: 'url обязателен (например http://user:pass@host:port)' });
+      return;
+    }
+    const row = addProxy(url);
+    res.status(201).json({ id: row.id, url: row.url, createdAt: row.created_at });
+  } catch (e) {
+    const msg = (e as Error).message;
+    if (msg.includes('UNIQUE') || msg.includes('уже')) {
+      res.status(400).json({ error: 'Такой прокси уже есть' });
+      return;
+    }
+    logger.error('Admin', msg);
+    res.status(500).json({ error: msg });
+  }
+});
+
+/** DELETE /api/admin/proxies/:id — удалить прокси (только из БД) */
+router.delete('/proxies/:id', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id) || id < 1) {
+      res.status(400).json({ error: 'Некорректный id' });
+      return;
+    }
+    deleteProxy(id);
+    res.json({ ok: true, id });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** Проверка одного прокси: запрос к OKX через него */
+async function checkProxyOne(url: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const ex = new ccxt.okx({
+      enableRateLimit: true,
+      options: { defaultType: 'swap' },
+      timeout: 12000,
+      httpsProxy: url
+    });
+    await ex.fetchTicker('BTC/USDT:USDT');
+    return { ok: true };
+  } catch (e) {
+    const msg = (e as Error).message || String(e);
+    return { ok: false, error: msg };
+  }
+}
+
+/** POST /api/admin/proxies/check — проверить прокси (работает ли). Body: { url? } — один URL или без body проверяем все */
+router.post('/proxies/check', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const singleUrl = (req.body?.url as string)?.trim();
+    const list = listProxiesForAdmin(config.proxyList);
+    const toCheck = singleUrl ? list.filter((p) => p.url === singleUrl) : list;
+    if (toCheck.length === 0) {
+      res.json({ results: singleUrl ? [{ url: singleUrl, ok: false, error: 'Прокси не найден в списке' }] : [] });
+      return;
+    }
+    const results: Array<{ url: string; ok: boolean; error?: string }> = [];
+    for (const p of toCheck) {
+      const r = await checkProxyOne(p.url);
+      results.push({ url: p.url, ok: r.ok, error: r.error });
+    }
+    res.json({ results });
   } catch (e) {
     logger.error('Admin', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });
