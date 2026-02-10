@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createChart, IChartApi, ISeriesApi, CandlestickData, HistogramData } from 'lightweight-charts';
 import { OHLCVCandle } from '../types/signal';
 import { fetchPrice, normSymbol } from '../utils/fetchPrice';
-import { getSettings } from '../store/settingsStore';
+import { getSettings, updateSettings } from '../store/settingsStore';
 
 const API = '/api';
 const PLATFORMS = [{ id: 'okx', label: 'OKX', exchange: 'okx' }];
@@ -20,6 +20,25 @@ function toChartTime(tsMs: number, tf: string): number | string {
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
   }
   return aligned;
+}
+
+function ohlcToHeikinAshi(candles: OHLCVCandle[], timeframe: string): CandlestickData[] {
+  const out: CandlestickData[] = [];
+  for (let i = 0; i < candles.length; i++) {
+    const c = candles[i];
+    const haClose = (c.open + c.high + c.low + c.close) / 4;
+    const haOpen = i === 0 ? (c.open + c.close) / 2 : (out[i - 1].open + out[i - 1].close) / 2;
+    const haHigh = Math.max(c.high, haOpen, haClose);
+    const haLow = Math.min(c.low, haOpen, haClose);
+    out.push({
+      time: toChartTime(c.timestamp, timeframe) as any,
+      open: haOpen,
+      high: haHigh,
+      low: haLow,
+      close: haClose
+    });
+  }
+  return out;
 }
 
 function OrderbookDepthChart({ bids, asks }: { bids: [number, number][]; asks: [number, number][] }) {
@@ -61,6 +80,8 @@ export default function ChartView() {
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const lastCandleTimeRef = useRef<number | null>(null);
+  const lastHaOpenRef = useRef<number | null>(null);
+  const lastHaCloseRef = useRef<number | null>(null);
   const [platform, setPlatform] = useState('okx');
   const initialSymbol = (() => {
     if (typeof window === 'undefined') return 'BTC-USDT';
@@ -73,15 +94,15 @@ export default function ChartView() {
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState(true);
   const [orderbook, setOrderbook] = useState<{ bids: [number, number][]; asks: [number, number][] } | null>(null);
-  const settings = getSettings();
-  const [orderbookView, setOrderbookView] = useState<'list' | 'depth'>(
-    settings.display.orderbookStyle === 'heatmap' ? 'depth' : 'list'
-  );
+  const displaySettings = getSettings().display;
+  const orderbookView: 'list' | 'depth' = displaySettings.orderbookStyle === 'heatmap' ? 'depth' : 'list';
   const [trades, setTrades] = useState<{ price: number; amount: number; time: number; isBuy: boolean }[]>([]);
   const [lastSignal, setLastSignal] = useState<any>(null);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
 
   const exchangeId = 'okx';
+
+  const chartStyle = displaySettings.chartStyle;
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -97,17 +118,20 @@ export default function ChartView() {
       handleScale: { axisPressedMouseMove: true, pinch: true },
       handleScroll: { vertTouchDrag: true, horzTouchDrag: true }
     });
-    const candlestickSeries = chart.addCandlestickSeries({
-      upColor: '#47A663',
-      downColor: '#ef4444',
-      borderUpColor: '#47A663',
-      borderDownColor: '#ef4444'
-    });
-    candlestickSeries.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.15 } });
+    const isLine = chartStyle === 'line';
+    const series = isLine
+      ? chart.addLineSeries({ color: '#40DDFF', lineWidth: 2 })
+      : chart.addCandlestickSeries({
+          upColor: '#47A663',
+          downColor: '#ef4444',
+          borderUpColor: '#47A663',
+          borderDownColor: '#ef4444'
+        });
+    if (!isLine) series.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.15 } });
     const volumeSeries = chart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' });
     volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 }, borderVisible: false });
     chartInstance.current = chart;
-    seriesRef.current = candlestickSeries;
+    seriesRef.current = series as ISeriesApi<'Candlestick'>;
     volumeRef.current = volumeSeries;
 
     const resize = () => {
@@ -138,39 +162,77 @@ export default function ChartView() {
       seriesRef.current = null;
       volumeRef.current = null;
     };
-  }, []);
+  }, [chartStyle]);
 
   const loadCandles = (isInitial: boolean) => {
     const sym = normSymbol(symbol) || symbol.replace(/_/g, '-');
+    const style = getSettings().display.chartStyle;
+    const isLine = style === 'line';
     fetch(`${API}/market/candles/${encodeURIComponent(sym)}?timeframe=${timeframe}&limit=200&exchange=${exchangeId}`)
       .then((r) => r.json())
       .then((data) => {
         const candles = Array.isArray(data) ? data : [];
         if (!candles.length || !seriesRef.current) return;
-        const candleData: CandlestickData[] = candles.map((c: OHLCVCandle) => ({
-          time: toChartTime(c.timestamp, timeframe) as any,
-          open: c.open,
-          high: c.high,
-          low: c.low,
-          close: c.close
-        }));
         const volData: HistogramData[] = candles.map((c: OHLCVCandle) => ({
           time: toChartTime(c.timestamp, timeframe) as any,
           value: c.volume,
           color: c.close >= c.open ? 'rgba(76,175,80,0.5)' : 'rgba(255,82,82,0.5)'
         }));
-        if (isInitial || lastCandleTimeRef.current === null) {
-          seriesRef.current.setData(candleData);
-          volumeRef.current?.setData(volData);
-          if (isInitial) chartInstance.current?.timeScale().fitContent();
-          lastCandleTimeRef.current = candleData.length ? (candleData[candleData.length - 1].time as number) : null;
+        if (isLine) {
+          const lineData = candles.map((c: OHLCVCandle) => ({
+            time: toChartTime(c.timestamp, timeframe) as any,
+            value: c.close
+          }));
+          if (isInitial || lastCandleTimeRef.current === null) {
+            (seriesRef.current as any).setData(lineData);
+            volumeRef.current?.setData(volData);
+            if (isInitial) chartInstance.current?.timeScale().fitContent();
+            lastCandleTimeRef.current = lineData.length ? (lineData[lineData.length - 1].time as number) : null;
+          } else {
+            const last = lineData[lineData.length - 1];
+            const lastVol = volData[volData.length - 1];
+            if (last && lastVol) {
+              (seriesRef.current as any).update(last);
+              volumeRef.current?.update(lastVol);
+              lastCandleTimeRef.current = last.time as number;
+            }
+          }
         } else {
-          const last = candleData[candleData.length - 1];
-          const lastVol = volData[volData.length - 1];
-          if (last && lastVol) {
-            seriesRef.current.update(last);
-            volumeRef.current?.update(lastVol);
-            lastCandleTimeRef.current = last.time as number;
+          const candleData: CandlestickData[] =
+            style === 'heikin-ashi'
+              ? ohlcToHeikinAshi(candles, timeframe)
+              : candles.map((c: OHLCVCandle) => ({
+                  time: toChartTime(c.timestamp, timeframe) as any,
+                  open: c.open,
+                  high: c.high,
+                  low: c.low,
+                  close: c.close
+                }));
+          if (isInitial || lastCandleTimeRef.current === null) {
+            seriesRef.current.setData(candleData);
+            volumeRef.current?.setData(volData);
+            if (isInitial) chartInstance.current?.timeScale().fitContent();
+            lastCandleTimeRef.current = candleData.length ? (candleData[candleData.length - 1].time as number) : null;
+            if (style === 'heikin-ashi' && candleData.length) {
+              const last = candleData[candleData.length - 1];
+              lastHaOpenRef.current = last.open;
+              lastHaCloseRef.current = last.close;
+            } else {
+              lastHaOpenRef.current = null;
+              lastHaCloseRef.current = null;
+            }
+          } else {
+            const last = candleData[candleData.length - 1];
+            const lastVol = volData[volData.length - 1];
+            if (last && lastVol) {
+              seriesRef.current.update(last);
+              volumeRef.current?.update(lastVol);
+              lastCandleTimeRef.current = last.time as number;
+              if (style === 'heikin-ashi') {
+                lastHaOpenRef.current = last.open;
+                lastHaCloseRef.current = last.close;
+              }
+            }
           }
         }
       })
@@ -213,13 +275,28 @@ export default function ChartView() {
           const c = msg.data;
           const time = toChartTime(c.timestamp || c.t || 0, timeframe);
           if (time !== null && time !== undefined) {
-            seriesRef.current.update({
-              time: time as any,
-              open: c.open,
-              high: c.high,
-              low: c.low,
-              close: c.close
-            });
+            const chartStyleNow = getSettings().display.chartStyle;
+            if (chartStyleNow === 'line') {
+              (seriesRef.current as any).update({ time: time as any, value: c.close });
+            } else if (chartStyleNow === 'heikin-ashi') {
+              const prevHaOpen = lastHaOpenRef.current ?? (c.open + c.close) / 2;
+              const prevHaClose = lastHaCloseRef.current ?? (c.open + c.high + c.low + c.close) / 4;
+              const haClose = (c.open + c.high + c.low + c.close) / 4;
+              const haOpen = (prevHaOpen + prevHaClose) / 2;
+              const haHigh = Math.max(c.high, haOpen, haClose);
+              const haLow = Math.min(c.low, haOpen, haClose);
+              seriesRef.current.update({ time: time as any, open: haOpen, high: haHigh, low: haLow, close: haClose });
+              lastHaOpenRef.current = haOpen;
+              lastHaCloseRef.current = haClose;
+            } else {
+              seriesRef.current.update({
+                time: time as any,
+                open: c.open,
+                high: c.high,
+                low: c.low,
+                close: c.close
+              });
+            }
             volumeRef.current?.update({
               time: time as any,
               value: c.volume || 0,
@@ -367,7 +444,7 @@ export default function ChartView() {
             <div className="flex gap-1">
               <button
                 type="button"
-                onClick={() => setOrderbookView('list')}
+                onClick={() => updateSettings({ display: { ...getSettings().display, orderbookStyle: 'default' } })}
                 className={`px-2 py-0.5 text-xs rounded-[10px] ${orderbookView === 'list' ? 'text-white' : ''}`}
                 style={orderbookView === 'list' ? { background: 'var(--gradient-cyan)' } : { color: 'var(--text-muted)' }}
               >
@@ -375,7 +452,7 @@ export default function ChartView() {
               </button>
               <button
                 type="button"
-                onClick={() => setOrderbookView('depth')}
+                onClick={() => updateSettings({ display: { ...getSettings().display, orderbookStyle: 'heatmap' } })}
                 className={`px-2 py-0.5 text-xs rounded-[10px] ${orderbookView === 'depth' ? 'text-white' : ''}`}
                 style={orderbookView === 'depth' ? { background: 'var(--gradient-cyan)' } : { color: 'var(--text-muted)' }}
               >

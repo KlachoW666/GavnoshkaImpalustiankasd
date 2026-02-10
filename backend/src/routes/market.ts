@@ -481,9 +481,9 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
 /** Проверка данных OKX перед анализом */
 router.get('/analysis-preview/:symbol', async (req, res) => {
   try {
-    const symbol = (req.params.symbol || 'BTC-USDT').replace(/_/g, '-');
+    const symbol = normalizeSymbol(decodeURIComponent(req.params.symbol || 'BTC-USDT')) || 'BTC-USDT';
     const timeframe = (req.query.timeframe as string) || '5m';
-    const sym = symbol.replace(/_/g, '-');
+    const sym = symbol;
     const [candles, orderBook, trades] = await Promise.all([
       aggregator.getOHLCV(sym, timeframe, 200),
       aggregator.getOrderBook(sym, 400),
@@ -508,7 +508,7 @@ router.get('/analysis-preview/:symbol', async (req, res) => {
 
 router.post('/analyze/:symbol', async (req, res) => {
   try {
-    const symbol = (req.params.symbol || 'BTC-USDT').replace(/_/g, '-');
+    const symbol = normalizeSymbol(decodeURIComponent(req.params.symbol || 'BTC-USDT')) || 'BTC-USDT';
     const timeframe = (req.body?.timeframe as string) || '5m';
     const result = await runAnalysis(symbol, timeframe);
     res.json(result);

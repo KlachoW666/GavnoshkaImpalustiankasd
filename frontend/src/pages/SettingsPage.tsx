@@ -349,12 +349,18 @@ export default function SettingsPage() {
                 <input
                   type="checkbox"
                   checked={settings.notifications.desktop}
-                  onChange={(e) => update({ notifications: { ...settings.notifications, desktop: e.target.checked } })}
+                  onChange={(e) => {
+                    const enabled = e.target.checked;
+                    update({ notifications: { ...settings.notifications, desktop: enabled } });
+                    if (enabled && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                      Notification.requestPermission().catch(() => {});
+                    }
+                  }}
                   className="rounded"
                 />
                 <span>Уведомления на рабочем столе</span>
                 {settings.notifications.desktop && typeof Notification !== 'undefined' && Notification.permission !== 'granted' && (
-                  <button type="button" onClick={() => Notification.requestPermission()} className="ml-2 text-xs hover:underline" style={{ color: 'var(--link-color)' }}>Разрешить</button>
+                  <button type="button" onClick={() => Notification.requestPermission().catch(() => {})} className="ml-2 text-xs hover:underline" style={{ color: 'var(--link-color)' }}>Разрешить</button>
                 )}
               </label>
               <label className="flex items-center gap-2">

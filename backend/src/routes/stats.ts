@@ -5,7 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import { listOrders } from '../db';
-import { listUsers, getActiveSessionsCount, getTotalUsersCount } from '../db/authDb';
+import { getActiveSessionsCount, getTotalUsersCount } from '../db/authDb';
 import { isMemoryStore } from '../db';
 import { config } from '../config';
 

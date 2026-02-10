@@ -125,6 +125,7 @@ export class DataAggregator {
     }
   }
 
+  /** Базовые цены для мок-свечей (DOGE и др. — единая нормализация символа в lib/symbol) */
   private getSymbolBasePrice(symbol: string): number {
     const s = symbol.toUpperCase();
     if (s.includes('BTC')) return 97000;
