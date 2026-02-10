@@ -69,10 +69,31 @@ export default function AdminSubscriptionPlans() {
     return <p style={{ color: 'var(--text-muted)' }}>Загрузка тарифов…</p>;
   }
 
+  const cardStyle = {
+    background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
+    border: '1px solid var(--border)',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+  };
+  const miniCardStyle = { background: 'var(--bg-hover)' };
+
   return (
-    <div className="space-y-6">
-      <div className="card p-4" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-        <h3 className="font-medium mb-2" style={{ color: 'var(--text-primary)' }}>API для бота</h3>
+    <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="flex items-center gap-3">
+        <span className="text-2xl">📦</span>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Тарифы бота</h2>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Планы подписки и API для Telegram-бота</p>
+        </div>
+      </div>
+
+      <div className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-2xl">🔗</span>
+          <div>
+            <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>API для бота</h3>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>X-Bot-Token = BOT_WEBHOOK_SECRET</p>
+          </div>
+        </div>
         <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
           Бот должен отправлять заголовок <code className="px-1 rounded" style={{ background: 'var(--bg-hover)' }}>X-Bot-Token</code> со значением переменной окружения <code className="px-1 rounded" style={{ background: 'var(--bg-hover)' }}>BOT_WEBHOOK_SECRET</code>. Значение токена в интерфейсе не показывается.
         </p>
@@ -87,10 +108,20 @@ export default function AdminSubscriptionPlans() {
       </div>
 
       {error && (
-        <p className="text-sm" style={{ color: 'var(--danger)' }}>{error}</p>
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
+          <span>⚠</span>
+          <span>{error}</span>
+        </div>
       )}
 
-      <div className="card overflow-hidden" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
+      <div className="rounded-2xl overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+        <div className="flex items-center gap-3 p-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <span className="text-2xl">📅</span>
+          <div>
+            <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Тарифы подписки</h3>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Дней, цены USD/Stars, скидка, порядок</p>
+          </div>
+        </div>
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-hover)' }}>

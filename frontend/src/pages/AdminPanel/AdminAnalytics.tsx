@@ -54,27 +54,58 @@ export default function AdminAnalytics() {
   if (error) return <p style={{ color: 'var(--danger)' }}>{error}</p>;
 
   const a = analytics!;
+  const cardStyle = {
+    background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
+    border: '1px solid var(--border)',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+  };
+  const miniCardStyle = { background: 'var(--bg-hover)' };
 
   return (
-    <div className="space-y-8">
-      <h2 className="text-xl font-bold tracking-tight">Аналитика и отчёты</h2>
+    <div className="space-y-8 max-w-6xl mx-auto">
+      <div className="flex items-center gap-3">
+        <span className="text-2xl">📈</span>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Аналитика и отчёты</h2>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Сводка по сделкам и история</p>
+        </div>
+      </div>
 
-      <section className="rounded-xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-        <h3 className="text-lg font-semibold mb-4">📊 Сводка по сделкам</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div><span style={{ color: 'var(--text-muted)' }}>Всего сделок:</span> {a.totalTrades}</div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Win Rate:</span> {a.winRate.toFixed(1)}%</div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Прибыльных:</span> {a.wins}</div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Убыточных:</span> {a.losses}</div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Total PnL:</span> <span className={a.totalPnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}>{a.totalPnl >= 0 ? '+' : ''}{a.totalPnl.toFixed(2)}</span></div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Profit Factor:</span> {a.profitFactor.toFixed(2)}</div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Лучшая сделка:</span> <span className="text-[var(--success)]">+{a.bestTrade.toFixed(2)}</span></div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Худшая сделка:</span> <span className="text-[var(--danger)]">{a.worstTrade.toFixed(2)}</span></div>
+      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+        <div className="flex items-center gap-3 mb-5">
+          <span className="text-3xl">📊</span>
+          <div>
+            <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Сводка по сделкам</h3>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Win Rate, PnL, Profit Factor</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { label: 'Всего сделок', value: String(a.totalTrades), color: 'var(--text-primary)' },
+            { label: 'Win Rate', value: `${a.winRate.toFixed(1)}%`, color: 'var(--accent)' },
+            { label: 'Прибыльных', value: String(a.wins), color: 'var(--success)' },
+            { label: 'Убыточных', value: String(a.losses), color: 'var(--danger)' },
+            { label: 'Total PnL', value: `${a.totalPnl >= 0 ? '+' : ''}${a.totalPnl.toFixed(2)}`, color: a.totalPnl >= 0 ? 'var(--success)' : 'var(--danger)' },
+            { label: 'Profit Factor', value: a.profitFactor.toFixed(2), color: 'var(--text-primary)' },
+            { label: 'Лучшая сделка', value: `+${a.bestTrade.toFixed(2)}`, color: 'var(--success)' },
+            { label: 'Худшая сделка', value: String(a.worstTrade.toFixed(2)), color: 'var(--danger)' }
+          ].map((row) => (
+            <div key={row.label} className="rounded-xl p-3 flex flex-col" style={miniCardStyle}>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{row.label}</span>
+              <span className="text-sm font-semibold mt-0.5 tabular-nums" style={{ color: row.color }}>{row.value}</span>
+            </div>
+          ))}
         </div>
       </section>
 
-      <section className="rounded-xl border overflow-hidden" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-        <h3 className="text-lg font-semibold p-4 border-b" style={{ borderColor: 'var(--border)' }}>📜 История сделок (последние 100)</h3>
+      <section className="rounded-2xl overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+        <div className="flex items-center gap-3 p-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <span className="text-2xl">📜</span>
+          <div>
+            <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>История сделок</h3>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Последние 100 закрытых</p>
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

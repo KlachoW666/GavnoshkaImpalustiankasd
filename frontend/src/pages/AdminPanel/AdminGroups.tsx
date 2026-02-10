@@ -122,14 +122,23 @@ export default function AdminGroups() {
     );
   }
 
+  const cardStyle = {
+    background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
+    border: '1px solid var(--border)',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+  };
+  const miniCardStyle = { background: 'var(--bg-hover)' };
+
   return (
     <div className="space-y-6 max-w-4xl">
-      <h2 className="text-xl font-bold tracking-tight">Группы и вкладки (Super-Admin)</h2>
-      <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-        Выберите, какие вкладки видит каждая группа. Пользователям назначайте группу во вкладке «Пользователи».
-      </p>
-      <div className="rounded-xl border p-4 flex flex-col sm:flex-row gap-3 items-center"
-        style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
+      <div className="flex items-center gap-3">
+        <span className="text-2xl">👥</span>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Группы и вкладки</h2>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Доступ по вкладкам для каждой группы. Группу назначайте в «Пользователи».</p>
+        </div>
+      </div>
+      <div className="rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row gap-3 items-center" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
@@ -147,16 +156,17 @@ export default function AdminGroups() {
         </button>
       </div>
       {error && (
-        <div className="p-4 rounded-xl border" style={{ background: 'var(--danger-dim)', borderColor: 'var(--danger)' }}>
-          {error}
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
+          <span>⚠</span>
+          <span>{error}</span>
         </div>
       )}
       <div className="space-y-6">
         {groups.map((g) => (
           <div
             key={g.id}
-            className="rounded-xl border p-6"
-            style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}
+            className="rounded-2xl p-6 shadow-lg"
+            style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}
           >
             <div className="flex items-center justify-between mb-4">
               <span className="font-semibold">{displayName(g.name)}</span>

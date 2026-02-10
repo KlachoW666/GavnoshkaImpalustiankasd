@@ -98,17 +98,38 @@ export default function AdminActivationKeys() {
     } catch {}
   };
 
+  const cardStyle = {
+    background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
+    border: '1px solid var(--border)',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+  };
+  const miniCardStyle = { background: 'var(--bg-hover)' };
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      <h2 className="text-xl font-bold tracking-tight">Ключи активации</h2>
+      <div className="flex items-center gap-3">
+        <span className="text-2xl">🔑</span>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Ключи активации</h2>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Генерация, список и отзыв ключей</p>
+        </div>
+      </div>
 
       {error && (
-        <div className="p-4 rounded-xl border" style={{ background: 'var(--danger-dim)', borderColor: 'var(--danger)', color: 'var(--danger)' }}>
-          {error}
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
+          <span>⚠</span>
+          <span>{error}</span>
         </div>
       )}
 
-      <section className="rounded-xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
+      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+        <div className="flex items-center gap-3 mb-5">
+          <span className="text-2xl">➕</span>
+          <div>
+            <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Создать ключи</h3>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Срок, количество и заметка</p>
+          </div>
+        </div>
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[180px]">
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Срок (дней)</label>
@@ -155,11 +176,16 @@ export default function AdminActivationKeys() {
         )}
       </section>
 
-      <section className="rounded-xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <h3 className="text-lg font-semibold">Список</h3>
-          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Всего: {stats.total} • Активные: {stats.active} • Использованные: {stats.used} • Отозванные: {stats.revoked}
+      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📋</span>
+            <div>
+              <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Список ключей</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                Всего: {stats.total} • Активные: {stats.active} • Использованные: {stats.used} • Отозванные: {stats.revoked}
+              </p>
+            </div>
           </div>
         </div>
 

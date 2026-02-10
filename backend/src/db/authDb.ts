@@ -407,7 +407,7 @@ export function getTelegramIdForUser(userId: string): string | null {
   }
   const db = getDb();
   if (!db) return null;
-  const row = db.prepare('SELECT note FROM activation_keys WHERE used_by_user_id = ? AND note IS NOT NULL AND note != "" ORDER BY used_at DESC LIMIT 1').get(userId) as { note: string } | undefined;
+  const row = db.prepare("SELECT note FROM activation_keys WHERE used_by_user_id = ? AND note IS NOT NULL AND TRIM(note) != '' ORDER BY used_at DESC LIMIT 1").get(userId) as { note: string } | undefined;
   return row?.note ?? null;
 }
 

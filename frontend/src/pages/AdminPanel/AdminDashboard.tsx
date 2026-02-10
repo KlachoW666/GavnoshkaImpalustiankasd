@@ -100,107 +100,255 @@ export default function AdminDashboard() {
 
   const d = data!;
 
+  const cardStyle = {
+    background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
+    border: '1px solid var(--border)',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+  };
+  const miniCardStyle = { background: 'var(--bg-hover)' };
+
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
-      <h2 className="text-xl font-bold tracking-tight">Dashboard</h2>
+      <div className="flex items-center gap-3">
+        <span className="text-2xl">📋</span>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Dashboard</h2>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Обзор системы и статистика</p>
+        </div>
+      </div>
 
       {error && (
-        <div className="p-4 rounded-xl border" style={{ background: 'var(--danger-dim)', borderColor: 'var(--danger)' }}>
-          {error}
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
+          <span>⚠</span>
+          <span>{error}</span>
         </div>
       )}
 
+      {/* Верхний ряд: System, Trading, Risk */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* System Status */}
-        <section className="rounded-xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <span className={d.system.online ? 'text-[var(--success)]' : ''}>🟢</span> System Status
-          </h3>
-          <ul className="space-y-2 text-sm">
-            <li>System: {d.system.online ? 'ONLINE' : 'OFFLINE'}</li>
-            <li>Auto-Trading: {d.system.autoTrading === 'active' ? 'ACTIVE' : 'INACTIVE'}</li>
-            <li>WebSocket: {d.system.websocket}</li>
-            <li>OKX API: {d.system.okxApi}</li>
-            <li>Database: {d.system.database}{d.system.databaseMode === 'memory' ? ' (in-memory)' : d.system.databaseMode === 'sqlite' ? ' (SQLite)' : ''}</li>
-            <li>Uptime: {formatUptime(d.system.uptimeSeconds)}</li>
-          </ul>
+        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+          <div className="flex items-center gap-3 mb-5">
+            <span className="text-3xl">{d.system.online ? '🟢' : '🔴'}</span>
+            <div>
+              <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Состояние системы</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Сервисы и подключения</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {[
+              { label: 'Система', value: d.system.online ? 'ONLINE' : 'OFFLINE', ok: d.system.online },
+              { label: 'Авто-торговля', value: d.system.autoTrading === 'active' ? 'Активна' : 'Выкл.', ok: d.system.autoTrading === 'active' },
+              { label: 'WebSocket', value: d.system.websocket, ok: true },
+              { label: 'OKX API', value: d.system.okxApi, ok: d.system.okxApi === 'connected' },
+              { label: 'БД', value: `${d.system.database}${d.system.databaseMode === 'memory' ? ' (memory)' : d.system.databaseMode === 'sqlite' ? ' (SQLite)' : ''}`, ok: d.system.database === 'ok' },
+              { label: 'Uptime', value: formatUptime(d.system.uptimeSeconds), ok: true }
+            ].map((row) => (
+              <div key={row.label} className="flex justify-between items-center py-2 px-3 rounded-xl text-sm" style={miniCardStyle}>
+                <span style={{ color: 'var(--text-muted)' }}>{row.label}</span>
+                <span style={{ color: row.ok ? 'var(--success)' : 'var(--text-secondary)', fontWeight: 600 }}>{row.value}</span>
+              </div>
+            ))}
+          </div>
         </section>
 
         {/* Trading Summary */}
-        <section className="rounded-xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-          <h3 className="text-lg font-semibold mb-4">📊 Trading Summary (24h)</h3>
-          <ul className="space-y-2 text-sm">
-            <li>Total Trades: {d.trading.totalTrades24h}</li>
-            <li>Win Rate: {d.trading.winRate.toFixed(1)}% ({d.trading.wins}W / {d.trading.losses}L)</li>
-            <li>Total PnL: {d.trading.totalPnl >= 0 ? '+' : ''}${d.trading.totalPnl.toFixed(2)} ({d.trading.totalPnlPercent >= 0 ? '+' : ''}{d.trading.totalPnlPercent.toFixed(1)}%)</li>
-            {d.trading.bestTrade && <li>Best: +${d.trading.bestTrade.pnl.toFixed(2)} ({d.trading.bestTrade.pair})</li>}
-            {d.trading.worstTrade && <li>Worst: ${d.trading.worstTrade.pnl.toFixed(2)} ({d.trading.worstTrade.pair})</li>}
-            <li>Open Positions: {d.trading.openPositionsCount}</li>
-          </ul>
+        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+          <div className="flex items-center gap-3 mb-5">
+            <span className="text-3xl">📊</span>
+            <div>
+              <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Торговля (24ч)</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Сделки и PnL</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <div className="rounded-xl p-3 text-center" style={miniCardStyle}>
+              <p className="text-xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{d.trading.totalTrades24h}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>сделок</p>
+            </div>
+            <div className="rounded-xl p-3 text-center" style={miniCardStyle}>
+              <p className="text-xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{d.trading.winRate.toFixed(1)}%</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Win ({d.trading.wins}W/{d.trading.losses}L)</p>
+            </div>
+          </div>
+          <div className="rounded-xl p-3 mb-2" style={miniCardStyle}>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Total PnL</p>
+            <p className="text-lg font-bold tabular-nums" style={{ color: d.trading.totalPnl >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+              {d.trading.totalPnl >= 0 ? '+' : ''}${d.trading.totalPnl.toFixed(2)} ({d.trading.totalPnlPercent >= 0 ? '+' : ''}{d.trading.totalPnlPercent.toFixed(1)}%)
+            </p>
+          </div>
+          {(d.trading.bestTrade || d.trading.worstTrade) && (
+            <div className="grid grid-cols-2 gap-2">
+              {d.trading.bestTrade && (
+                <div className="rounded-xl p-2 text-center" style={miniCardStyle}>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Лучшая</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--success)' }}>+${d.trading.bestTrade.pnl.toFixed(2)}</p>
+                  <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{d.trading.bestTrade.pair}</p>
+                </div>
+              )}
+              {d.trading.worstTrade && (
+                <div className="rounded-xl p-2 text-center" style={miniCardStyle}>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Худшая</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--danger)' }}>${d.trading.worstTrade.pnl.toFixed(2)}</p>
+                  <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{d.trading.worstTrade.pair}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="mt-2 rounded-xl py-2 px-3 flex justify-between text-sm" style={miniCardStyle}>
+            <span style={{ color: 'var(--text-muted)' }}>Открыто позиций</span>
+            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{d.trading.openPositionsCount}</span>
+          </div>
         </section>
 
         {/* Risk Indicators */}
-        <section className="rounded-xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-          <h3 className="text-lg font-semibold mb-4">🛡️ Risk Indicators</h3>
-          <ul className="space-y-2 text-sm">
-            <li>Daily Drawdown: {d.risk.dailyDrawdownPercent.toFixed(1)}% / {d.risk.dailyDrawdownLimitPercent}%</li>
-            <li>Open Positions: {d.risk.openPositions} / {d.risk.maxPositions}</li>
-            <li>Consecutive Losses: {d.risk.consecutiveLosses} / {d.risk.maxConsecutiveLosses}</li>
-            <li>Can Open Trade: {d.risk.canOpenTrade ? 'Yes' : 'No'}</li>
-            {d.risk.reason && <li className="text-xs" style={{ color: 'var(--text-muted)' }}>{d.risk.reason}</li>}
-          </ul>
+        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--warning)' }}>
+          <div className="flex items-center gap-3 mb-5">
+            <span className="text-3xl">🛡️</span>
+            <div>
+              <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Риски</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Лимиты и допуск к сделкам</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="rounded-xl p-3 flex justify-between items-center text-sm" style={miniCardStyle}>
+              <span style={{ color: 'var(--text-muted)' }}>Просадка дня</span>
+              <span className="font-semibold" style={{ color: d.risk.dailyDrawdownPercent >= d.risk.dailyDrawdownLimitPercent ? 'var(--danger)' : 'var(--success)' }}>
+                {d.risk.dailyDrawdownPercent.toFixed(1)}% / {d.risk.dailyDrawdownLimitPercent}%
+              </span>
+            </div>
+            <div className="rounded-xl p-3 flex justify-between items-center text-sm" style={miniCardStyle}>
+              <span style={{ color: 'var(--text-muted)' }}>Позиции</span>
+              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{d.risk.openPositions} / {d.risk.maxPositions}</span>
+            </div>
+            <div className="rounded-xl p-3 flex justify-between items-center text-sm" style={miniCardStyle}>
+              <span style={{ color: 'var(--text-muted)' }}>Подряд убытков</span>
+              <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{d.risk.consecutiveLosses} / {d.risk.maxConsecutiveLosses}</span>
+            </div>
+            <div className="rounded-xl p-3 flex justify-between items-center text-sm" style={miniCardStyle}>
+              <span style={{ color: 'var(--text-muted)' }}>Можно открыть сделку</span>
+              <span className="font-semibold" style={{ color: d.risk.canOpenTrade ? 'var(--success)' : 'var(--danger)' }}>{d.risk.canOpenTrade ? 'Да' : 'Нет'}</span>
+            </div>
+            {d.risk.reason && (
+              <p className="text-xs pt-1 px-2" style={{ color: 'var(--text-muted)' }}>{d.risk.reason}</p>
+            )}
+          </div>
         </section>
       </div>
 
-      {/* 1) Статистика покупок ключей */}
-      <section className="rounded-xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-        <h3 className="text-lg font-semibold mb-4">🔑 Покупки ключей</h3>
-        <ul className="space-y-2 text-sm">
-          <li>Всего ключей создано: <strong>{d.keysStats.totalCreated}</strong></li>
-          <li>Использовано: <strong>{d.keysStats.totalUsed}</strong></li>
+      {/* Нижний ряд: ключи, топ пользователей, пользователи */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* 1) Покупки ключей */}
+        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+          <div className="flex items-center gap-3 mb-5">
+            <span className="text-3xl">🔑</span>
+            <div>
+              <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Покупки ключей</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Статистика по ключам активации</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="rounded-xl p-4 flex flex-col items-center text-center" style={miniCardStyle}>
+              <span className="text-2xl mb-1">📦</span>
+              <span className="text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{d.keysStats.totalCreated}</span>
+              <span className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>создано</span>
+            </div>
+            <div className="rounded-xl p-4 flex flex-col items-center text-center" style={miniCardStyle}>
+              <span className="text-2xl mb-1">✅</span>
+              <span className="text-2xl font-bold tabular-nums" style={{ color: 'var(--success)' }}>{d.keysStats.totalUsed}</span>
+              <span className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>использовано</span>
+            </div>
+          </div>
           {Object.keys(d.keysStats.byDuration).length > 0 && (
-            <li className="pt-2 mt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-              По срокам: {Object.entries(d.keysStats.byDuration)
-                .sort(([a], [b]) => Number(a) - Number(b))
-                .map(([days, { used, total }]) => `${days}д — ${used}/${total}`)
-                .join(', ')}
-            </li>
+            <div className="pt-4 mt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+              <p className="text-xs font-semibold uppercase tracking-wide mb-3 flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                <span>📅</span> По срокам
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {Object.entries(d.keysStats.byDuration)
+                  .sort(([a], [b]) => Number(a) - Number(b))
+                  .map(([days, { used, total }]) => (
+                    <div
+                      key={days}
+                      className="rounded-xl px-3 py-2.5 flex items-center justify-between"
+                      style={miniCardStyle}
+                    >
+                      <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{days} дн.</span>
+                      <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--accent)' }}>
+                        {used}<span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>/{total}</span>
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
           )}
-        </ul>
-      </section>
+        </section>
 
-      {/* 2) Топ 5 пользователей по заработку + баланс OKX */}
-      <section className="rounded-xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-        <h3 className="text-lg font-semibold mb-4">👥 Топ 5 пользователей (заработок)</h3>
-        {d.topUsers.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Нет данных по сделкам</p>
-        ) : (
-          <ul className="space-y-2">
-            {d.topUsers.map((u, i) => (
-              <li key={u.userId} className="flex items-center justify-between text-sm gap-4">
-                <span><strong>{i + 1}.</strong> {u.username}</span>
-                <span style={{ color: u.totalPnl >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-                  {u.totalPnl >= 0 ? '+' : ''}${u.totalPnl.toFixed(2)}
-                </span>
-                <span style={{ color: 'var(--text-muted)' }}>
-                  OKX: {u.okxBalance != null ? `$${u.okxBalance.toFixed(2)}` : '—'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+        {/* 2) Топ 5 пользователей */}
+        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+          <div className="flex items-center gap-3 mb-5">
+            <span className="text-3xl">👥</span>
+            <div>
+              <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Топ по заработку</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>По закрытым сделкам</p>
+            </div>
+          </div>
+          {d.topUsers.length === 0 ? (
+            <div className="py-10 text-center rounded-xl" style={miniCardStyle}>
+              <span className="text-4xl opacity-50">💰</span>
+              <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>Нет сделок</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)', opacity: 0.8 }}>Данные появятся после закрытия ордеров</p>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {d.topUsers.map((u, i) => (
+                <li key={u.userId} className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-xl text-sm" style={miniCardStyle}>
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--accent)', color: 'white' }}>{i + 1}</span>
+                    <span className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>{u.username}</span>
+                  </span>
+                  <span className="flex-shrink-0 font-semibold tabular-nums" style={{ color: u.totalPnl >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                    {u.totalPnl >= 0 ? '+' : ''}${u.totalPnl.toFixed(2)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
-      {/* 3) Пользователи: зарегистрировано, премиум, неактивные, онлайн */}
-      <section className="rounded-xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-        <h3 className="text-lg font-semibold mb-4">📊 Пользователи</h3>
-        <ul className="space-y-2 text-sm">
-          <li>Зарегистрировано: <strong>{d.usersStats.total}</strong></li>
-          <li>Активных (PREMIUM): <strong style={{ color: 'var(--success)' }}>{d.usersStats.premium}</strong></li>
-          <li>Неактивных (обычный): <strong>{d.usersStats.inactive}</strong></li>
-          <li>Онлайн: <strong style={{ color: 'var(--accent)' }}>{d.usersStats.online}</strong></li>
-        </ul>
-      </section>
+        {/* 3) Пользователи */}
+        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+          <div className="flex items-center gap-3 mb-5">
+            <span className="text-3xl">👤</span>
+            <div>
+              <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Пользователи</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Регистрации и активность</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl p-4 flex flex-col items-center text-center" style={miniCardStyle}>
+              <span className="text-2xl mb-1">📋</span>
+              <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{d.usersStats.total}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Всего</p>
+            </div>
+            <div className="rounded-xl p-4 flex flex-col items-center text-center" style={miniCardStyle}>
+              <span className="text-2xl mb-1">⭐</span>
+              <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--success)' }}>{d.usersStats.premium}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>PREMIUM</p>
+            </div>
+            <div className="rounded-xl p-4 flex flex-col items-center text-center" style={miniCardStyle}>
+              <span className="text-2xl mb-1">👤</span>
+              <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--text-secondary)' }}>{d.usersStats.inactive}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Обычные</p>
+            </div>
+            <div className="rounded-xl p-4 flex flex-col items-center text-center" style={miniCardStyle}>
+              <span className="text-2xl mb-1">🟢</span>
+              <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{d.usersStats.online}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Онлайн</p>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

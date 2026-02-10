@@ -191,49 +191,64 @@ export default function AdminUsers() {
     );
   }
 
+  const cardStyle = {
+    background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
+    border: '1px solid var(--border)',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+  };
+  const miniCardStyle = { background: 'var(--bg-hover)' };
+
   return (
     <div className="space-y-6 max-w-5xl">
-      <h2 className="text-xl font-bold tracking-tight">Пользователи и группы (Super-Admin)</h2>
+      <div className="flex items-center gap-3">
+        <span className="text-2xl">👥</span>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Пользователи и группы</h2>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Поиск, карточки, подписки и ордера</p>
+        </div>
+      </div>
 
       <div className="flex flex-wrap gap-4 items-center">
-        <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-          Поиск (user_id, ник, Telegram ID):
+        <div className="relative">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Введите для поиска..."
-            className="input-field w-56"
+            placeholder="Поиск: user_id, ник, Telegram ID..."
+            className="input-field w-72 pl-10 rounded-xl border"
+            style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}
           />
-        </label>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--text-muted)' }}>🔍</span>
+        </div>
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl border" style={{ background: 'var(--danger-dim)', borderColor: 'var(--danger)' }}>
-          {error}
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
+          <span>⚠</span>
+          <span>{error}</span>
         </div>
       )}
 
-      <div className="rounded-xl border overflow-hidden" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
+      <div className="rounded-2xl overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
-              <th className="text-left p-3">Логин</th>
-              <th className="text-left p-3">Группа</th>
-              <th className="text-left p-3">Статус</th>
-              <th className="text-left p-3">Дата</th>
-              <th className="text-left p-3">Действия</th>
+              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Логин</th>
+              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Группа</th>
+              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Статус</th>
+              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Дата</th>
+              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Действия</th>
             </tr>
           </thead>
           <tbody>
             {users.map((u) => (
               <tr
                 key={u.id}
+                className="border-t cursor-pointer transition-colors hover:opacity-90"
                 style={{ borderColor: 'var(--border)' }}
-                className="border-t cursor-pointer hover:opacity-90"
                 onClick={() => setSelectedUserId(u.id)}
               >
-                <td className="p-3 font-medium" style={{ color: 'var(--accent)' }}>{u.username}</td>
+                <td className="p-4 font-medium" style={{ color: 'var(--accent)' }}>{u.username}</td>
                 <td className="p-3">
                   <select
                     value={u.groupId}
@@ -296,59 +311,77 @@ export default function AdminUsers() {
         )}
       </div>
 
-      {/* Детали пользователя */}
+      {/* Карточка пользователя */}
       {selectedUserId && (
-        <div className="rounded-xl border-2 p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--accent)' }}>
-          <div className="flex justify-between items-start mb-4">
-            <h3 className="text-lg font-semibold">Карточка пользователя</h3>
+        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">👤</span>
+              <div>
+                <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Карточка пользователя</h3>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Подписка, PnL и ордера</p>
+              </div>
+            </div>
             <button
               type="button"
               onClick={() => { setSelectedUserId(null); setUserDetail(null); setExtendDuration(''); }}
-              className="px-3 py-1.5 rounded text-sm"
-              style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+              className="px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
+              style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
             >
               Закрыть
             </button>
           </div>
           {detailLoading ? (
-            <p style={{ color: 'var(--text-muted)' }}>Загрузка…</p>
+            <div className="py-12 text-center" style={{ color: 'var(--text-muted)' }}>Загрузка…</div>
           ) : userDetail ? (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div><span style={{ color: 'var(--text-muted)' }}>User ID:</span> <code className="ml-1">{userDetail.id}</code></div>
-                <div><span style={{ color: 'var(--text-muted)' }}>Логин:</span> <strong>{userDetail.username}</strong></div>
-                <div><span style={{ color: 'var(--text-muted)' }}>Telegram ID:</span> {userDetail.telegramId ?? '—'}</div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Подписка до:</span>{' '}
-                  {userDetail.activationExpiresAt
-                    ? new Date(userDetail.activationExpiresAt).toLocaleString('ru-RU')
-                    : 'не активирована'}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="rounded-xl p-4" style={miniCardStyle}>
+                  <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>User ID</p>
+                  <p className="text-sm font-mono truncate" style={{ color: 'var(--text-primary)' }}>{userDetail.id}</p>
                 </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Прибыль (PnL):</span>{' '}
-                  <span style={{ color: userDetail.totalPnl >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                <div className="rounded-xl p-4" style={miniCardStyle}>
+                  <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Логин</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--accent)' }}>{userDetail.username}</p>
+                </div>
+                <div className="rounded-xl p-4" style={miniCardStyle}>
+                  <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Telegram ID</p>
+                  <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{userDetail.telegramId ?? '—'}</p>
+                </div>
+                <div className="rounded-xl p-4" style={miniCardStyle}>
+                  <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Подписка до</p>
+                  <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                    {userDetail.activationExpiresAt ? new Date(userDetail.activationExpiresAt).toLocaleString('ru-RU') : 'не активирована'}
+                  </p>
+                </div>
+                <div className="rounded-xl p-4" style={miniCardStyle}>
+                  <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Прибыль (PnL)</p>
+                  <p className="text-lg font-bold tabular-nums" style={{ color: userDetail.totalPnl >= 0 ? 'var(--success)' : 'var(--danger)' }}>
                     {userDetail.totalPnl >= 0 ? '+' : ''}{userDetail.totalPnl.toFixed(2)} $
-                  </span>
+                  </p>
                 </div>
-                <div><span style={{ color: 'var(--text-muted)' }}>Сделок:</span> {userDetail.ordersCount}</div>
+                <div className="rounded-xl p-4" style={miniCardStyle}>
+                  <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Сделок</p>
+                  <p className="text-lg font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{userDetail.ordersCount}</p>
+                </div>
               </div>
 
-              <div>
-                <h4 className="font-medium mb-2">Добавить время подписки</h4>
-                <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Формат: 1h (час), 99d (дней), 30m (минут). Примеры: 1h, 7d, 99d</p>
+              <div className="rounded-xl p-4" style={miniCardStyle}>
+                <h4 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Добавить время подписки</h4>
+                <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Формат: 1h (час), 99d (дней), 30m (минут). Примеры: 1h, 7d, 99d</p>
                 <div className="flex flex-wrap gap-2 items-center">
                   <input
                     type="text"
                     value={extendDuration}
                     onChange={(e) => setExtendDuration(e.target.value)}
                     placeholder="1h или 99d"
-                    className="input-field w-32"
+                    className="input-field w-32 rounded-lg"
                   />
                   <button
                     type="button"
                     onClick={extendSubscription}
                     disabled={extendLoading || !extendDuration.trim()}
-                    className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                    className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-opacity hover:opacity-90"
                     style={{ background: 'var(--accent)', color: 'white' }}
                   >
                     {extendLoading ? '…' : 'Добавить'}
@@ -357,33 +390,33 @@ export default function AdminUsers() {
               </div>
 
               <div>
-                <h4 className="font-medium mb-2">Ордера (последние 100)</h4>
+                <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Ордера (последние 100)</h4>
                 {userDetail.orders.length === 0 ? (
-                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Нет сделок</p>
+                  <div className="py-8 text-center rounded-xl text-sm" style={miniCardStyle}>Нет сделок</div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
                     <table className="w-full text-xs">
                       <thead>
                         <tr style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
-                          <th className="text-left p-2">Пара</th>
-                          <th className="text-left p-2">Направление</th>
-                          <th className="text-left p-2">Открытие</th>
-                          <th className="text-left p-2">Закрытие</th>
-                          <th className="text-right p-2">PnL</th>
-                          <th className="text-left p-2">Дата</th>
+                          <th className="text-left p-3 text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>Пара</th>
+                          <th className="text-left p-3 text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>Направление</th>
+                          <th className="text-left p-3 text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>Открытие</th>
+                          <th className="text-left p-3 text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>Закрытие</th>
+                          <th className="text-right p-3 text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>PnL</th>
+                          <th className="text-left p-3 text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>Дата</th>
                         </tr>
                       </thead>
                       <tbody>
                         {userDetail.orders.map((o) => (
-                          <tr key={o.id} style={{ borderColor: 'var(--border)' }} className="border-t">
-                            <td className="p-2">{o.pair}</td>
-                            <td className="p-2" style={{ color: o.direction === 'LONG' ? 'var(--success)' : 'var(--danger)' }}>{o.direction}</td>
-                            <td className="p-2">{o.openPrice}</td>
-                            <td className="p-2">{o.closePrice ?? '—'}</td>
-                            <td className="p-2 text-right" style={{ color: (o.pnl ?? 0) >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                          <tr key={o.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
+                            <td className="p-3 font-medium">{o.pair}</td>
+                            <td className="p-3" style={{ color: o.direction === 'LONG' ? 'var(--success)' : 'var(--danger)' }}>{o.direction}</td>
+                            <td className="p-3">{o.openPrice}</td>
+                            <td className="p-3">{o.closePrice ?? '—'}</td>
+                            <td className="p-3 text-right font-medium tabular-nums" style={{ color: (o.pnl ?? 0) >= 0 ? 'var(--success)' : 'var(--danger)' }}>
                               {(o.pnl ?? 0) >= 0 ? '+' : ''}{(o.pnl ?? 0).toFixed(2)}
                             </td>
-                            <td className="p-2" style={{ color: 'var(--text-muted)' }}>{o.closeTime ? new Date(o.closeTime).toLocaleString('ru-RU') : '—'}</td>
+                            <td className="p-3" style={{ color: 'var(--text-muted)' }}>{o.closeTime ? new Date(o.closeTime).toLocaleString('ru-RU') : '—'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -393,7 +426,7 @@ export default function AdminUsers() {
               </div>
             </div>
           ) : null}
-        </div>
+        </section>
       )}
     </div>
   );
