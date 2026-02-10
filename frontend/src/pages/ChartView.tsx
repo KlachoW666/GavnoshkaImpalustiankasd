@@ -335,7 +335,7 @@ export default function ChartView() {
     if (!sym) return;
     const applyOrderbook = (data: { bids?: [number, number][]; asks?: [number, number][] } | null) => {
       if (!data?.bids?.length && !data?.asks?.length) {
-        setOrderbook(data);
+        setOrderbook(null);
         orderbookSigRef.current = '';
         return;
       }
