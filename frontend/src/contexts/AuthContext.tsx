@@ -124,6 +124,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           activationExpiresAt: data.user.activationExpiresAt ?? null,
           activationActive: !!data.user.activationActive
         });
+        try {
+          sessionStorage.setItem('post_register_go_profile', '1');
+        } catch {}
         return { ok: true };
       }
       return { ok: false, error: data.error || 'Ошибка регистрации' };

@@ -103,6 +103,38 @@ export function initDb(): any {
         CREATE INDEX IF NOT EXISTS idx_activation_keys_used ON activation_keys(used_at);
       `);
     } catch {}
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS subscription_plans (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          days INTEGER NOT NULL,
+          price_usd REAL NOT NULL,
+          price_stars INTEGER NOT NULL,
+          discount_percent INTEGER NOT NULL DEFAULT 0,
+          enabled INTEGER NOT NULL DEFAULT 1,
+          sort_order INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_subscription_plans_enabled ON subscription_plans(enabled);
+      `);
+      const count = db.prepare('SELECT COUNT(*) AS c FROM subscription_plans').get() as { c: number };
+      if (count.c === 0) {
+        db.prepare(
+          'INSERT INTO subscription_plans (days, price_usd, price_stars, discount_percent, enabled, sort_order) VALUES (?,?,?,?,?,?)'
+        ).run(1, 150, 7000, 0, 1, 1);
+        db.prepare(
+          'INSERT INTO subscription_plans (days, price_usd, price_stars, discount_percent, enabled, sort_order) VALUES (?,?,?,?,?,?)'
+        ).run(7, 750, 35000, 0, 1, 2);
+        db.prepare(
+          'INSERT INTO subscription_plans (days, price_usd, price_stars, discount_percent, enabled, sort_order) VALUES (?,?,?,?,?,?)'
+        ).run(14, 1470, 70000, 30, 1, 3);
+        db.prepare(
+          'INSERT INTO subscription_plans (days, price_usd, price_stars, discount_percent, enabled, sort_order) VALUES (?,?,?,?,?,?)'
+        ).run(30, 3150, 150000, 30, 1, 4);
+        db.prepare(
+          'INSERT INTO subscription_plans (days, price_usd, price_stars, discount_percent, enabled, sort_order) VALUES (?,?,?,?,?,?)'
+        ).run(90, 9450, 500000, 30, 1, 5);
+      }
+    } catch {}
     return db;
   } catch {
     useMemoryStore = true;

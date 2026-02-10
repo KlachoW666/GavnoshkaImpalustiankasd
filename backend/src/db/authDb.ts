@@ -341,6 +341,63 @@ export function revokeActivationKey(id: number): void {
   if (db) db.prepare('UPDATE activation_keys SET revoked_at = ? WHERE id = ?').run(now, id);
 }
 
+/** Регистрация ключа от бота (бот сгенерировал ключ, отправляет на сайт). Ключ 32 символа. */
+export function registerActivationKeyFromBot(key: string, durationDays: number, note?: string | null): ActivationKeyRow {
+  ensureAuthTables();
+  const k = (key || '').trim().toUpperCase();
+  if (k.length !== 32) throw new Error('Ключ должен быть 32 символа');
+  const days = Math.max(1, Math.floor(durationDays));
+  const now = new Date().toISOString();
+  const noteVal = note ?? null;
+  if (isMemoryStore()) {
+    if (memoryActivationKeys.some((x) => x.key === k)) throw new Error('Ключ уже существует');
+    const id = (memoryActivationKeys[memoryActivationKeys.length - 1]?.id ?? 0) + 1;
+    const row: ActivationKeyRow = { id, key: k, duration_days: days, note: noteVal, created_at: now, used_by_user_id: null, used_at: null, revoked_at: null };
+    memoryActivationKeys.push(row);
+    return row;
+  }
+  const db = getDb();
+  if (!db) throw new Error('DB unavailable');
+  try {
+    db.prepare('INSERT INTO activation_keys (key, duration_days, note, created_at) VALUES (?, ?, ?, ?)').run(k, days, noteVal, now);
+    const inserted = db.prepare('SELECT * FROM activation_keys WHERE key = ?').get(k) as ActivationKeyRow;
+    return inserted;
+  } catch (e) {
+    if (String(e).toLowerCase().includes('unique')) throw new Error('Ключ уже существует');
+    throw e;
+  }
+}
+
+/** Отзыв ключа по строке (chargeback). Если ключ уже использован — баним пользователя. */
+export function revokeActivationKeyByKey(key: string): { revoked: boolean; bannedUserId: string | null } {
+  ensureAuthTables();
+  const k = (key || '').trim().toUpperCase();
+  if (!k) return { revoked: false, bannedUserId: null };
+  const now = new Date().toISOString();
+  let bannedUserId: string | null = null;
+  if (isMemoryStore()) {
+    const row = memoryActivationKeys.find((x) => x.key === k);
+    if (!row) return { revoked: false, bannedUserId: null };
+    row.revoked_at = now;
+    if (row.used_by_user_id) {
+      bannedUserId = row.used_by_user_id;
+      const u = memoryUsers.find((x) => x.id === row.used_by_user_id);
+      if (u) { u.banned = 1; u.ban_reason = 'Отзыв оплаты (chargeback)'; }
+    }
+    return { revoked: true, bannedUserId };
+  }
+  const db = getDb();
+  if (!db) return { revoked: false, bannedUserId: null };
+  const row = db.prepare('SELECT * FROM activation_keys WHERE key = ?').get(k) as (ActivationKeyRow & { used_by_user_id: string | null }) | undefined;
+  if (!row) return { revoked: false, bannedUserId: null };
+  db.prepare('UPDATE activation_keys SET revoked_at = ? WHERE key = ?').run(now, k);
+  if (row.used_by_user_id) {
+    bannedUserId = row.used_by_user_id;
+    db.prepare('UPDATE users SET banned = 1, ban_reason = ? WHERE id = ?').run('Отзыв оплаты (chargeback)', row.used_by_user_id);
+  }
+  return { revoked: true, bannedUserId };
+}
+
 export function redeemActivationKeyForUser(opts: { userId: string; key: string; proGroupId?: number }): { activationExpiresAt: string; groupId: number } {
   ensureAuthTables();
   const proGroupId = opts.proGroupId ?? 4;

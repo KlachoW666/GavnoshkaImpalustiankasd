@@ -21,6 +21,12 @@ import {
   getOnlineUserIds,
   deleteUser
 } from '../db/authDb';
+import {
+  listSubscriptionPlans,
+  getSubscriptionPlan,
+  createOrUpdateSubscriptionPlan,
+  deleteSubscriptionPlan
+} from '../db/subscriptionPlans';
 import { getSignals } from './signals';
 import { logger, getRecentLogs } from '../lib/logger';
 
@@ -418,6 +424,109 @@ router.post('/activation-keys/:id/revoke', requireAdmin, (req: Request, res: Res
       return;
     }
     revokeActivationKey(id);
+    res.json({ ok: true, id });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** ——— Super-Admin: тарифы подписки (для бота) ——— */
+
+/** GET /api/admin/subscription-plans — список тарифов */
+router.get('/subscription-plans', requireAdmin, (_req: Request, res: Response) => {
+  try {
+    const plans = listSubscriptionPlans(false).map((p) => ({
+      id: p.id,
+      days: p.days,
+      priceUsd: p.price_usd,
+      priceStars: p.price_stars,
+      discountPercent: p.discount_percent,
+      enabled: p.enabled,
+      sortOrder: p.sort_order
+    }));
+    res.json(plans);
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** GET /api/admin/subscription-plans/:id — один тариф */
+router.get('/subscription-plans/:id', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const p = getSubscriptionPlan(id);
+    if (!p) {
+      res.status(404).json({ error: 'Тариф не найден' });
+      return;
+    }
+    res.json({ id: p.id, days: p.days, priceUsd: p.price_usd, priceStars: p.price_stars, discountPercent: p.discount_percent, enabled: p.enabled, sortOrder: p.sort_order });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/admin/subscription-plans — создать тариф */
+router.post('/subscription-plans', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const body = req.body || {};
+    const days = Math.max(1, Math.floor(Number(body.days) || 30));
+    const priceUsd = Math.max(0, Number(body.priceUsd) ?? 0);
+    const priceStars = Math.max(0, Math.floor(Number(body.priceStars) ?? 0));
+    const discountPercent = Math.max(0, Math.min(100, Math.floor(Number(body.discountPercent) ?? 0)));
+    const enabled = body.enabled !== false && body.enabled !== 0 ? 1 : 0;
+    const sortOrder = Math.floor(Number(body.sortOrder) ?? 0);
+    const row = createOrUpdateSubscriptionPlan({ days, price_usd: priceUsd, price_stars: priceStars, discount_percent: discountPercent, enabled, sort_order: sortOrder });
+    res.json({ id: row.id, days: row.days, priceUsd: row.price_usd, priceStars: row.price_stars, discountPercent: row.discount_percent, enabled: row.enabled, sortOrder: row.sort_order });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** PUT /api/admin/subscription-plans/:id — обновить тариф */
+router.put('/subscription-plans/:id', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const body = req.body || {};
+    const days = body.days != null ? Math.max(1, Math.floor(Number(body.days))) : undefined;
+    const priceUsd = body.priceUsd != null ? Math.max(0, Number(body.priceUsd)) : undefined;
+    const priceStars = body.priceStars != null ? Math.max(0, Math.floor(Number(body.priceStars))) : undefined;
+    const discountPercent = body.discountPercent != null ? Math.max(0, Math.min(100, Math.floor(Number(body.discountPercent)))) : undefined;
+    const enabled = body.enabled !== undefined ? (body.enabled !== false && body.enabled !== 0 ? 1 : 0) : undefined;
+    const sortOrder = body.sortOrder != null ? Math.floor(Number(body.sortOrder)) : undefined;
+    const existing = getSubscriptionPlan(id);
+    if (!existing) {
+      res.status(404).json({ error: 'Тариф не найден' });
+      return;
+    }
+    const row = createOrUpdateSubscriptionPlan({
+      id,
+      days: days ?? existing.days,
+      price_usd: priceUsd ?? existing.price_usd,
+      price_stars: priceStars ?? existing.price_stars,
+      discount_percent: discountPercent ?? existing.discount_percent,
+      enabled: enabled ?? existing.enabled,
+      sort_order: sortOrder ?? existing.sort_order
+    });
+    res.json({ id: row.id, days: row.days, priceUsd: row.price_usd, priceStars: row.price_stars, discountPercent: row.discount_percent, enabled: row.enabled, sortOrder: row.sort_order });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** DELETE /api/admin/subscription-plans/:id — удалить тариф */
+router.delete('/subscription-plans/:id', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const deleted = deleteSubscriptionPlan(id);
+    if (!deleted) {
+      res.status(404).json({ error: 'Тариф не найден' });
+      return;
+    }
     res.json({ ok: true, id });
   } catch (e) {
     logger.error('Admin', (e as Error).message);

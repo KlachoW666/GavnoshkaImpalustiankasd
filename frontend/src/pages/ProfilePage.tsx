@@ -17,6 +17,14 @@ function daysLeft(iso: string | null): number | null {
   return Math.ceil((end - now) / (24 * 60 * 60 * 1000));
 }
 
+const hasWelcomeParam = () => {
+  try {
+    return typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('welcome') === '1';
+  } catch {
+    return false;
+  }
+};
+
 export default function ProfilePage() {
   const { user, token, fetchMe } = useAuth();
   const [stats, setStats] = useState<{ orders: { total: number; wins: number; losses: number }; volumeEarned?: number } | null>(null);
@@ -24,6 +32,7 @@ export default function ProfilePage() {
   const [keyLoading, setKeyLoading] = useState(false);
   const [keyError, setKeyError] = useState('');
   const [keySuccess, setKeySuccess] = useState('');
+  const [showWelcome] = useState(hasWelcomeParam);
 
   useEffect(() => {
     api.get('/stats').then((data: any) => setStats(data)).catch(() => setStats(null));
@@ -66,6 +75,24 @@ export default function ProfilePage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Профиль</h1>
+
+      {showWelcome && !active && (
+        <div className="card p-6 border-2 rounded-xl" style={{ borderColor: 'var(--accent)', background: 'var(--bg-card-solid)' }}>
+          <p className="font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Добро пожаловать!</p>
+          <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+            Для получения доступа к PREMIUM-версии необходимо приобрести ключ в нашем Telegram-боте.
+          </p>
+          <a
+            href="https://t.me/clabx_bot"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white"
+            style={{ background: 'var(--accent)' }}
+          >
+            @clabx_bot — приобрести ключ
+          </a>
+        </div>
+      )}
 
       <div className="card p-6">
         <h2 className="section-title mb-4">Аккаунт</h2>

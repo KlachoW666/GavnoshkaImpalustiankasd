@@ -174,6 +174,16 @@ export default function App() {
   useEffect(() => {
     if (user) {
       const allowed = new Set((user.allowedTabs?.length ? user.allowedTabs : FALLBACK_TABS) as Page[]);
+      try {
+        if (sessionStorage.getItem('post_register_go_profile') === '1' && allowed.has('profile')) {
+          sessionStorage.removeItem('post_register_go_profile');
+          setPage('profile');
+          if (typeof window !== 'undefined') {
+            window.history.replaceState({}, '', '/profile?welcome=1');
+          }
+          return;
+        }
+      } catch {}
       setPage((prev) => {
         const fromLoc = getPageFromLocation(allowed);
         const candidate = allowed.has(prev) ? prev : fromLoc;

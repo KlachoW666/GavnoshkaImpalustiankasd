@@ -24,7 +24,7 @@ export interface AppStats {
 export default function Dashboard() {
   const [signals, setSignals] = useState<TradingSignal[]>([]);
   const [stats, setStats] = useState<AppStats | null>(null);
-  const { token } = useAuth();
+  const { token, user } = useAuth();
 
   useEffect(() => {
     const fetchStats = () => {
@@ -62,6 +62,22 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
+      {!user?.activationActive && (
+        <div className="card p-5 border-2 rounded-xl" style={{ borderColor: 'var(--accent)', background: 'var(--bg-card-solid)' }}>
+          <p className="font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+            Для доступа к PREMIUM-версии необходимо приобрести ключ в нашем Telegram-боте
+          </p>
+          <a
+            href="https://t.me/clabx_bot"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white"
+            style={{ background: 'var(--accent)' }}
+          >
+            @clabx_bot — приобрести ключ
+          </a>
+        </div>
+      )}
       {/* Статистика приложения — ордера, пользователи, объём, статус */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card p-5 md:p-6">

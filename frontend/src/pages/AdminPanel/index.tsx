@@ -8,8 +8,9 @@ import AdminLogs from './AdminLogs';
 import AdminUsers from './AdminUsers';
 import AdminGroups from './AdminGroups';
 import AdminActivationKeys from './AdminActivationKeys';
+import AdminSubscriptionPlans from './AdminSubscriptionPlans';
 
-type AdminTab = 'dashboard' | 'trading' | 'analytics' | 'logs' | 'users' | 'groups' | 'keys';
+type AdminTab = 'dashboard' | 'trading' | 'analytics' | 'logs' | 'users' | 'groups' | 'keys' | 'plans';
 
 const TABS: { id: AdminTab; label: string }[] = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -18,7 +19,8 @@ const TABS: { id: AdminTab; label: string }[] = [
   { id: 'logs', label: 'Логи' },
   { id: 'users', label: 'Пользователи' },
   { id: 'groups', label: 'Группы' },
-  { id: 'keys', label: 'Ключи' }
+  { id: 'keys', label: 'Ключи' },
+  { id: 'plans', label: 'Тарифы бота' }
 ];
 
 export default function AdminPanel() {
@@ -76,6 +78,7 @@ export default function AdminPanel() {
       {tab === 'users' && <AdminUsers />}
       {tab === 'groups' && <AdminGroups />}
       {tab === 'keys' && <AdminActivationKeys />}
+      {tab === 'plans' && <AdminSubscriptionPlans />}
     </div>
   );
 }
