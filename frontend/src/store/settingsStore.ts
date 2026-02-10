@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'cryptosignal-settings';
+const STORAGE_KEY = 'clabx-settings';
 
 export interface Settings {
   connections: {
@@ -110,18 +110,37 @@ function save(s: Settings) {
 
 let settings = load();
 
+function applyTheme(theme: Settings['display']['theme']) {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  if (theme === 'light') {
+    root.setAttribute('data-theme', 'light');
+  } else {
+    root.removeAttribute('data-theme');
+  }
+}
+
+// Применяем тему при инициализации
+if (typeof window !== 'undefined') {
+  applyTheme(settings.display.theme);
+}
+
 export function getSettings(): Settings {
   return settings;
 }
 
 export function updateSettings(partial: Partial<Settings>) {
   settings = { ...settings, ...partial };
+  applyTheme(settings.display.theme);
   save(settings);
   return settings;
 }
 
 export function setSetting<K extends keyof Settings>(key: K, value: Settings[K]) {
   settings = { ...settings, [key]: value };
+  if (key === 'display') {
+    applyTheme((value as Settings['display']).theme);
+  }
   save(settings);
   return settings;
 }

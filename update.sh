@@ -1,20 +1,24 @@
 #!/bin/bash
 # CLABX — скрипт автоматического обновления на VPS
 #
-# Использование:
-#   ./update.sh                    # Обновление с текущей ветки
-#   ./update.sh main               # Обновление с конкретной ветки
-#   ./update.sh --no-restart       # Обновление без перезапуска
-#   ./update.sh --force            # Принудительное обновление (git reset --hard)
+# Запуск на VPS (обязательно bash и из корня проекта):
+#   bash update.sh                    # Обновление с main и перезапуск PM2
+#   bash update.sh main              # Обновление с конкретной ветки
+#   bash update.sh --no-restart      # Обновление без перезапуска
+#   bash update.sh --force           # Принудительное обновление (git reset --hard)
+#
+# После клонирования на Windows скрипт может иметь CRLF — на VPS выполните:
+#   sed -i 's/\r$//' update.sh install.sh domain.sh
+#   bash update.sh
 
-set -e  # Остановка при ошибке
+set -e
 
 # Цвета для вывода
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 log() { echo -e "${BLUE}[CLABX][update]${NC} $*"; }
 success() { echo -e "${GREEN}[CLABX][update]${NC} $*"; }
@@ -24,7 +28,7 @@ err() { echo -e "${RED}[CLABX][update][ERROR]${NC} $*" >&2; }
 # Параметры
 NO_RESTART=false
 FORCE_UPDATE=false
-SERVICE_NAME="clabx"
+PM2_APP_NAME="cryptosignal"
 REPO_URL="https://github.com/KlachoW666/GavnoshkaImpalustiankasd.git"
 BRANCH=""
 
@@ -97,27 +101,36 @@ if [ -n "$(git status --porcelain)" ]; then
     git reset --hard
     git clean -fd
   else
-    read -p "Продолжить обновление? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-      warn "Обновление отменено"
-      exit 0
+    if [ "${NONINTERACTIVE:-0}" = "1" ]; then
+      warn "NONINTERACTIVE=1: продолжаю без запроса"
+    else
+      read -p "Продолжить обновление? (y/N) " -n 1 -r
+      echo
+      if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        warn "Обновление отменено"
+        exit 0
+      fi
     fi
   fi
 fi
 
-# Останавливаем сервис
+# Останавливаем приложение (PM2 или systemd)
 if [ "$NO_RESTART" = false ]; then
-  log "Останавливаем сервис ${SERVICE_NAME}..."
-  if systemctl is-active --quiet $SERVICE_NAME; then
-    sudo systemctl stop $SERVICE_NAME
+  if command -v pm2 &>/dev/null && pm2 describe "$PM2_APP_NAME" &>/dev/null; then
+    log "Останавливаем PM2 приложение ${PM2_APP_NAME}..."
+    pm2 stop "$PM2_APP_NAME" || true
+    success "Приложение остановлено"
+  elif command -v systemctl &>/dev/null && systemctl is-active --quiet clabx 2>/dev/null; then
+    log "Останавливаем systemd сервис clabx..."
+    systemctl stop clabx 2>/dev/null || sudo systemctl stop clabx 2>/dev/null || true
     success "Сервис остановлен"
   else
-    warn "Сервис ${SERVICE_NAME} не запущен"
+    warn "Ни PM2 (${PM2_APP_NAME}), ни systemd (clabx) не запущены"
   fi
 fi
 
 # Создаем backup базы данных (если есть)
+BACKUP_DIR=""
 if [ -d "data" ]; then
   log "Создаём backup базы данных..."
   BACKUP_DIR="backups/$(date +%Y%m%d_%H%M%S)"
@@ -150,13 +163,15 @@ log "Новый коммит: ${NEW_COMMIT:0:8}"
 
 if [ "$CURRENT_COMMIT" = "$NEW_COMMIT" ]; then
   success "Уже установлена последняя версия"
-
   if [ "$NO_RESTART" = false ]; then
-    log "Перезапускаем сервис..."
-    sudo systemctl start $SERVICE_NAME
-    success "Сервис запущен"
+    if command -v pm2 &>/dev/null && pm2 describe "$PM2_APP_NAME" &>/dev/null; then
+      pm2 start "$PM2_APP_NAME" || true
+      success "PM2 приложение запущено"
+    elif command -v systemctl &>/dev/null; then
+      systemctl start clabx 2>/dev/null || sudo systemctl start clabx 2>/dev/null || true
+      success "Сервис запущен"
+    fi
   fi
-
   exit 0
 fi
 
@@ -168,17 +183,17 @@ git log --oneline $CURRENT_COMMIT..$NEW_COMMIT
 rollback() {
   err "Обновление не удалось! Откатываемся к $CURRENT_COMMIT..."
   git reset --hard $CURRENT_COMMIT
-
-  if [ -d "$BACKUP_DIR" ]; then
+  if [ -n "${BACKUP_DIR:-}" ] && [ -d "$BACKUP_DIR" ]; then
     log "Восстанавливаем backup базы данных..."
     cp -r "$BACKUP_DIR/data" ./
   fi
-
   if [ "$NO_RESTART" = false ]; then
-    log "Запускаем сервис..."
-    sudo systemctl start $SERVICE_NAME
+    if command -v pm2 &>/dev/null && pm2 describe "$PM2_APP_NAME" &>/dev/null; then
+      pm2 start "$PM2_APP_NAME" || true
+    else
+      systemctl start clabx 2>/dev/null || sudo systemctl start clabx 2>/dev/null || true
+    fi
   fi
-
   err "Откат завершён"
   exit 1
 }
@@ -186,19 +201,28 @@ rollback() {
 # Устанавливаем trap для отката при ошибке
 trap rollback ERR
 
-# Устанавливаем зависимости и собираем проект
-log "Устанавливаем зависимости..."
-npm install
+# Исправление CRLF (если скрипты пришли с Windows)
+for f in update.sh install.sh domain.sh domainCLABX.sh; do
+  if [ -f "$f" ] && grep -q $'\r' "$f" 2>/dev/null; then
+    log "Исправляю переводы строк в $f..."
+    sed -i 's/\r$//' "$f"
+  fi
+done
 
-log "Собираем backend..."
+# Устанавливаем зависимости и собираем проект (как в install.sh)
+export NODE_ENV=development
+log "Устанавливаем зависимости (корень)..."
+npm install --no-fund --no-audit
+
+log "Backend: зависимости и сборка..."
 cd backend
-npm install
+npm install --include=dev --no-fund --no-audit
 npm run build
 cd ..
 
-log "Собираем frontend..."
+log "Frontend: зависимости и сборка..."
 cd frontend
-npm install
+npm install --include=dev --no-fund --no-audit
 npm run build
 cd ..
 
@@ -211,20 +235,28 @@ fi
 # Удаляем trap
 trap - ERR
 
-# Запускаем сервис
+# Запускаем приложение
 if [ "$NO_RESTART" = false ]; then
-  log "Запускаем сервис ${SERVICE_NAME}..."
-  sudo systemctl start $SERVICE_NAME
-
-  # Ждем несколько секунд и проверяем статус
-  sleep 3
-
-  if systemctl is-active --quiet $SERVICE_NAME; then
-    success "✅ Сервис успешно запущен"
+  if command -v pm2 &>/dev/null; then
+    log "Запускаем PM2 приложение ${PM2_APP_NAME}..."
+    pm2 start "$PM2_APP_NAME" 2>/dev/null || pm2 restart "$PM2_APP_NAME"
+    pm2 save 2>/dev/null || true
+    sleep 3
+    if pm2 describe "$PM2_APP_NAME" &>/dev/null && pm2 jlist 2>/dev/null | grep -q "\"name\":\"$PM2_APP_NAME\""; then
+      success "✅ PM2 приложение запущено"
+    else
+      warn "Проверьте: pm2 status && pm2 logs ${PM2_APP_NAME}"
+    fi
   else
-    err "❌ Сервис не запустился! Проверьте логи:"
-    echo "  journalctl -u ${SERVICE_NAME} -n 50"
-    exit 1
+    log "Запускаем systemd сервис clabx..."
+    systemctl start clabx 2>/dev/null || sudo systemctl start clabx 2>/dev/null || true
+    sleep 3
+    if systemctl is-active --quiet clabx 2>/dev/null; then
+      success "✅ Сервис запущен"
+    else
+      err "Проверьте: systemctl status clabx && journalctl -u clabx -n 50"
+      exit 1
+    fi
   fi
 fi
 
@@ -243,9 +275,9 @@ echo "  От:  ${CURRENT_COMMIT:0:8}"
 echo "  До:  ${NEW_COMMIT:0:8}"
 echo ""
 echo "Полезные команды:"
-echo "  systemctl status ${SERVICE_NAME}    # Статус сервиса"
-echo "  journalctl -u ${SERVICE_NAME} -f    # Логи в реальном времени"
-echo "  git log --oneline -5                # Последние коммиты"
+echo "  pm2 status && pm2 logs ${PM2_APP_NAME}   # Статус и логи (PM2)"
+echo "  systemctl status clabx                   # Если через systemd"
+echo "  git log --oneline -5                     # Последние коммиты"
 echo ""
 
 # Показываем версию (если есть package.json с версией)

@@ -79,7 +79,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           botToken: tg.botToken,
           chatId: tg.chatId,
-          message: '✅ <b>CryptoSignal Pro</b>\nТестовое уведомление — всё работает!'
+          message: '✅ <b>CLABX 🚀 Crypto Trading Soft</b>\nТестовое уведомление — всё работает!'
         })
       });
       const data = await res.json().catch(() => ({}));
