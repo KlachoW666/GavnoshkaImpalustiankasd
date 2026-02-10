@@ -65,7 +65,7 @@
 
 ```bash
 # 1. Клонируйте репозиторий
-git clone https://github.com/yourusername/clabx.git
+git clone https://github.com/KlachoW666/GavnoshkaImpalustiankasd.git clabx
 cd clabx
 
 # 2. Запустите скрипт автоустановки

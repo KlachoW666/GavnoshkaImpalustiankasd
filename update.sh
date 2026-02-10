@@ -26,6 +26,7 @@ BRANCH="${1:-main}"
 NO_RESTART=false
 FORCE_UPDATE=false
 SERVICE_NAME="clabx"
+REPO_URL="https://github.com/KlachoW666/GavnoshkaImpalustiankasd.git"
 
 # Обработка флагов
 for arg in "$@"; do
@@ -115,7 +116,16 @@ if [ -d "data" ]; then
 fi
 
 # Git pull
-log "Получаем обновления из репозитория (ветка: ${BRANCH})..."
+log "Репозиторий: ${REPO_URL}"
+log "Получаем обновления (ветка: ${BRANCH})..."
+
+# Убеждаемся что origin настроен правильно
+CURRENT_ORIGIN=$(git remote get-url origin 2>/dev/null || echo "")
+if [ "$CURRENT_ORIGIN" != "$REPO_URL" ]; then
+  warn "Обновляю remote origin на ${REPO_URL}..."
+  git remote set-url origin "$REPO_URL" 2>/dev/null || git remote add origin "$REPO_URL"
+fi
+
 git fetch origin
 
 if [ "$FORCE_UPDATE" = true ]; then
