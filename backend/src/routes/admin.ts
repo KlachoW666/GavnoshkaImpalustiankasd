@@ -231,14 +231,22 @@ router.get('/users', requireAdmin, (req: Request, res: Response) => {
     if (search) {
       const keys = listActivationKeys(2000);
       const telegramByUserId = new Map<string, string>();
+      const userIdsByTelegramNote = new Set<string>();
       for (const k of keys) {
-        if (k.used_by_user_id && k.note) telegramByUserId.set(k.used_by_user_id, k.note);
+        if (k.used_by_user_id && k.note) {
+          telegramByUserId.set(k.used_by_user_id, k.note);
+          const noteStr = String(k.note).trim();
+          if (noteStr === search || noteStr.includes(search) || search.includes(noteStr)) {
+            userIdsByTelegramNote.add(k.used_by_user_id);
+          }
+        }
       }
       const q = search.toLowerCase();
       users = users.filter((u) => {
         if (u.id.toLowerCase().includes(q) || u.username.toLowerCase().includes(q)) return true;
+        if (userIdsByTelegramNote.has(u.id)) return true;
         const tg = telegramByUserId.get(u.id);
-        return tg != null && String(tg).includes(search);
+        return tg != null && (String(tg).trim() === search || String(tg).includes(search));
       });
     }
     res.json(users);

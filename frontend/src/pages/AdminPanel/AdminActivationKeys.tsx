@@ -194,33 +194,67 @@ export default function AdminActivationKeys() {
         ) : keys.length === 0 ? (
           <div className="py-8 text-center" style={{ color: 'var(--text-muted)' }}>Ключей нет</div>
         ) : (
-          <div className="mt-4 rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+          <div className="mt-4 space-y-3">
             {keys.map((k) => {
               const status = k.revokedAt ? 'revoked' : k.usedAt ? 'used' : 'active';
+              const noteIsTelegramId = k.note != null && /^\d+$/.test(String(k.note).trim());
+              const createdBy = k.note != null && k.note.trim() !== ''
+                ? (noteIsTelegramId ? `Бот (Telegram ID: ${k.note})` : `Админ (заметка: ${k.note})`)
+                : 'Админ';
               return (
-                <div key={k.id} className="px-4 py-3 border-b flex items-center justify-between gap-4" style={{ borderColor: 'var(--border)' }}>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm">{k.key}</span>
+                <div
+                  key={k.id}
+                  className="rounded-xl px-4 py-3 flex flex-wrap items-start justify-between gap-3"
+                  style={{ background: 'var(--bg-hover)' }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{k.key}</span>
                       <span
-                        className="text-[10px] px-2 py-0.5 rounded-full"
+                        className="text-[10px] px-2 py-0.5 rounded-full font-medium"
                         style={{
-                          background: status === 'active' ? 'var(--success-dim)' : status === 'used' ? 'var(--bg-hover)' : 'var(--danger-dim)',
+                          background: status === 'active' ? 'var(--success-dim)' : status === 'used' ? 'var(--bg-card-solid)' : 'var(--danger-dim)',
                           color: status === 'active' ? 'var(--success)' : status === 'used' ? 'var(--text-muted)' : 'var(--danger)'
                         }}
                       >
                         {status === 'active' ? 'ACTIVE' : status === 'used' ? 'USED' : 'REVOKED'}
                       </span>
                     </div>
-                    <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                      {k.durationDays} дней • Создан: {fmt(k.createdAt)}
-                      {k.note ? ` • ${k.note}` : ''}
-                      {k.usedAt ? ` • Использован: ${fmt(k.usedAt)} (${k.usedByUserId || 'user'})` : ''}
-                      {k.revokedAt ? ` • Отозван: ${fmt(k.revokedAt)}` : ''}
-                    </div>
+                    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs">
+                      <div className="flex gap-1.5">
+                        <dt style={{ color: 'var(--text-muted)' }}>Срок:</dt>
+                        <dd style={{ color: 'var(--text-primary)' }}>{k.durationDays} дн.</dd>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <dt style={{ color: 'var(--text-muted)' }}>Создан:</dt>
+                        <dd style={{ color: 'var(--text-primary)' }}>{fmt(k.createdAt)}</dd>
+                      </div>
+                      <div className="flex gap-1.5 sm:col-span-2">
+                        <dt style={{ color: 'var(--text-muted)' }}>Кто создал:</dt>
+                        <dd style={{ color: 'var(--text-primary)' }}>{createdBy}</dd>
+                      </div>
+                      {k.usedAt && (
+                        <>
+                          <div className="flex gap-1.5">
+                            <dt style={{ color: 'var(--text-muted)' }}>Активировал (User ID):</dt>
+                            <dd className="font-mono truncate" style={{ color: 'var(--accent)' }} title={k.usedByUserId ?? ''}>{k.usedByUserId ?? '—'}</dd>
+                          </div>
+                          <div className="flex gap-1.5">
+                            <dt style={{ color: 'var(--text-muted)' }}>Дата активации:</dt>
+                            <dd style={{ color: 'var(--text-primary)' }}>{fmt(k.usedAt)}</dd>
+                          </div>
+                        </>
+                      )}
+                      {k.revokedAt && (
+                        <div className="flex gap-1.5 sm:col-span-2">
+                          <dt style={{ color: 'var(--text-muted)' }}>Отозван:</dt>
+                          <dd style={{ color: 'var(--danger)' }}>{fmt(k.revokedAt)}</dd>
+                        </div>
+                      )}
+                    </dl>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <button type="button" onClick={() => copy(k.key)} className="px-3 py-1.5 rounded-lg text-sm" style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}>
+                    <button type="button" onClick={() => copy(k.key)} className="px-3 py-1.5 rounded-lg text-sm" style={{ background: 'var(--bg-card-solid)', color: 'var(--text-secondary)' }}>
                       Copy
                     </button>
                     {!k.revokedAt && !k.usedAt && (
