@@ -150,6 +150,19 @@ if [ "$CURRENT_ORIGIN" != "$REPO_URL" ]; then
   git remote set-url origin "$REPO_URL" 2>/dev/null || git remote add origin "$REPO_URL"
 fi
 
+# Если есть локальные/неотслеживаемые изменения — временно убираем в stash, иначе merge/pull упадёт
+STASH_USED=false
+if [ -n "$(git status --porcelain)" ]; then
+  log "Временно сохраняю локальные изменения в stash (git stash push -u)..."
+  if git stash push -u -m "clabx-update-$(date +%Y%m%d_%H%M%S)"; then
+    STASH_USED=true
+    success "Изменения сохранены в stash"
+  else
+    err "Не удалось сохранить изменения в stash. Прервите обновление или запустите с --force."
+    exit 1
+  fi
+fi
+
 git fetch origin
 
 if [ "$FORCE_UPDATE" = true ]; then
@@ -183,6 +196,10 @@ git log --oneline $CURRENT_COMMIT..$NEW_COMMIT
 rollback() {
   err "Обновление не удалось! Откатываемся к $CURRENT_COMMIT..."
   git reset --hard $CURRENT_COMMIT
+  if [ "${STASH_USED:-false}" = true ]; then
+    log "Восстанавливаю локальные изменения из stash..."
+    git stash pop || true
+  fi
   if [ -n "${BACKUP_DIR:-}" ] && [ -d "$BACKUP_DIR" ]; then
     log "Восстанавливаем backup базы данных..."
     cp -r "$BACKUP_DIR/data" ./
@@ -279,6 +296,9 @@ echo "  pm2 status && pm2 logs ${PM2_APP_NAME}   # Статус и логи (PM2
 echo "  systemctl status clabx                   # Если через systemd"
 echo "  git log --oneline -5                     # Последние коммиты"
 echo ""
+if [ "${STASH_USED:-false}" = true ]; then
+  warn "Локальные изменения сохранены в stash. Список: git stash list"
+fi
 
 # Показываем версию (если есть package.json с версией)
 if command -v jq &> /dev/null && [ -f "package.json" ]; then
