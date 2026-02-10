@@ -22,15 +22,15 @@ warn() { echo -e "${YELLOW}[CLABX][update][WARN]${NC} $*"; }
 err() { echo -e "${RED}[CLABX][update][ERROR]${NC} $*" >&2; }
 
 # Параметры
-BRANCH="${1:-main}"
 NO_RESTART=false
 FORCE_UPDATE=false
 SERVICE_NAME="clabx"
 REPO_URL="https://github.com/KlachoW666/GavnoshkaImpalustiankasd.git"
+BRANCH=""
 
-# Обработка флагов
-for arg in "$@"; do
-  case $arg in
+# Обработка флагов и позиционных аргументов
+while [[ $# -gt 0 ]]; do
+  case $1 in
     --no-restart)
       NO_RESTART=true
       shift
@@ -54,11 +54,22 @@ for arg in "$@"; do
       echo "  ./update.sh                 # Обновить с main и перезапустить"
       echo "  ./update.sh dev             # Обновить с ветки dev"
       echo "  ./update.sh --force         # Принудительное обновление"
+      echo "  ./update.sh dev --force     # Обновить с ветки dev принудительно"
       echo "  ./update.sh --no-restart    # Обновить без перезапуска"
       exit 0
       ;;
+    *)
+      # Если аргумент не начинается с --, это название ветки
+      if [[ -z "$BRANCH" ]]; then
+        BRANCH="$1"
+      fi
+      shift
+      ;;
   esac
 done
+
+# Устанавливаем ветку по умолчанию, если не указана
+BRANCH="${BRANCH:-main}"
 
 # Проверка что мы в правильной директории
 if [ ! -f "package.json" ]; then
