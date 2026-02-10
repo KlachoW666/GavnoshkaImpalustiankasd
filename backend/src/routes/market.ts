@@ -522,7 +522,7 @@ router.post('/analyze/:symbol', async (req, res) => {
     const timeframe = (req.body?.timeframe as string) || '5m';
     const auth = req.headers.authorization;
     const token = auth?.startsWith('Bearer ') ? auth.slice(7).trim() : null;
-    const userId = token ? findSessionUserId(token) : undefined;
+    const userId = token ? findSessionUserId(token) ?? undefined : undefined;
     const result = await runAnalysis(symbol, timeframe, 'default', { userId });
     res.json(result);
   } catch (e) {
