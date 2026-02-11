@@ -11,6 +11,8 @@ import PositionChart from '../components/PositionChart';
 import TradingAnalytics from '../components/TradingAnalytics';
 
 const API = '/api';
+/** Партнёрская ссылка на регистрацию OKX (можно заменить в одном месте) */
+const OKX_AFFILIATE_URL = 'https://okx.com/join/44176948';
 const QUICK_SYMBOLS = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'RIVER-USDT', 'DOGE-USDT', 'XRP-USDT'];
 const MAX_SYMBOLS = 5;
 const STORAGE_KEY = 'autoTradingSettings';
@@ -817,8 +819,23 @@ export default function AutoTradingPage() {
             <p className="leading-relaxed">
               Чтобы пользоваться разделом «Авто-торговля», нужно указать API ключи биржи OKX в настройках приложения.
             </p>
+            <div className="rounded-xl p-4 space-y-2" style={{ background: 'var(--bg-hover)', borderLeft: '3px solid var(--accent)' }}>
+              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Нет аккаунта OKX?</p>
+              <p className="leading-relaxed">
+                Зарегистрируйтесь на бирже по нашей партнёрской ссылке — после регистрации создайте API ключи в личном кабинете (API → Trading) и введите их ниже в Настройках.
+              </p>
+              <a
+                href={OKX_AFFILIATE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
+                style={{ background: 'var(--accent)', color: 'white' }}
+              >
+                Зарегистрироваться на OKX
+              </a>
+            </div>
             <div className="rounded-xl p-4 space-y-2" style={{ background: 'var(--bg-hover)' }}>
-              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Инструкция:</p>
+              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Инструкция (ввод ключей):</p>
               <ol className="list-decimal list-inside space-y-1.5 pl-1">
                 <li>Откройте раздел <strong>Настройки</strong> (меню пользователя или Ctrl+,).</li>
                 <li>Перейдите на вкладку <strong>Подключения</strong>.</li>
