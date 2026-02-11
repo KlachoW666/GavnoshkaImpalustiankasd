@@ -124,7 +124,8 @@ router.get('/positions', async (req: Request, res: Response) => {
 
 /**
  * GET /api/trading/execution-config
- * Доступно ли исполнение и testnet (без секретов)
+ * Доступно ли исполнение и testnet (без секретов).
+ * defaultTestnet: из OKX_SANDBOX (1 = демо по умолчанию, 0 = реальный счёт по умолчанию).
  */
 router.get('/execution-config', (_req: Request, res: Response) => {
   res.json({

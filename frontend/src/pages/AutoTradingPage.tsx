@@ -403,6 +403,20 @@ export default function AutoTradingPage() {
   }, [tradingState.balance, tradingState.initialBalance, tradingState.positions, tradingState.history]);
 
   useEffect(() => {
+    api.get<{ defaultTestnet?: boolean }>('/trading/execution-config').then((data) => {
+      const hadSaved = !!localStorage.getItem(STORAGE_KEY);
+      if (!hadSaved && typeof data.defaultTestnet === 'boolean') {
+        setSettings((prev) => {
+          const next = { ...prev, useTestnet: data.defaultTestnet! };
+          saveSettings(next);
+          return next;
+        });
+      }
+    }).catch(() => {});
+  }, []);
+
+  const fetchOkxPositionsRef = useRef<() => void>(() => {});
+  useEffect(() => {
     if (!enabled || !settings.fullAuto || !settings.executeOrders) {
       setOkxData(null);
       return;
@@ -413,6 +427,7 @@ export default function AutoTradingPage() {
         .then((data) => setOkxData(data))
         .catch(() => setOkxData(null));
     };
+    fetchOkxPositionsRef.current = fetchOkx;
     fetchOkx();
     const id = setInterval(fetchOkx, 15000);
     return () => clearInterval(id);
@@ -918,15 +933,34 @@ export default function AutoTradingPage() {
                 <span className="font-medium">Исполнение через OKX (реальные ордера)</span>
               </label>
               {settings.executeOrders && (
-                <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition hover:border-[var(--accent)]/50 shrink-0" style={{ borderColor: settings.useTestnet ? 'var(--accent)' : 'var(--border)', background: settings.useTestnet ? 'var(--accent-dim)' : 'var(--bg-card-solid)' }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.useTestnet !== false}
-                    onChange={(e) => updateSetting('useTestnet', e.target.checked)}
-                    className="rounded w-5 h-5 accent-[var(--accent)]"
-                  />
-                  <span className="font-medium">Testnet (демо-счёт OKX)</span>
-                </label>
+                <div className="shrink-0">
+                  <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Счёт OKX</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateSetting('useTestnet', false)}
+                      className={`px-4 py-2.5 rounded-xl text-sm font-medium transition border-2 ${
+                        settings.useTestnet === false ? 'border-[var(--accent)] bg-[var(--accent-dim)]' : 'border-transparent'
+                      }`}
+                      style={settings.useTestnet === false ? { color: 'var(--accent)' } : { background: 'var(--bg-card-solid)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                    >
+                      Реальный счёт
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateSetting('useTestnet', true)}
+                      className={`px-4 py-2.5 rounded-xl text-sm font-medium transition border-2 ${
+                        settings.useTestnet !== false ? 'border-[var(--accent)] bg-[var(--accent-dim)]' : 'border-transparent'
+                      }`}
+                      style={settings.useTestnet !== false ? { color: 'var(--accent)' } : { background: 'var(--bg-card-solid)', borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                    >
+                      Демо (Testnet)
+                    </button>
+                  </div>
+                  <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                    {settings.useTestnet !== false ? 'Ордера на тестовом счёте OKX (демо).' : 'Ордера на реальном счёте OKX. Пополните торговый счёт USDT на okx.com.'}
+                  </p>
+                </div>
               )}
             </>
           )}
@@ -1069,15 +1103,27 @@ export default function AutoTradingPage() {
 
         {settings.fullAuto && settings.executeOrders && okxData && (
           <div className="mb-6 p-4 rounded-xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
-            <p className="text-sm font-medium mb-2">
-              Позиции OKX {okxData.useTestnet ? '(Testnet)' : '(Real)'}
-            </p>
+            <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+              <p className="text-sm font-medium">
+                Позиции OKX {okxData.useTestnet ? '(Testnet)' : '(Real)'}
+              </p>
+              <button
+                type="button"
+                onClick={() => fetchOkxPositionsRef.current()}
+                className="text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90"
+                style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+              >
+                Обновить баланс
+              </button>
+            </div>
             <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
               Баланс: ${(okxData.balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} · Открыто: {okxData.openCount ?? 0}
             </p>
             {(okxData.balance ?? 0) === 0 && (
               <p className="text-xs mb-2" style={{ color: 'var(--warning)' }}>
-                Для исполнения ордеров пополните счёт OKX {okxData.useTestnet ? '(демо на okx.com)' : ''}.
+                {okxData.useTestnet
+                  ? 'Для исполнения ордеров пополните демо-счёт на okx.com (Testnet).'
+                  : 'Для исполнения ордеров пополните реальный счёт OKX: Finance → Transfer → USDT на Trading Account.'}
               </p>
             )}
             {okxData.positions && okxData.positions.length > 0 && (
