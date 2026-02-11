@@ -13,7 +13,7 @@ import { TradingSignal } from '../types/signal';
 import { emotionalFilterInstance } from './emotionalFilter';
 import { logger } from '../lib/logger';
 
-function okxProxyAgent(): HttpsProxyAgent<string> | undefined {
+function okxProxyAgent(): InstanceType<typeof HttpsProxyAgent> | undefined {
   const proxyUrl = getProxy(config.proxyList) || config.proxy;
   if (!proxyUrl || !proxyUrl.startsWith('http')) return undefined;
   try {

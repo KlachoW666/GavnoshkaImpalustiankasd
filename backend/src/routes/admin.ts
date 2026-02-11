@@ -261,7 +261,7 @@ router.get('/users', requireAdmin, (req: Request, res: Response) => {
   }
 });
 
-function okxProxyAgent(): ReturnType<typeof HttpsProxyAgent<string>> | undefined {
+function okxProxyAgent(): InstanceType<typeof HttpsProxyAgent> | undefined {
   const proxyUrl = getProxy(config.proxyList) || config.proxy || '';
   if (!proxyUrl || !proxyUrl.startsWith('http')) return undefined;
   try {
