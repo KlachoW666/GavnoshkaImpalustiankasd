@@ -372,7 +372,7 @@ export default function AutoTradingPage() {
   const [lastSignal, setLastSignal] = useState<TradingSignal | null>(null);
   const [lastBreakdown, setLastBreakdown] = useState<BreakdownType | null>(null);
   const [status, setStatus] = useState<'idle' | 'running' | 'error' | 'stopped_daily_loss'>('idle');
-  const [okxData, setOkxData] = useState<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number }>; balance: number; openCount: number; useTestnet: boolean; balanceError?: string } | null>(null);
+  const [okxData, setOkxData] = useState<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number }>; balance: number; openCount: number; useTestnet: boolean; balanceError?: string; executionAvailable?: boolean } | null>(null);
   const closePositionRef = useRef<(pos: DemoPosition, price?: number) => void>(() => {});
   const positionsRef = useRef<DemoPosition[]>([]);
   const closingIdsRef = useRef<Set<string>>(new Set());
@@ -425,9 +425,9 @@ export default function AutoTradingPage() {
     const fetchOkx = () => {
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
-      api.get<{ positions: any[]; balance: number; openCount: number; useTestnet: boolean; balanceError?: string }>(`/trading/positions?useTestnet=${useTestnet}`, { headers })
+      api.get<{ positions: any[]; balance: number; openCount: number; useTestnet: boolean; balanceError?: string; executionAvailable?: boolean }>(`/trading/positions?useTestnet=${useTestnet}`, { headers })
         .then((data) => setOkxData(data))
-        .catch(() => setOkxData(null));
+        .catch(() => setOkxData({ positions: [], balance: 0, openCount: 0, useTestnet, balanceError: 'Не удалось загрузить баланс. Проверьте ключи OKX и сеть.' }));
     };
     fetchOkxPositionsRef.current = fetchOkx;
     fetchOkx();
@@ -1103,63 +1103,74 @@ export default function AutoTradingPage() {
           </div>
         )}
 
-        {settings.fullAuto && settings.executeOrders && okxData && (
+        {settings.fullAuto && settings.executeOrders && (
           <div className="mb-6 p-4 rounded-xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
             <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
               <p className="text-sm font-medium">
-                Позиции OKX {okxData.useTestnet ? '(Testnet)' : '(Real)'}
+                Позиции OKX {okxData?.useTestnet ? '(Testnet)' : '(Real)'}
               </p>
               <button
                 type="button"
-                onClick={() => fetchOkxPositionsRef.current()}
+                onClick={() => { setOkxData(null); fetchOkxPositionsRef.current(); }}
                 className="text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90"
                 style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
               >
-                Обновить баланс
+                {okxData ? 'Обновить баланс' : 'Загрузить баланс'}
               </button>
             </div>
-            <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
-              Баланс: ${(okxData.balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} · Открыто: {okxData.openCount ?? 0}
-            </p>
-            {okxData.balanceError && (
-              <p className="text-xs mb-2" style={{ color: 'var(--danger)' }} title={okxData.balanceError}>
-                Ошибка OKX: {okxData.balanceError}
-              </p>
-            )}
-            {!okxData.balanceError && (okxData.balance ?? 0) === 0 && (
-              <p className="text-xs mb-2" style={{ color: 'var(--warning)' }}>
-                {okxData.useTestnet
-                  ? 'Для исполнения ордеров пополните демо-счёт на okx.com (Testnet).'
-                  : 'Для исполнения ордеров пополните реальный счёт OKX: Finance → Transfer → USDT на Trading Account.'}
-              </p>
-            )}
-            {okxData.positions && okxData.positions.length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr style={{ borderColor: 'var(--border)' }}>
-                      <th className="text-left py-1 px-2">Символ</th>
-                      <th className="text-right py-1 px-2">Сторона</th>
-                      <th className="text-right py-1 px-2">Контракты</th>
-                      <th className="text-right py-1 px-2">Вход</th>
-                      <th className="text-right py-1 px-2">P&L</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {okxData.positions.map((p: any, i: number) => (
-                      <tr key={i} className="border-t" style={{ borderColor: 'var(--border)' }}>
-                        <td className="py-1 px-2">{p.symbol}</td>
-                        <td className="text-right py-1 px-2">{p.side}</td>
-                        <td className="text-right py-1 px-2">{p.contracts}</td>
-                        <td className="text-right py-1 px-2">{p.entryPrice?.toFixed(4)}</td>
-                        <td className={`text-right py-1 px-2 ${(p.unrealizedPnl ?? 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {p.unrealizedPnl != null ? (p.unrealizedPnl >= 0 ? '+' : '') + p.unrealizedPnl.toFixed(2) : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            {!okxData ? (
+              <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Загрузка баланса OKX…</p>
+            ) : (
+              <>
+                <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+                  Баланс: ${(okxData.balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} · Открыто: {okxData.openCount ?? 0}
+                </p>
+                {okxData.executionAvailable === false && (
+                  <p className="text-xs mb-2" style={{ color: 'var(--warning)' }}>
+                    Исполнение ордеров отключено на сервере. Включите AUTO_TRADING_EXECUTION_ENABLED=1 в .env на сервере.
+                  </p>
+                )}
+                {okxData.balanceError && (
+                  <p className="text-xs mb-2" style={{ color: 'var(--danger)' }} title={okxData.balanceError}>
+                    Ошибка OKX: {okxData.balanceError}
+                  </p>
+                )}
+                {!okxData.balanceError && (okxData.balance ?? 0) === 0 && (
+                  <p className="text-xs mb-2" style={{ color: 'var(--warning)' }}>
+                    {okxData.useTestnet
+                      ? 'Для исполнения ордеров пополните демо-счёт на okx.com (Testnet).'
+                      : 'Для исполнения ордеров пополните реальный счёт OKX: Finance → Transfer → USDT на Trading Account.'}
+                  </p>
+                )}
+                {okxData.positions && okxData.positions.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr style={{ borderColor: 'var(--border)' }}>
+                          <th className="text-left py-1 px-2">Символ</th>
+                          <th className="text-right py-1 px-2">Сторона</th>
+                          <th className="text-right py-1 px-2">Контракты</th>
+                          <th className="text-right py-1 px-2">Вход</th>
+                          <th className="text-right py-1 px-2">P&L</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {okxData.positions.map((p: any, i: number) => (
+                          <tr key={i} className="border-t" style={{ borderColor: 'var(--border)' }}>
+                            <td className="py-1 px-2">{p.symbol}</td>
+                            <td className="text-right py-1 px-2">{p.side}</td>
+                            <td className="text-right py-1 px-2">{p.contracts}</td>
+                            <td className="text-right py-1 px-2">{p.entryPrice?.toFixed(4)}</td>
+                            <td className={`text-right py-1 px-2 ${(p.unrealizedPnl ?? 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                              {p.unrealizedPnl != null ? (p.unrealizedPnl >= 0 ? '+' : '') + p.unrealizedPnl.toFixed(2) : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -1310,7 +1321,7 @@ export default function AutoTradingPage() {
           >
             {enabled ? 'Остановить' : 'Запустить'}
           </button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium ${
               enabled && status === 'running' ? 'bg-[var(--success-dim)] text-[var(--success)]' :
               status === 'stopped_daily_loss' ? 'bg-[rgba(245,158,11,0.2)] text-[var(--warning)]' :
@@ -1318,6 +1329,11 @@ export default function AutoTradingPage() {
             }`}>
               {enabled ? status === 'running' ? '● Анализ запущен' : status === 'error' ? '● Ошибка' : status === 'stopped_daily_loss' ? '● Дневной лимит' : '● Запуск...' : '○ Выключено'}
             </span>
+            {enabled && status === 'running' && settings.fullAuto && (
+              <span className="text-xs px-3 py-1 rounded-lg" style={{ background: 'var(--bg-card-solid)', color: 'var(--text-muted)' }}>
+                Ожидание сигнала ≥{FULL_AUTO_DEFAULTS.minConfidence}% · цикл каждые {FULL_AUTO_DEFAULTS.intervalMs / 60000} мин
+              </span>
+            )}
             <span className="text-sm px-3 py-1 rounded-lg font-medium" style={{ background: 'var(--bg-card-solid)', color: 'var(--text-muted)' }}>{mode === 'spot' ? 'SPOT 1x' : `Futures ${leverage}x`}</span>
           </div>
         </div>
