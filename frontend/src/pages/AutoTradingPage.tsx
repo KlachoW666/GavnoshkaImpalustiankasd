@@ -882,19 +882,66 @@ export default function AutoTradingPage() {
     );
   }
 
+  const cardStyle = { background: 'var(--bg-card-solid)', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' };
+  const sectionTitleClass = 'text-sm font-semibold uppercase tracking-wider mb-3';
+  const sectionTitleStyle = { color: 'var(--text-muted)' };
+
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
-      <section className="card p-6 md:p-8 overflow-hidden relative" style={{ borderLeft: '4px solid var(--accent)' }}>
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold tracking-tight mb-1">Авто-торговля (демо)</h2>
-            <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              {settings.fullAuto
-                ? 'Полный автомат: добавьте пары — система сама выбирает лучший сигнал, настраивает TP/SL и плечо'
-                : 'Автоматический анализ выбранной пары, генерация сигналов и открытие демо-позиций'}
-            </p>
+    <div className="space-y-8 max-w-6xl mx-auto px-4 sm:px-6 pb-12">
+      {/* Заголовок страницы */}
+      <div className="flex items-center gap-4 pt-2">
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0" style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)' }}>
+          📈
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Авто-торговля</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            {settings.fullAuto
+              ? 'Полный автомат: система выбирает лучший сигнал и исполняет на OKX (реал или демо)'
+              : 'Анализ пар, сигналы и демо-позиции'}
+          </p>
+        </div>
+      </div>
+
+      {/* Управление: Запуск и статус */}
+      <section className="rounded-2xl p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+        <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Управление</h2>
+        <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Включите авто-торговлю — анализ и исполнение по сигналам</p>
+        <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); setEnabled(!enabled); }}
+            disabled={status === 'running' && !enabled}
+            className={`px-8 py-3.5 rounded-xl font-semibold text-base transition-all shadow-lg min-w-[160px] ${
+              enabled ? 'bg-[var(--danger)] text-white hover:brightness-110' : 'bg-[var(--accent)] text-white hover:brightness-110'
+            }`}
+          >
+            {enabled ? 'Остановить' : 'Запустить'}
+          </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium ${
+              enabled && status === 'running' ? 'bg-[var(--success-dim)] text-[var(--success)]' :
+              status === 'stopped_daily_loss' ? 'bg-[rgba(245,158,11,0.2)] text-[var(--warning)]' :
+              'bg-[var(--bg-hover)] text-[var(--text-muted)]'
+            }`}>
+              {enabled ? status === 'running' ? '● Анализ запущен' : status === 'error' ? '● Ошибка' : status === 'stopped_daily_loss' ? '● Дневной лимит' : '● Запуск...' : '○ Выключено'}
+            </span>
+            {enabled && status === 'running' && settings.fullAuto && (
+              <span className="text-xs px-4 py-2 rounded-xl" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
+                Ожидание сигнала ≥{FULL_AUTO_DEFAULTS.minConfidence}% · цикл каждые {FULL_AUTO_DEFAULTS.intervalMs / 60000} мин
+              </span>
+            )}
+            <span className="text-sm px-4 py-2 rounded-xl font-medium" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>{mode === 'spot' ? 'SPOT 1x' : `Futures ${leverage}x`}</span>
           </div>
-          <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition hover:border-[var(--accent)]/50 shrink-0" style={{ borderColor: settings.fullAuto ? 'var(--accent)' : 'var(--border)', background: settings.fullAuto ? 'var(--accent-dim)' : 'var(--bg-card-solid)' }}>
+        </div>
+      </section>
+
+      {/* Режим и настройки */}
+      <section className="rounded-2xl p-6 md:p-8" style={cardStyle}>
+        <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Режим и настройки</h2>
+        <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Полный автомат, скринер, исполнение на OKX и выбор пар</p>
+        <div className="flex flex-wrap items-center gap-4 sm:gap-6 mb-6">
+          <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition hover:border-[var(--accent)]/50 shrink-0" style={{ borderColor: settings.fullAuto ? 'var(--accent)' : 'var(--border)', background: settings.fullAuto ? 'var(--accent-dim)' : 'var(--bg-hover)' }}>
             <input
               type="checkbox"
               checked={settings.fullAuto}
@@ -938,7 +985,7 @@ export default function AutoTradingPage() {
               </label>
               {settings.executeOrders && (
                 <div className="shrink-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Счёт OKX</p>
+                  <p className={sectionTitleClass} style={sectionTitleStyle}>Счёт OKX</p>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -977,10 +1024,11 @@ export default function AutoTradingPage() {
           </p>
         )}
 
-        {/* Режим и пары (до 5) */}
-        <div className="flex flex-wrap gap-6 mb-8">
+        {/* Торговые пары (до 5) */}
+        <div className="border-t pt-6 mt-2" style={{ borderColor: 'var(--border)' }}>
+          <p className={sectionTitleClass} style={sectionTitleStyle}>Торговые пары (до {MAX_SYMBOLS})</p>
+        <div className="flex flex-wrap gap-6 mb-6">
           <div className="flex-1 min-w-[200px]">
-            <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>Торговые пары (до {MAX_SYMBOLS})</label>
             <div className="flex flex-wrap gap-2 mb-2">
               {symbols.map((s) => (
                 <span
@@ -1034,7 +1082,7 @@ export default function AutoTradingPage() {
           </div>
           {!settings.fullAuto && (
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>Режим</label>
+            <p className={sectionTitleClass} style={sectionTitleStyle}>Режим</p>
             <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
               <button
                 type="button"
@@ -1055,7 +1103,7 @@ export default function AutoTradingPage() {
           )}
           {!settings.fullAuto && (
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>Стратегия</label>
+            <p className={sectionTitleClass} style={sectionTitleStyle}>Стратегия</p>
             <div className="flex flex-wrap gap-2">
               {[
                 { id: 'default' as const, label: 'Обычная' },
@@ -1090,23 +1138,25 @@ export default function AutoTradingPage() {
           </div>
           )}
         </div>
+        </div>
 
-        {/* Douglas (Trading in the Zone): принятие риска, правота ≠ прибыль */}
-        <div className="mb-4 p-3 rounded-lg border text-xs" style={{ borderColor: 'var(--border)', background: 'rgba(255,255,255,0.02)' }}>
-          <span style={{ color: 'var(--text-muted)' }}>Принятие риска — фундамент. Правота ≠ прибыль (Douglas).</span>
+        {/* Douglas (Trading in the Zone) */}
+        <div className="my-6 py-4 px-4 rounded-xl border text-sm" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
+          <span style={{ color: 'var(--text-muted)' }}>«Принятие риска — фундамент. Правота ≠ прибыль» — Douglas</span>
         </div>
 
         {settings.fullAuto && (
-          <div className="mb-6 p-4 rounded-xl border" style={{ borderColor: 'var(--accent)', background: 'var(--accent-dim)' }}>
-            <p className="text-sm font-medium mb-1">Автоматические настройки</p>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          <div className="mb-6 p-5 rounded-xl border-2" style={{ borderColor: 'var(--accent)', background: 'var(--accent-dim)' }}>
+            <p className="text-sm font-semibold mb-1" style={{ color: 'var(--accent)' }}>Автоматические настройки</p>
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
               Динамический размер (риск 2%) · Плечо {FULL_AUTO_DEFAULTS.leverage}x · Мин. уверенность {FULL_AUTO_DEFAULTS.minConfidence}% · TP/SL из анализа · Макс. {FULL_AUTO_DEFAULTS.maxPositions} позиций{FULL_AUTO_DEFAULTS.maxDailyLossPercent > 0 ? ` · Hard Stop при просадке ${FULL_AUTO_DEFAULTS.maxDailyLossPercent}%` : ''}
             </p>
           </div>
         )}
 
         {settings.fullAuto && settings.executeOrders && (
-          <div className="mb-6 p-4 rounded-xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+          <div className="mb-6 p-5 rounded-xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
+            <p className={sectionTitleClass} style={sectionTitleStyle}>Позиции и баланс OKX</p>
             <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
               <p className="text-sm font-medium">
                 Позиции OKX {okxData?.useTestnet ? '(Testnet)' : '(Real)'}
@@ -1309,47 +1359,23 @@ export default function AutoTradingPage() {
           )}
         </div>
         )}
-
-        <div className="flex items-center gap-6 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
-          <button
-            type="button"
-            onClick={(e) => { e.preventDefault(); setEnabled(!enabled); }}
-            disabled={status === 'running' && !enabled}
-            className={`px-8 py-3 rounded-xl font-semibold text-base transition-all shadow-lg ${
-              enabled
-                ? 'bg-[var(--danger)] text-white hover:brightness-110'
-                : 'bg-[var(--accent)] text-white hover:brightness-110'
-            }`}
-          >
-            {enabled ? 'Остановить' : 'Запустить'}
-          </button>
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium ${
-              enabled && status === 'running' ? 'bg-[var(--success-dim)] text-[var(--success)]' :
-              status === 'stopped_daily_loss' ? 'bg-[rgba(245,158,11,0.2)] text-[var(--warning)]' :
-              'bg-[var(--bg-card-solid)] text-[var(--text-muted)]'
-            }`}>
-              {enabled ? status === 'running' ? '● Анализ запущен' : status === 'error' ? '● Ошибка' : status === 'stopped_daily_loss' ? '● Дневной лимит' : '● Запуск...' : '○ Выключено'}
-            </span>
-            {enabled && status === 'running' && settings.fullAuto && (
-              <span className="text-xs px-3 py-1 rounded-lg" style={{ background: 'var(--bg-card-solid)', color: 'var(--text-muted)' }}>
-                Ожидание сигнала ≥{FULL_AUTO_DEFAULTS.minConfidence}% · цикл каждые {FULL_AUTO_DEFAULTS.intervalMs / 60000} мин
-              </span>
-            )}
-            <span className="text-sm px-3 py-1 rounded-lg font-medium" style={{ background: 'var(--bg-card-solid)', color: 'var(--text-muted)' }}>{mode === 'spot' ? 'SPOT 1x' : `Futures ${leverage}x`}</span>
-          </div>
-        </div>
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <section className="card p-6 md:p-8">
-          <h3 className="text-lg font-bold mb-6 tracking-tight">Баланс и статистика</h3>
-          <div className="grid grid-cols-2 gap-5">
-            <div className="p-4 rounded-xl" style={{ background: 'var(--bg-card-solid)' }}>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Баланс</p>
+        <section className="rounded-2xl p-6 md:p-8" style={cardStyle}>
+          <h3 className="text-lg font-bold mb-6 tracking-tight" style={{ color: 'var(--text-primary)' }}>Баланс и статистика</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Баланс (демо)</p>
               <p className="text-2xl font-bold tabular-nums">${balance.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</p>
             </div>
-            <div className="p-4 rounded-xl" style={{ background: 'var(--bg-card-solid)' }}>
+            {settings.fullAuto && settings.executeOrders && okxData && !okxData.balanceError && (
+              <div className="p-4 rounded-xl" style={{ background: 'var(--accent-dim)', borderLeft: '3px solid var(--accent)' }}>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Баланс OKX {okxData.useTestnet ? '(Demo)' : '(Real)'}</p>
+                <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>${(okxData.balance ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</p>
+              </div>
+            )}
+            <div className="p-4 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
               <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>P&L</p>
               <p className={`text-xl font-bold tabular-nums ${totalPnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
                 {totalPnl >= 0 ? '+' : ''}${totalPnl.toLocaleString('ru-RU', { minimumFractionDigits: 2 })} <span className="text-base">({totalPnlPercent >= 0 ? '+' : ''}{totalPnlPercent.toFixed(2)}%)</span>
@@ -1376,15 +1402,15 @@ export default function AutoTradingPage() {
               <span className="text-sm font-medium"><span className="text-[var(--success)]">+${bestTrade.toFixed(2)}</span> / <span className="text-[var(--danger)]">${worstTrade.toFixed(2)}</span></span>
             </div>
             <div className="col-span-2 pt-2">
-              <button onClick={() => { setBalance(10000); setInitialBalance(10000); setPositions([]); setHistory([]); lastOpenTimeRef.current = {}; }} className="btn-secondary text-sm px-6 py-2.5 rounded-xl">
+              <button onClick={() => { setBalance(10000); setInitialBalance(10000); setPositions([]); setHistory([]); lastOpenTimeRef.current = {}; }} className="text-sm px-6 py-2.5 rounded-xl font-medium transition hover:opacity-90" style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}>
                 Сбросить счёт
               </button>
             </div>
           </div>
         </section>
 
-        <section className="card p-6 md:p-8">
-          <h3 className="text-lg font-bold mb-6 tracking-tight">Последний сигнал</h3>
+        <section className="rounded-2xl p-6 md:p-8" style={cardStyle}>
+          <h3 className="text-lg font-bold mb-6 tracking-tight" style={{ color: 'var(--text-primary)' }}>Последний сигнал</h3>
           {lastSignal ? (
             <div className="space-y-4">
               <div className="rounded-xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
@@ -1448,13 +1474,48 @@ export default function AutoTradingPage() {
 
       <TradingAnalytics history={history} minConfidence={settings.minConfidence} hideSuggestions={settings.fullAuto} />
 
-      <section className="card p-6 md:p-8">
-        <h3 className="text-lg font-bold mb-6 tracking-tight">Открытые позиции ({positions.length})</h3>
-        {positions.length === 0 ? (
+      <section className="rounded-2xl p-6 md:p-8" style={cardStyle}>
+        <h3 className="text-lg font-bold mb-6 tracking-tight" style={{ color: 'var(--text-primary)' }}>
+          Открытые позиции ({positions.length + (settings.fullAuto && settings.executeOrders && okxData?.positions?.length ? okxData.positions.length : 0)})
+        </h3>
+        {positions.length === 0 && (!okxData?.positions?.length || !settings.fullAuto || !settings.executeOrders) ? (
           <p className="text-sm py-4" style={{ color: 'var(--text-muted)' }}>Нет открытых позиций.</p>
         ) : (
           <div className="space-y-4">
-            {positions.map((pos) => {
+            {okxData?.positions?.length > 0 && settings.fullAuto && settings.executeOrders && (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+                  OKX {okxData.useTestnet ? '(Demo)' : '(Real)'} — ордера бота
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {okxData.positions.map((p: any, i: number) => (
+                    <div
+                      key={`okx-${i}-${p.symbol ?? i}`}
+                      className="rounded-xl border p-4 flex flex-col gap-1"
+                      style={{ borderColor: 'var(--accent)', background: 'var(--accent-dim)' }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold">{p.symbol ?? '—'} {p.side === 'long' ? 'LONG' : 'SHORT'}</span>
+                        <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'var(--accent)', color: 'white' }}>
+                          OKX {okxData.useTestnet ? 'Demo' : 'Real'}
+                        </span>
+                      </div>
+                      <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Контракты: </span>{p.contracts ?? '—'}</p>
+                      <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Вход: </span>{p.entryPrice != null ? Number(p.entryPrice).toLocaleString('ru-RU') : '—'}</p>
+                      <p className={`text-sm font-medium ${(p.unrealizedPnl ?? 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                        P&L: {p.unrealizedPnl != null ? (p.unrealizedPnl >= 0 ? '+' : '') + p.unrealizedPnl.toFixed(2) : '—'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            {positions.length > 0 && (
+              <>
+                {okxData?.positions?.length > 0 && settings.fullAuto && settings.executeOrders && (
+                  <p className="text-xs font-semibold uppercase tracking-wider mt-4 mb-2" style={{ color: 'var(--text-muted)' }}>Демо-позиции (локальные)</p>
+                )}
+                {positions.map((pos) => {
               const lev = pos.leverage || 1;
               const rawPct = pos.signal.direction === 'LONG'
                 ? ((pos.currentPrice - pos.openPrice) / pos.openPrice) * 100
@@ -1507,12 +1568,14 @@ export default function AutoTradingPage() {
                 </div>
               );
             })}
+              </>
+            )}
           </div>
         )}
       </section>
 
-      <section className="card p-6 md:p-8">
-        <h3 className="text-lg font-bold mb-6 tracking-tight">История сделок ({history.length})</h3>
+      <section className="rounded-2xl p-6 md:p-8" style={cardStyle}>
+        <h3 className="text-lg font-bold mb-6 tracking-tight" style={{ color: 'var(--text-primary)' }}>История сделок ({history.length})</h3>
         {history.length === 0 ? (
           <p className="text-sm py-4" style={{ color: 'var(--text-muted)' }}>История пуста.</p>
         ) : (
