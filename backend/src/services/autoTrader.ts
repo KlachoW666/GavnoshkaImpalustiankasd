@@ -171,6 +171,15 @@ export async function executeSignal(
     return { ok: false, error: 'No balance available' };
   }
 
+  /** Минимальный баланс для реального счёта: OKX при малой марже часто отклоняет ордера */
+  const MIN_BALANCE_REAL = 25;
+  if (!useTestnet && balance < MIN_BALANCE_REAL) {
+    return {
+      ok: false,
+      error: `Баланс OKX (Real) слишком мал: $${balance.toFixed(2)}. Для реальной торговли пополните счёт до $${MIN_BALANCE_REAL}+ или переключитесь на «Демо (Testnet)» в настройках.`
+    };
+  }
+
   const symbol = normalizeSymbol(signal.symbol);
   const ccxtSymbol = toOkxCcxtSymbol(symbol) || 'BTC/USDT:USDT';
   const entryPrice = signal.entry_price ?? 0;
@@ -193,7 +202,8 @@ export async function executeSignal(
   }
 
   // Ограничиваем долю баланса запасом (OKX может отклонять при точном 100% из-за комиссий и маржи)
-  const maxUsableBalance = balance * 0.85;
+  const reserveRatio = balance < 50 ? 0.7 : 0.85; // при малом балансе — больший запас
+  const maxUsableBalance = balance * reserveRatio;
   const margin = Math.min((balance * options.sizePercent) / 100, maxUsableBalance);
   const positionValue = margin * options.leverage;
   let amount = positionValue / entryPrice; // контракты в базе (BTC и т.д.)

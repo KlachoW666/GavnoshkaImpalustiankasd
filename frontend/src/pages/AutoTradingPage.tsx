@@ -130,7 +130,7 @@ const LONG_MIN_CONFIDENCE_BONUS = 8;
 
 /** Настройки для полного автомата — система подбирает лучший результат */
 const FULL_AUTO_DEFAULTS = {
-  sizePercent: 5,
+  sizePercent: 25,
   leverage: 25,
   minConfidence: 82,
   useSignalSLTP: true,
@@ -1609,7 +1609,16 @@ export default function AutoTradingPage() {
                         </div>
                         <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Количество: </span>{amountStr}</p>
                         <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Вход: </span>{p.entryPrice != null ? Number(p.entryPrice).toLocaleString('ru-RU') : '—'}</p>
-                        {p.notional != null && <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Объём: </span>${Number(p.notional).toFixed(2)}</p>}
+                        {p.notional != null && (() => {
+                          const lev = Math.max(1, Number(p.leverage) || 1);
+                          const stake = Number(p.notional) / lev;
+                          return (
+                            <>
+                              <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Ставка: </span>${stake.toFixed(2)}</p>
+                              <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Ставка с плечом {lev}x: </span>${Number(p.notional).toFixed(2)}</p>
+                            </>
+                          );
+                        })()}
                         {p.stopLoss != null && <p className="text-sm"><span style={{ color: 'var(--danger)' }}>SL: </span>{Number(p.stopLoss).toLocaleString('ru-RU')}</p>}
                         {p.takeProfit != null && <p className="text-sm"><span style={{ color: 'var(--success)' }}>TP: </span>{Number(p.takeProfit).toLocaleString('ru-RU')}</p>}
                         <p className={`text-sm font-medium ${(p.unrealizedPnl ?? 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>

@@ -30,7 +30,7 @@ const router = Router();
 let autoAnalyzeExecuteOrders = false;
 let autoAnalyzeUseTestnet = true;
 let autoAnalyzeMaxPositions = 2;
-let autoAnalyzeSizePercent = 5;
+let autoAnalyzeSizePercent = 25;
 let autoAnalyzeLeverage = 25;
 let autoAnalyzeTpMultiplier = 1;
 
@@ -704,7 +704,7 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   const executeOrders = Boolean(body?.executeOrders);
   const useTestnet = typeof body?.useTestnet === 'boolean' ? body.useTestnet : true;
   const maxPositions = Math.max(1, Math.min(10, parseInt(String(body?.maxPositions)) || 2));
-  const sizePercent = Math.max(1, Math.min(50, parseInt(String(body?.sizePercent)) || 5));
+  const sizePercent = Math.max(1, Math.min(50, parseInt(String(body?.sizePercent)) || 25));
   const leverage = Math.max(1, Math.min(125, parseInt(String(body?.leverage)) || 25));
   const tpMultiplier = Math.max(0.5, Math.min(1, parseFloat(String(body?.tpMultiplier)) || 0.85));
 
