@@ -47,7 +47,7 @@ interface PerUserAutoState {
 }
 const autoAnalyzeByUser = new Map<string, PerUserAutoState>();
 /** Результат последнего исполнения по userId (для отображения на фронте) */
-const lastExecutionByUser = new Map<string, { lastError?: string; lastOrderId?: string; useTestnet?: boolean; at: number }>();
+const lastExecutionByUser = new Map<string, { lastError?: string; lastSkipReason?: string; lastOrderId?: string; useTestnet?: boolean; at: number }>();
 const faFilter = new FundamentalFilter();
 const aggregator = new DataAggregator();
 const candleAnalyzer = new CandleAnalyzer();
@@ -622,9 +622,9 @@ async function runAutoTradingBestCycle(
   const hasUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
   const canExecute = config.autoTradingExecutionEnabled && executeOrders && (config.okx.hasCredentials || hasUserCreds);
 
-  const setLastExecution = (err?: string, orderId?: string) => {
+  const setLastExecution = (err?: string, orderId?: string, skipReason?: string) => {
     if (userId) {
-      lastExecutionByUser.set(userId, { lastError: err, lastOrderId: orderId, useTestnet, at: Date.now() });
+      lastExecutionByUser.set(userId, { lastError: err, lastSkipReason: skipReason, lastOrderId: orderId, useTestnet, at: Date.now() });
     }
   };
 
@@ -680,12 +680,7 @@ async function runAutoTradingBestCycle(
       logger.warn('runAutoTradingBestCycle', `OKX execution skipped: ${err}`);
       if (userId) {
         const cur = lastExecutionByUser.get(userId);
-        lastExecutionByUser.set(userId, {
-          lastError: isBalanceSkip ? undefined : err,
-          lastOrderId: cur?.lastOrderId,
-          useTestnet,
-          at: Date.now()
-        });
+        setLastExecution(isBalanceSkip ? undefined : err, cur?.lastOrderId, isBalanceSkip ? err : undefined);
       }
     }
   }).catch((e) => {
@@ -812,6 +807,7 @@ router.get('/auto-analyze/last-execution', requireAuth, (req, res) => {
   if (!last) return res.json({});
   return res.json({
     lastError: last.lastError,
+    lastSkipReason: last.lastSkipReason,
     lastOrderId: last.lastOrderId,
     useTestnet: last.useTestnet,
     at: last.at

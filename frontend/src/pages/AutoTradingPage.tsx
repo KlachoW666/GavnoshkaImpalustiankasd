@@ -377,7 +377,7 @@ export default function AutoTradingPage() {
   const [lastBreakdown, setLastBreakdown] = useState<BreakdownType | null>(null);
   const [status, setStatus] = useState<'idle' | 'running' | 'error' | 'stopped_daily_loss'>('idle');
   const [okxData, setOkxData] = useState<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number }>; balance: number; openCount: number; useTestnet: boolean; balanceError?: string; executionAvailable?: boolean } | null>(null);
-  const [lastExecution, setLastExecution] = useState<{ lastError?: string; lastOrderId?: string; useTestnet?: boolean; at?: number } | null>(null);
+  const [lastExecution, setLastExecution] = useState<{ lastError?: string; lastSkipReason?: string; lastOrderId?: string; useTestnet?: boolean; at?: number } | null>(null);
   const [cycleTimer, setCycleTimer] = useState<{ lastCycleAt: number; intervalMs: number } | null>(null);
   const [, setTick] = useState(0);
   const [serverHistory, setServerHistory] = useState<HistoryEntry[]>([]);
@@ -493,8 +493,8 @@ export default function AutoTradingPage() {
       return;
     }
     const fetchLast = () => {
-      api.get<{ lastError?: string; lastOrderId?: string; useTestnet?: boolean; at?: number }>('/market/auto-analyze/last-execution', { headers: { Authorization: `Bearer ${token}` } })
-        .then((data) => setLastExecution(data?.lastError !== undefined || data?.lastOrderId !== undefined ? data : null))
+      api.get<{ lastError?: string; lastSkipReason?: string; lastOrderId?: string; useTestnet?: boolean; at?: number }>('/market/auto-analyze/last-execution', { headers: { Authorization: `Bearer ${token}` } })
+        .then((data) => setLastExecution(data?.lastError !== undefined || data?.lastSkipReason !== undefined || data?.lastOrderId !== undefined ? data : null))
         .catch(() => setLastExecution(null));
     };
     fetchLast();
@@ -1034,6 +1034,13 @@ export default function AutoTradingPage() {
             )}
             <span className="text-sm px-4 py-2 rounded-xl font-medium" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>{mode === 'spot' ? 'SPOT 1x' : `Futures ${leverage}x`}</span>
           </div>
+        {enabled && settings.fullAuto && !settings.executeOrders && (
+          <div className="mt-4 pt-4 border-t text-sm" style={{ borderColor: 'var(--border)' }}>
+            <p className="font-medium" style={{ color: 'var(--warning)' }}>
+              Исполнение через OKX выключено — включите в настройках ниже, чтобы открывать позиции по сигналам.
+            </p>
+          </div>
+        )}
         {enabled && settings.fullAuto && settings.executeOrders && lastExecution && (
           <div className="mt-4 pt-4 border-t text-sm" style={{ borderColor: 'var(--border)' }}>
             {lastExecution.lastOrderId ? (
@@ -1043,6 +1050,10 @@ export default function AutoTradingPage() {
             ) : lastExecution.lastError ? (
               <p className="font-medium" style={{ color: 'var(--danger)' }} title={lastExecution.lastError}>
                 Ордер не выставлен: {lastExecution.lastError}
+              </p>
+            ) : lastExecution.lastSkipReason ? (
+              <p className="font-medium" style={{ color: 'var(--warning)' }} title={lastExecution.lastSkipReason}>
+                Позиция не открыта: {lastExecution.lastSkipReason}
               </p>
             ) : null}
             <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
