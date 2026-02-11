@@ -1573,7 +1573,7 @@ export default function AutoTradingPage() {
                         style={{ borderColor: 'var(--accent)', background: 'var(--accent-dim)' }}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-bold">{symNorm || p.symbol ?? '—'} {p.side === 'long' ? 'LONG' : 'SHORT'}</span>
+                          <span className="font-bold">{(symNorm || p.symbol) || '—'} {p.side === 'long' ? 'LONG' : 'SHORT'}</span>
                           <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'var(--accent)', color: 'white' }}>
                             OKX {okxData.useTestnet ? 'Demo' : 'Real'}
                           </span>
