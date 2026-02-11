@@ -30,11 +30,34 @@ export interface ExecuteResult {
   error?: string;
 }
 
+export interface UserOkxCreds {
+  apiKey: string;
+  secret: string;
+  passphrase?: string;
+}
+
 function buildExchange(useTestnet: boolean): Exchange {
   const opts: Record<string, unknown> = {
     apiKey: config.okx.apiKey,
     secret: config.okx.secret,
     password: config.okx.passphrase,
+    enableRateLimit: true,
+    options: {
+      defaultType: 'swap',
+      sandboxMode: useTestnet
+    },
+    timeout: 20000
+  };
+  const proxyUrl = getProxy(config.proxyList) || config.proxy;
+  if (proxyUrl) (opts as any).httpsProxy = proxyUrl;
+  return new ccxt.okx(opts);
+}
+
+function buildExchangeFromCreds(creds: UserOkxCreds, useTestnet: boolean): Exchange {
+  const opts: Record<string, unknown> = {
+    apiKey: creds.apiKey,
+    secret: creds.secret,
+    password: creds.passphrase ?? '',
     enableRateLimit: true,
     options: {
       defaultType: 'swap',
@@ -207,5 +230,46 @@ export async function fetchPositionsForApi(useTestnet: boolean): Promise<Array<{
   } catch (e) {
     logger.warn('AutoTrader', 'fetchPositions failed', { error: (e as Error).message });
     return [];
+  }
+}
+
+/** Позиции и баланс OKX: при передаче userCreds — ключи пользователя (как в админке), иначе ключи из .env */
+export async function getPositionsAndBalanceForApi(
+  useTestnet: boolean,
+  userCreds?: UserOkxCreds | null
+): Promise<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number; leverage: number }>; balance: number; openCount: number }> {
+  const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
+  const exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
+  if (!useUserCreds && !config.okx.hasCredentials) {
+    return { positions: [], balance: 0, openCount: 0 };
+  }
+  try {
+    const [balanceRes, positionsRes] = await Promise.all([
+      exchange.fetchBalance(),
+      exchange.fetchPositions(['swap'])
+    ]);
+    const usdt = (balanceRes as any).USDT ?? balanceRes?.usdt;
+    const total = usdt?.total ?? 0;
+    const free = usdt?.free ?? total;
+    const balance = typeof free === 'number' ? free : 0;
+    const positions = positionsRes
+      .filter((p: any) => {
+        const sz = Number(p.contracts ?? p.info?.pos ?? 0);
+        return sz !== 0;
+      })
+      .map((p: any) => ({
+        symbol: p.symbol ?? p.info?.instId ?? '',
+        side: p.side ?? (Number(p.info?.pos ?? 0) > 0 ? 'long' : 'short'),
+        contracts: Number(p.contracts ?? p.info?.pos ?? 0),
+        entryPrice: Number(p.entryPrice ?? p.info?.avgPx ?? 0),
+        markPrice: p.markPrice != null ? Number(p.markPrice) : undefined,
+        unrealizedPnl: p.unrealizedPnl != null ? Number(p.unrealizedPnl) : undefined,
+        leverage: Number(p.leverage ?? p.info?.lever ?? 1)
+      }));
+    const openCount = positions.length;
+    return { positions, balance, openCount };
+  } catch (e) {
+    logger.warn('AutoTrader', 'getPositionsAndBalance failed', { error: (e as Error).message, useUserCreds: !!useUserCreds });
+    return { positions: [], balance: 0, openCount: 0 };
   }
 }

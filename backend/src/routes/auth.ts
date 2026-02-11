@@ -39,7 +39,7 @@ function normalizeAllowedTabs(tabs: string[] | null | undefined): string[] {
   return [...set];
 }
 
-function getBearerToken(req: Request): string | null {
+export function getBearerToken(req: Request): string | null {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith('Bearer ')) return null;
   return auth.slice(7).trim() || null;

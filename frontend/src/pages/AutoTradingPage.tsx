@@ -423,7 +423,9 @@ export default function AutoTradingPage() {
     }
     const useTestnet = settings.useTestnet !== false;
     const fetchOkx = () => {
-      api.get<{ positions: any[]; balance: number; openCount: number; useTestnet: boolean }>(`/trading/positions?useTestnet=${useTestnet}`)
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+      api.get<{ positions: any[]; balance: number; openCount: number; useTestnet: boolean }>(`/trading/positions?useTestnet=${useTestnet}`, { headers })
         .then((data) => setOkxData(data))
         .catch(() => setOkxData(null));
     };
@@ -431,7 +433,7 @@ export default function AutoTradingPage() {
     fetchOkx();
     const id = setInterval(fetchOkx, 15000);
     return () => clearInterval(id);
-  }, [enabled, settings.fullAuto, settings.executeOrders, settings.useTestnet]);
+  }, [enabled, settings.fullAuto, settings.executeOrders, settings.useTestnet, token]);
 
   useEffect(() => {
     if (!enabled) return;

@@ -5,7 +5,10 @@
 import { Router, Request, Response } from 'express';
 import { emotionalFilterInstance } from '../services/emotionalFilter';
 import { setNotificationConfig, getNotificationConfig } from '../services/notificationService';
-import { fetchPositionsForApi, getTradingBalance, getOpenPositionsCount } from '../services/autoTrader';
+import { getPositionsAndBalanceForApi } from '../services/autoTrader';
+import { getBearerToken } from './auth';
+import { findSessionUserId } from '../db/authDb';
+import { getOkxCredentials } from '../db/authDb';
 import { config } from '../config';
 import { logger } from '../lib/logger';
 
@@ -95,20 +98,21 @@ router.get('/notifications', (_req: Request, res: Response) => {
 
 /**
  * GET /api/trading/positions
- * Позиции на OKX (при включённом исполнении). Query: useTestnet=true|false
+ * Позиции на OKX. Query: useTestnet=true|false
+ * Если передан Authorization — используются ключи пользователя (как в админке), иначе ключи из .env
  */
 router.get('/positions', async (req: Request, res: Response) => {
   try {
-    if (!config.okx.hasCredentials) {
-      res.json({ positions: [], balance: 0, openCount: 0, executionAvailable: false });
+    const useTestnet = req.query.useTestnet !== 'false';
+    const token = getBearerToken(req);
+    const userId = token ? findSessionUserId(token) : null;
+    const userCreds = userId ? getOkxCredentials(userId) : null;
+    const hasCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
+    if (!hasCreds && !config.okx.hasCredentials) {
+      res.json({ positions: [], balance: 0, openCount: 0, executionAvailable: false, useTestnet });
       return;
     }
-    const useTestnet = req.query.useTestnet !== 'false';
-    const [positions, balance, openCount] = await Promise.all([
-      fetchPositionsForApi(useTestnet),
-      getTradingBalance(useTestnet),
-      getOpenPositionsCount(useTestnet)
-    ]);
+    const { positions, balance, openCount } = await getPositionsAndBalanceForApi(useTestnet, hasCreds ? userCreds : undefined);
     res.json({
       positions,
       balance,
