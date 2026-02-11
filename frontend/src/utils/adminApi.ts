@@ -1,8 +1,8 @@
 /**
  * API админ-панели с токеном.
+ * В продакшене при другом хосте задайте VITE_API_URL (например https://backend.example.com/api).
  */
-
-const API_BASE = '/api';
+const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || '/api';
 
 const STORAGE_KEY = 'admin_token';
 

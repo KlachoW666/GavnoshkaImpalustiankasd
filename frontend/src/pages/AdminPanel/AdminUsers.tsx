@@ -57,6 +57,7 @@ export default function AdminUsers() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [userDetail, setUserDetail] = useState<UserDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const [extendDuration, setExtendDuration] = useState('');
   const [extendLoading, setExtendLoading] = useState(false);
 
@@ -78,7 +79,8 @@ export default function AdminUsers() {
       setUsers(u);
       setGroups(g);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ошибка загрузки');
+      const msg = e instanceof Error ? e.message : 'Ошибка загрузки';
+      setError(msg === 'Failed to fetch' ? 'Нет связи с сервером. Проверьте адрес API и сеть.' : msg);
       if (String(e).includes('401')) clearAdminToken();
     } finally {
       setLoading(false);
@@ -88,11 +90,13 @@ export default function AdminUsers() {
   const fetchUserDetail = useCallback(async (userId: string) => {
     setDetailLoading(true);
     setUserDetail(null);
+    setDetailError(null);
     try {
       const d = await adminApi.get<UserDetail>(`/admin/users/${userId}`);
       setUserDetail(d);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ошибка загрузки');
+      const msg = e instanceof Error ? e.message : 'Ошибка загрузки';
+      setDetailError(msg === 'Failed to fetch' ? 'Нет связи с сервером. Проверьте адрес API и сеть.' : msg);
     } finally {
       setDetailLoading(false);
     }
@@ -326,7 +330,7 @@ export default function AdminUsers() {
             </div>
             <button
               type="button"
-              onClick={() => { setSelectedUserId(null); setUserDetail(null); setExtendDuration(''); }}
+              onClick={() => { setSelectedUserId(null); setUserDetail(null); setDetailError(null); setExtendDuration(''); }}
               className="px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
               style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
             >
@@ -335,6 +339,18 @@ export default function AdminUsers() {
           </div>
           {detailLoading ? (
             <div className="py-12 text-center" style={{ color: 'var(--text-muted)' }}>Загрузка…</div>
+          ) : detailError ? (
+            <div className="py-8 text-center">
+              <p className="text-sm mb-3" style={{ color: 'var(--danger)' }}>{detailError}</p>
+              <button
+                type="button"
+                onClick={() => selectedUserId && fetchUserDetail(selectedUserId)}
+                className="px-4 py-2 rounded-xl text-sm font-medium"
+                style={{ background: 'var(--accent)', color: 'white' }}
+              >
+                Повторить
+              </button>
+            </div>
           ) : userDetail ? (
             <div className="space-y-6">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

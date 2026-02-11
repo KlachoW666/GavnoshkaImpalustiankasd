@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('connections');
   const [settings, setSettings] = useState<Settings>(getSettings);
   const [connStatus, setConnStatus] = useState<Record<string, { ok?: boolean; msg?: string; checking?: boolean }>>({});
+  const [saveOkxStatus, setSaveOkxStatus] = useState<{ ok?: boolean; msg?: string; saving?: boolean }>({});
   const [tgTestStatus, setTgTestStatus] = useState<{ ok?: boolean; msg?: string; testing?: boolean }>({});
 
   useEffect(() => {
@@ -111,6 +112,40 @@ export default function SettingsPage() {
       setConnStatus((s) => ({ ...s, public_okx: { ok: data.ok, msg: data.message } }));
     } catch (e: any) {
       setConnStatus((s) => ({ ...s, public_okx: { ok: false, msg: e?.message || 'Ошибка' } }));
+    }
+  };
+
+  const saveOkxForTrading = async () => {
+    const conn = settings.connections.okx;
+    if (!conn.apiKey?.trim() || !conn.apiSecret?.trim()) {
+      setSaveOkxStatus({ ok: false, msg: 'Введите API Key и Secret' });
+      return;
+    }
+    if (!token) {
+      setSaveOkxStatus({ ok: false, msg: 'Войдите в аккаунт, чтобы сохранить ключи на сервер' });
+      return;
+    }
+    setSaveOkxStatus({ saving: true });
+    try {
+      const res = await fetch(`${API}/auth/me/okx-connection`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          apiKey: conn.apiKey.trim(),
+          secret: conn.apiSecret.trim(),
+          passphrase: (conn.passphrase ?? '').trim()
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        setSaveOkxStatus({ ok: true, msg: 'Ключи сохранены. Исполнение ордеров и баланс будут использовать их.' });
+      } else {
+        setSaveOkxStatus({ ok: false, msg: (data as { error?: string }).error || 'Ошибка сохранения' });
+      }
+    } catch (e: any) {
+      setSaveOkxStatus({ ok: false, msg: e?.message || 'Ошибка сети' });
+    } finally {
+      setSaveOkxStatus((s) => ({ ...s, saving: false }));
     }
   };
 
@@ -247,6 +282,14 @@ export default function SettingsPage() {
                   {connStatus.okx?.checking ? 'Проверка…' : 'Проверить подключение'}
                 </button>
                 <button
+                  onClick={saveOkxForTrading}
+                  disabled={saveOkxStatus.saving}
+                  className="px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50"
+                  style={{ background: 'var(--success)', color: 'white' }}
+                >
+                  {saveOkxStatus.saving ? 'Сохранение…' : 'Сохранить для торговли Real'}
+                </button>
+                <button
                   onClick={testPublicApi}
                   disabled={connStatus.public_okx?.checking}
                   className="px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50"
@@ -257,6 +300,9 @@ export default function SettingsPage() {
               </div>
               {connStatus.okx?.msg && (
                 <p className={`mt-2 text-sm ${connStatus.okx.ok ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{connStatus.okx.msg}</p>
+              )}
+              {saveOkxStatus.msg && (
+                <p className={`mt-2 text-sm ${saveOkxStatus.ok ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{saveOkxStatus.msg}</p>
               )}
               {connStatus.public_okx?.msg && (
                 <p className={`mt-1 text-sm ${connStatus.public_okx.ok ? 'text-[var(--success)]' : 'text-[var(--warning)]'}`}>Публичный API: {connStatus.public_okx.msg}</p>
