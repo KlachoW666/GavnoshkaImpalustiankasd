@@ -82,7 +82,8 @@ export class CoinScanner {
     results.sort((a, b) => b.score - a.score);
     results.forEach((r, i) => r.rank = i + 1);
 
-    logger.info('CoinScanner', `Scan complete: ${results.length} coins scored`);
+    const topSymbols = results.slice(0, 10).map((r) => r.symbol.replace('/USDT:USDT', '')).join(', ');
+    logger.info('CoinScanner', `Scan complete: ${results.length} coins scored; top 10: ${topSymbols}`);
     return results;
   }
 

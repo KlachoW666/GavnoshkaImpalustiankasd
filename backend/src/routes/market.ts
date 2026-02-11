@@ -537,7 +537,7 @@ router.post('/analyze/:symbol', async (req, res) => {
   }
 });
 
-const MAX_SYMBOLS = 5;
+const MAX_SYMBOLS = 10;
 /** Сигналы 85%+ дают лучший результат — мин. порог 82% для авто-цикла */
 const AUTO_MIN_CONFIDENCE = 0.82;
 const AUTO_SCORE_WEIGHTS = { confidence: 0.5, riskReward: 0.35, confluence: 0.15 };
@@ -573,8 +573,10 @@ async function runAutoTradingBestCycle(
         checkMomentum: true
       });
       const fromScanner = topCoins.map((c) => scannerSymbolToMarket(c.symbol)).filter(Boolean);
-      if (fromScanner.length > 0) syms = fromScanner;
-      else logger.warn('runAutoTradingBestCycle', 'Scanner returned no coins, using fallback symbols');
+      if (fromScanner.length > 0) {
+        syms = fromScanner;
+        logger.info('runAutoTradingBestCycle', 'Scanner top symbols for analysis', { symbols: syms, topScores: topCoins.slice(0, 10).map((c) => ({ symbol: c.symbol, score: c.score })) });
+      } else logger.warn('runAutoTradingBestCycle', 'Scanner returned no coins, using fallback symbols');
     } catch (e) {
       logger.warn('runAutoTradingBestCycle', (e as Error).message, { useScanner: true });
     }

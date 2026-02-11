@@ -1030,6 +1030,11 @@ export default function AutoTradingPage() {
                     Цикл: {Math.max(0, Math.floor((Date.now() - cycleTimer.lastCycleAt) / 1000))} сек назад · След. через {Math.max(0, Math.floor((cycleTimer.intervalMs - (Date.now() - cycleTimer.lastCycleAt) % cycleTimer.intervalMs) / 1000))} сек
                   </span>
                 )}
+                {settings.fullAuto && settings.useScanner !== false && (
+                  <span className="text-xs px-4 py-2 rounded-xl" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }} title="Список из 30 монет: BTC, ETH, SOL, BNB, XRP, ADA, DOGE, ATOM, … По объёму и волатильности отбираем топ-5, по ним строим лучший сигнал.">
+                    Сканируем 30 монет → топ-10 по скорингу → лучший сигнал
+                  </span>
+                )}
               </>
             )}
             <span className="text-sm px-4 py-2 rounded-xl font-medium" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>{mode === 'spot' ? 'SPOT 1x' : `Futures ${leverage}x`}</span>
