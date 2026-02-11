@@ -666,7 +666,7 @@ export default function ChartView() {
         </div>
       </div>
 
-      <div className="w-full lg:w-72 space-y-4 shrink-0">
+      <div className="w-full lg:w-72 space-y-4 shrink-0 overflow-y-auto lg:max-h-[min(90vh,900px)]">
         <div
           className="rounded-xl p-4"
           style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}
@@ -697,7 +697,7 @@ export default function ChartView() {
               {currentPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           )}
-          <div className="overflow-hidden" style={{ height: '220px', minHeight: '220px' }}>
+          <div className="overflow-hidden shrink-0" style={{ height: '300px', minHeight: '300px' }}>
             {orderbook ? (
               orderbookView === 'depth' ? (
                 <div className="mt-1"><OrderbookDepthChart bids={orderbook.bids || []} asks={orderbook.asks || []} /></div>
