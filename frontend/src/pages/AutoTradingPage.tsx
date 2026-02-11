@@ -136,7 +136,7 @@ const FULL_AUTO_DEFAULTS = {
   useSignalSLTP: true,
   maxPositions: 2,
   cooldownSec: 600,
-  intervalMs: 60000,
+  intervalMs: 30000,
   strategy: 'futures25x' as const,
   autoClose: true,
   autoCloseTp: 2,
@@ -378,6 +378,8 @@ export default function AutoTradingPage() {
   const [status, setStatus] = useState<'idle' | 'running' | 'error' | 'stopped_daily_loss'>('idle');
   const [okxData, setOkxData] = useState<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number }>; balance: number; openCount: number; useTestnet: boolean; balanceError?: string; executionAvailable?: boolean } | null>(null);
   const [lastExecution, setLastExecution] = useState<{ lastError?: string; lastOrderId?: string; useTestnet?: boolean; at?: number } | null>(null);
+  const [cycleTimer, setCycleTimer] = useState<{ lastCycleAt: number; intervalMs: number } | null>(null);
+  const [, setTick] = useState(0);
   const [serverHistory, setServerHistory] = useState<HistoryEntry[]>([]);
   const closePositionRef = useRef<(pos: DemoPosition, price?: number) => void>(() => {});
   const positionsRef = useRef<DemoPosition[]>([]);
@@ -542,6 +544,33 @@ export default function AutoTradingPage() {
       setStatus('idle');
     };
   }, [enabled, symbols, settings.intervalMs, settings.scalpingMode, settings.strategy, settings.fullAuto, settings.useScanner, settings.executeOrders, settings.useTestnet, settings.tpMultiplier, token]);
+
+  useEffect(() => {
+    if (!enabled || status !== 'running' || !token) {
+      setCycleTimer(null);
+      return;
+    }
+    const fetchStatus = () => {
+      api.get<{ running: boolean; lastCycleAt?: number; intervalMs?: number }>('/market/auto-analyze/status', { headers: { Authorization: `Bearer ${token}` } })
+        .then((data) => {
+          if (data?.running && typeof data.lastCycleAt === 'number' && typeof data.intervalMs === 'number') {
+            setCycleTimer({ lastCycleAt: data.lastCycleAt, intervalMs: data.intervalMs });
+          } else {
+            setCycleTimer(null);
+          }
+        })
+        .catch(() => setCycleTimer(null));
+    };
+    fetchStatus();
+    const id = setInterval(fetchStatus, 3000);
+    return () => clearInterval(id);
+  }, [enabled, status, token]);
+
+  useEffect(() => {
+    if (!enabled || status !== 'running') return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [enabled, status]);
 
   useEffect(() => {
     const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
@@ -992,9 +1021,16 @@ export default function AutoTradingPage() {
               {enabled ? status === 'running' ? '● Анализ запущен' : status === 'error' ? '● Ошибка' : status === 'stopped_daily_loss' ? '● Дневной лимит' : '● Запуск...' : '○ Выключено'}
             </span>
             {enabled && status === 'running' && settings.fullAuto && (
-              <span className="text-xs px-4 py-2 rounded-xl" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
-                Ожидание сигнала ≥{FULL_AUTO_DEFAULTS.minConfidence}% · цикл каждые {FULL_AUTO_DEFAULTS.intervalMs / 60000} мин
-              </span>
+              <>
+                <span className="text-xs px-4 py-2 rounded-xl" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
+                  Ожидание сигнала ≥{FULL_AUTO_DEFAULTS.minConfidence}% · цикл каждые {FULL_AUTO_DEFAULTS.intervalMs >= 60000 ? `${FULL_AUTO_DEFAULTS.intervalMs / 60000} мин` : `${FULL_AUTO_DEFAULTS.intervalMs / 1000} сек`}
+                </span>
+                {cycleTimer && (
+                  <span className="text-xs px-4 py-2 rounded-xl tabular-nums font-medium" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }} title="Время последнего цикла анализа и до следующего">
+                    Цикл: {Math.max(0, Math.floor((Date.now() - cycleTimer.lastCycleAt) / 1000))} сек назад · След. через {Math.max(0, Math.floor((cycleTimer.intervalMs - (Date.now() - cycleTimer.lastCycleAt) % cycleTimer.intervalMs) / 1000))} сек
+                  </span>
+                )}
+              </>
             )}
             <span className="text-sm px-4 py-2 rounded-xl font-medium" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>{mode === 'spot' ? 'SPOT 1x' : `Futures ${leverage}x`}</span>
           </div>

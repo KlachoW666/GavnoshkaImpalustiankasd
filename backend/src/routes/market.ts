@@ -36,6 +36,8 @@ let autoAnalyzeTpMultiplier = 1;
 
 interface PerUserAutoState {
   timer: ReturnType<typeof setInterval>;
+  intervalMs: number;
+  lastCycleAt: number;
   executeOrders: boolean;
   useTestnet: boolean;
   maxPositions: number;
@@ -708,7 +710,7 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   if (syms.length === 0) syms = ['BTC-USDT'];
   const timeframe = (body?.timeframe as string) || '5m';
   const mode = (body?.mode as string) || 'default';
-  const intervalMs = Math.max(30000, Math.min(300000, parseInt(String(body?.intervalMs)) || 60000));
+  const intervalMs = Math.max(30000, Math.min(300000, parseInt(String(body?.intervalMs)) || 30000));
   const fullAuto = Boolean(body?.fullAuto);
   const useScanner = Boolean(body?.useScanner);
   const executeOrders = Boolean(body?.executeOrders);
@@ -726,6 +728,8 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   autoAnalyzeTpMultiplier = tpMultiplier;
 
   const runAll = () => {
+    const state = autoAnalyzeByUser.get(userId);
+    if (state) state.lastCycleAt = Date.now();
     if (fullAuto) {
       runAutoTradingBestCycle(syms, timeframe, useScanner, userId, {
         executeOrders: fullAuto && executeOrders,
@@ -741,9 +745,10 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
       }
     }
   };
-  runAll();
+  const now = Date.now();
   const timer = setInterval(runAll, intervalMs);
-  autoAnalyzeByUser.set(userId, { timer, executeOrders: fullAuto && executeOrders, useTestnet, maxPositions, sizePercent, leverage, tpMultiplier });
+  autoAnalyzeByUser.set(userId, { timer, intervalMs, lastCycleAt: now, executeOrders: fullAuto && executeOrders, useTestnet, maxPositions, sizePercent, leverage, tpMultiplier });
+  runAll();
   return {
     status: 'started',
     symbols: syms,
@@ -786,8 +791,12 @@ router.post('/auto-analyze/stop', requireAuth, (req, res) => {
   res.json({ status: 'stopped' });
 });
 
-export function getAutoAnalyzeStatus(userId?: string): { running: boolean } {
-  if (userId) return { running: !!autoAnalyzeByUser.get(userId)?.timer };
+export function getAutoAnalyzeStatus(userId?: string): { running: boolean; lastCycleAt?: number; intervalMs?: number } {
+  if (userId) {
+    const state = autoAnalyzeByUser.get(userId);
+    if (state?.timer) return { running: true, lastCycleAt: state.lastCycleAt, intervalMs: state.intervalMs };
+    return { running: false };
+  }
   return { running: autoAnalyzeByUser.size > 0 };
 }
 
