@@ -5,6 +5,7 @@ import { fetchPrice, normSymbol } from '../utils/fetchPrice';
 import { getPositionSize } from '../utils/positionSizing';
 import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import { getSettings } from '../store/settingsStore';
 import AnalysisBreakdown, { AnalysisBreakdown as BreakdownType } from '../components/AnalysisBreakdown';
 import PositionChart from '../components/PositionChart';
 import TradingAnalytics from '../components/TradingAnalytics';
@@ -785,6 +786,65 @@ export default function AutoTradingPage() {
   const avgLoss = lossTrades > 0 ? grossLoss / lossTrades : 0;
   const bestTrade = validHistory.length ? Math.max(...validHistory.map((h) => h.pnl), 0) : 0;
   const worstTrade = validHistory.length ? Math.min(...validHistory.map((h) => h.pnl), 0) : 0;
+
+  const okxConn = getSettings().connections.okx;
+  const hasApiKeys = !!(okxConn?.apiKey?.trim() && okxConn?.apiSecret?.trim());
+
+  if (!hasApiKeys) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <section
+          className="rounded-2xl p-8 shadow-lg"
+          style={{
+            background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
+            border: '1px solid var(--border)',
+            borderLeft: '4px solid var(--warning)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+          }}
+        >
+          <div className="flex items-center gap-3 mb-6">
+            <span className="text-3xl">🔑</span>
+            <div>
+              <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                Необходимо ввести API ключи
+              </h2>
+              <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                Доступ к Авто-торговле откроется после настройки подключения к OKX
+              </p>
+            </div>
+          </div>
+          <div className="space-y-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
+            <p className="leading-relaxed">
+              Чтобы пользоваться разделом «Авто-торговля», нужно указать API ключи биржи OKX в настройках приложения.
+            </p>
+            <div className="rounded-xl p-4 space-y-2" style={{ background: 'var(--bg-hover)' }}>
+              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Инструкция:</p>
+              <ol className="list-decimal list-inside space-y-1.5 pl-1">
+                <li>Откройте раздел <strong>Настройки</strong> (меню пользователя или Ctrl+,).</li>
+                <li>Перейдите на вкладку <strong>Подключения</strong>.</li>
+                <li>В блоке <strong>OKX</strong> введите API Key, Secret и Passphrase (создать ключи можно в личном кабинете OKX: API → Trading).</li>
+                <li>Включите ключ «Trading» и по желанию «Read». Не включайте «Withdraw» — для безопасности.</li>
+                <li>Нажмите <strong>Сохранить</strong> и при необходимости проверьте соединение.</li>
+              </ol>
+            </div>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Ключи хранятся локально в браузере и при необходимости передаются на сервер только для исполнения ордеров.
+            </p>
+          </div>
+          <div className="mt-6">
+            <button
+              type="button"
+              onClick={() => (window as any).__navigateTo?.('settings')}
+              className="px-5 py-2.5 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
+              style={{ background: 'var(--accent)', color: 'white' }}
+            >
+              Перейти в Настройки
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
