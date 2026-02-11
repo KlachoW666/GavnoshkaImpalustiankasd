@@ -260,32 +260,35 @@ router.get('/users', requireAdmin, (req: Request, res: Response) => {
   }
 });
 
-/** Получить баланс USDT с OKX по ключам пользователя. */
+/** Получить баланс USDT с OKX по ключам пользователя. Пробует real и testnet — ключи могут быть для любого из них. */
 async function fetchOkxBalanceForUser(userId: string): Promise<{ okxBalance: number | null; okxBalanceError: string | null }> {
   const creds = getOkxCredentials(userId);
   if (!creds) return { okxBalance: null, okxBalanceError: null };
   const proxyUrl = getProxy(config.proxyList) || config.proxy || '';
-  const opts: Record<string, unknown> = {
+  const baseOpts: Record<string, unknown> = {
     apiKey: creds.apiKey,
     secret: creds.secret,
     password: creds.passphrase || undefined,
     enableRateLimit: true,
-    options: { defaultType: 'swap' },
-    timeout: 15000
+    timeout: 15000,
+    options: { defaultType: 'swap' }
   };
-  if (proxyUrl) opts.httpsProxy = proxyUrl;
-  try {
-    const exchange = new ccxt.okx(opts);
-    const balance = await exchange.fetchBalance();
-    const usdt = (balance as any).USDT ?? balance?.usdt;
-    const total = usdt?.total ?? 0;
-    const value = typeof total === 'number' ? total : 0;
-    return { okxBalance: value, okxBalanceError: null };
-  } catch (e) {
-    const msg = (e as Error).message || String(e);
-    logger.warn('Admin', 'OKX balance fetch failed', { userId, error: msg });
-    return { okxBalance: null, okxBalanceError: msg };
+  if (proxyUrl) baseOpts.httpsProxy = proxyUrl;
+  let lastError: string | null = null;
+  for (const sandboxMode of [false, true]) {
+    try {
+      const exchange = new ccxt.okx({ ...baseOpts, options: { defaultType: 'swap', sandboxMode } });
+      const balance = await exchange.fetchBalance();
+      const usdt = (balance as any).USDT ?? balance?.usdt;
+      const total = usdt?.total ?? 0;
+      const value = typeof total === 'number' ? total : 0;
+      return { okxBalance: value, okxBalanceError: null };
+    } catch (e) {
+      lastError = (e as Error).message || String(e);
+      logger.warn('Admin', 'OKX balance fetch failed', { userId, sandboxMode, error: lastError });
+    }
   }
+  return { okxBalance: null, okxBalanceError: lastError };
 }
 
 /** GET /api/admin/users/:id — детали пользователя: ордера, PnL, telegram_id, подписка, OKX баланс */

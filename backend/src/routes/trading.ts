@@ -105,18 +105,25 @@ router.get('/positions', async (req: Request, res: Response) => {
   try {
     const useTestnet = req.query.useTestnet !== 'false';
     const token = getBearerToken(req);
-    const userId = token ? findSessionUserId(token) : null;
-    const userCreds = userId ? getOkxCredentials(userId) : null;
+    let userId: string | null = null;
+    let userCreds: { apiKey: string; secret: string; passphrase?: string } | null = null;
+    try {
+      userId = token ? findSessionUserId(token) : null;
+      userCreds = userId ? getOkxCredentials(userId) : null;
+    } catch (e) {
+      logger.warn('Trading', 'positions: get user creds failed', { error: (e as Error).message });
+    }
     const hasCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
     if (!hasCreds && !config.okx.hasCredentials) {
       res.json({ positions: [], balance: 0, openCount: 0, executionAvailable: false, useTestnet });
       return;
     }
-    const { positions, balance, openCount } = await getPositionsAndBalanceForApi(useTestnet, hasCreds ? userCreds : undefined);
+    const { positions, balance, openCount, balanceError } = await getPositionsAndBalanceForApi(useTestnet, hasCreds ? userCreds : undefined);
     res.json({
       positions,
       balance,
       openCount,
+      balanceError: balanceError ?? undefined,
       executionAvailable: config.autoTradingExecutionEnabled,
       useTestnet
     });

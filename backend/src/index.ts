@@ -126,10 +126,11 @@ export async function startServer(port: number = config.port): Promise<void> {
   initDb();
   seedDefaultAdmin();
   logger.info('Server', isMemoryStore() ? 'Database: in-memory (native SQLite unavailable)' : 'Database: SQLite initialized');
+  const host = process.env.HOST || '0.0.0.0';
   return new Promise((resolve) => {
-    server.listen(port, () => {
-      logger.info('Server', `API: http://localhost:${port}`);
-      logger.info('Server', `WebSocket: ws://localhost:${port}/ws`);
+    server.listen(port, host, () => {
+      logger.info('Server', `API: http://${host}:${port}`);
+      logger.info('Server', `WebSocket: ws://${host}:${port}/ws`);
       resolve();
     });
   });

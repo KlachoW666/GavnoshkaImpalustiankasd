@@ -372,7 +372,7 @@ export default function AutoTradingPage() {
   const [lastSignal, setLastSignal] = useState<TradingSignal | null>(null);
   const [lastBreakdown, setLastBreakdown] = useState<BreakdownType | null>(null);
   const [status, setStatus] = useState<'idle' | 'running' | 'error' | 'stopped_daily_loss'>('idle');
-  const [okxData, setOkxData] = useState<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number }>; balance: number; openCount: number; useTestnet: boolean } | null>(null);
+  const [okxData, setOkxData] = useState<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number }>; balance: number; openCount: number; useTestnet: boolean; balanceError?: string } | null>(null);
   const closePositionRef = useRef<(pos: DemoPosition, price?: number) => void>(() => {});
   const positionsRef = useRef<DemoPosition[]>([]);
   const closingIdsRef = useRef<Set<string>>(new Set());
@@ -425,7 +425,7 @@ export default function AutoTradingPage() {
     const fetchOkx = () => {
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
-      api.get<{ positions: any[]; balance: number; openCount: number; useTestnet: boolean }>(`/trading/positions?useTestnet=${useTestnet}`, { headers })
+      api.get<{ positions: any[]; balance: number; openCount: number; useTestnet: boolean; balanceError?: string }>(`/trading/positions?useTestnet=${useTestnet}`, { headers })
         .then((data) => setOkxData(data))
         .catch(() => setOkxData(null));
     };
@@ -1121,7 +1121,12 @@ export default function AutoTradingPage() {
             <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
               Баланс: ${(okxData.balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} · Открыто: {okxData.openCount ?? 0}
             </p>
-            {(okxData.balance ?? 0) === 0 && (
+            {okxData.balanceError && (
+              <p className="text-xs mb-2" style={{ color: 'var(--danger)' }} title={okxData.balanceError}>
+                Ошибка OKX: {okxData.balanceError}
+              </p>
+            )}
+            {!okxData.balanceError && (okxData.balance ?? 0) === 0 && (
               <p className="text-xs mb-2" style={{ color: 'var(--warning)' }}>
                 {okxData.useTestnet
                   ? 'Для исполнения ордеров пополните демо-счёт на okx.com (Testnet).'

@@ -181,6 +181,8 @@ log "Новый коммит: ${NEW_COMMIT:0:8}"
 
 if [ "$CURRENT_COMMIT" = "$NEW_COMMIT" ]; then
   success "Уже установлена последняя версия"
+  log "Пересборка backend (чтобы подхватить изменения при ручном pull)..."
+  (cd backend && npm run build 2>/dev/null) || warn "Backend build пропущен или не удался"
   if [ "$NO_RESTART" = false ]; then
     if command -v pm2 &>/dev/null; then
       if [ -f "$PM2_ECOSYSTEM" ]; then

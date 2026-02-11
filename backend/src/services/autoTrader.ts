@@ -237,7 +237,7 @@ export async function fetchPositionsForApi(useTestnet: boolean): Promise<Array<{
 export async function getPositionsAndBalanceForApi(
   useTestnet: boolean,
   userCreds?: UserOkxCreds | null
-): Promise<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number; leverage: number }>; balance: number; openCount: number }> {
+): Promise<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number; leverage: number }>; balance: number; openCount: number; balanceError?: string }> {
   const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
   const exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
   if (!useUserCreds && !config.okx.hasCredentials) {
@@ -269,7 +269,8 @@ export async function getPositionsAndBalanceForApi(
     const openCount = positions.length;
     return { positions, balance, openCount };
   } catch (e) {
-    logger.warn('AutoTrader', 'getPositionsAndBalance failed', { error: (e as Error).message, useUserCreds: !!useUserCreds });
-    return { positions: [], balance: 0, openCount: 0 };
+    const msg = (e as Error).message || String(e);
+    logger.warn('AutoTrader', 'getPositionsAndBalance failed', { error: msg, useUserCreds: !!useUserCreds });
+    return { positions: [], balance: 0, openCount: 0, balanceError: msg };
   }
 }
