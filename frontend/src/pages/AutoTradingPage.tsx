@@ -536,6 +536,8 @@ export default function AutoTradingPage() {
           if (!isTestSignal && now - lastOpen < cooldown * 1000) return;
 
           lastOpenTimeRef.current[sigNorm] = now;
+          // При исполнении на реальном счёте OKX ордер выставляет бэкенд — локальную демо-позицию не открываем
+          if (useFullAuto && st.executeOrders === true && st.useTestnet === false) return;
           const volMult = (bd as any)?.volatilityMultiplier ?? 1; // Sinclair: при высокой волатильности — меньше размер
           openPositionRef.current(s, sizePct, lev, { fullAuto: useFullAuto, volatilityMultiplier: volMult });
         }
