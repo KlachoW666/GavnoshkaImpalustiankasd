@@ -608,7 +608,7 @@ export default function DemoPage() {
           <p className="text-sm leading-relaxed py-6" style={{ color: 'var(--text-muted)' }}>Нет доступных сигналов. Нажмите «Получить сигнал» или запустите анализ на Dashboard.</p>
         ) : (
           <>
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex flex-wrap items-center gap-3 mb-4">
               <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Плечо:</span>
               {LEVERAGES.map((l) => (
                 <button
@@ -622,15 +622,34 @@ export default function DemoPage() {
                   {l}x
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => setSignals([])}
+                className="ml-auto px-3 py-1.5 text-xs font-medium rounded-lg transition-opacity hover:opacity-90"
+                style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+                title="Убрать все сигналы с экрана"
+              >
+                Очистить все
+              </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {signals.slice(0, 9).map((s, idx) => (
               <div
                 key={s.id ?? `sig-${idx}`}
-                className={`rounded-xl p-4 shrink-0 ${s.direction === 'LONG' ? 'border-l-4 border-l-[var(--success)]' : 'border-l-4 border-l-[var(--danger)]'}`}
+                className={`rounded-xl p-4 shrink-0 relative ${s.direction === 'LONG' ? 'border-l-4 border-l-[var(--success)]' : 'border-l-4 border-l-[var(--danger)]'}`}
                 style={cardStyle}
               >
-                <div className="flex justify-between items-center mb-3">
+                <button
+                  type="button"
+                  onClick={() => setSignals((prev) => prev.filter((x) => x !== s))}
+                  className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full transition-opacity hover:opacity-100 opacity-60"
+                  style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+                  title="Убрать сигнал"
+                  aria-label="Закрыть"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                </button>
+                <div className="flex justify-between items-center mb-3 pr-8">
                   <span className="font-bold">{s.symbol}</span>
                   <span className={s.direction === 'LONG' ? 'badge-long' : 'badge-short'}>
                     {s.direction}

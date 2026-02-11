@@ -78,25 +78,22 @@ export default function PnlCalculatorPage() {
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* ПАРАМЕТРЫ СДЕЛКИ */}
-        <div
-          className="rounded-xl border p-6"
-          style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}
-        >
+        <div className="panel p-6">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="font-semibold text-sm uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            <h3 className="section-title">
               Параметры сделки
             </h3>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setCurrency('RUB')}
-                className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                  currency === 'RUB' ? 'opacity-100' : 'opacity-50'
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all border ${
+                  currency === 'RUB' ? 'opacity-100' : 'opacity-60'
                 }`}
                 style={{
                   background: currency === 'RUB' ? 'var(--bg-hover)' : 'transparent',
                   color: 'var(--text-secondary)',
-                  border: '1px solid var(--border)'
+                  borderColor: 'var(--border)'
                 }}
               >
                 RUB
@@ -104,13 +101,13 @@ export default function PnlCalculatorPage() {
               <button
                 type="button"
                 onClick={() => setCurrency('USD')}
-                className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                  currency === 'USD' ? 'opacity-100' : 'opacity-50'
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all border ${
+                  currency === 'USD' ? 'opacity-100' : 'opacity-60'
                 }`}
                 style={{
                   background: currency === 'USD' ? 'var(--accent-dim)' : 'transparent',
                   color: currency === 'USD' ? 'var(--accent)' : 'var(--text-secondary)',
-                  border: `1px solid ${currency === 'USD' ? 'var(--accent)' : 'var(--border)'}`
+                  borderColor: currency === 'USD' ? 'var(--accent)' : 'var(--border)'
                 }}
               >
                 USD
@@ -118,8 +115,10 @@ export default function PnlCalculatorPage() {
               <button
                 type="button"
                 onClick={fetchCurrentPrice}
-                className="p-1.5 rounded hover:bg-[var(--bg-hover)] transition-colors"
+                className="p-2 rounded-lg transition-colors hover:opacity-90"
+                style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
                 title="Подставить текущую цену BTC"
+                aria-label="Обновить цену"
               >
                 <span className="text-base">🔄</span>
               </button>
@@ -130,22 +129,24 @@ export default function PnlCalculatorPage() {
             <button
               type="button"
               onClick={() => setDirection('LONG')}
-              className={`flex-1 py-3 rounded-lg font-semibold text-sm transition-all ${
+              className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-all border-2 ${
                 direction === 'LONG'
-                  ? 'bg-[var(--success-dim)] text-[var(--success)] border-2 border-[var(--success)]'
-                  : 'bg-[var(--bg-hover)] text-[var(--text-muted)] border-2 border-transparent'
+                  ? 'badge-long border-[var(--success)]'
+                  : 'border-transparent'
               }`}
+              style={direction === 'LONG' ? undefined : { background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
             >
               LONG
             </button>
             <button
               type="button"
               onClick={() => setDirection('SHORT')}
-              className={`flex-1 py-3 rounded-lg font-semibold text-sm transition-all ${
+              className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-all border-2 ${
                 direction === 'SHORT'
-                  ? 'bg-[var(--danger-dim)] text-[var(--danger)] border-2 border-[var(--danger)]'
-                  : 'bg-[var(--bg-hover)] text-[var(--text-muted)] border-2 border-transparent'
+                  ? 'badge-short border-[var(--danger)]'
+                  : 'border-transparent'
               }`}
+              style={direction === 'SHORT' ? undefined : { background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
             >
               SHORT
             </button>
@@ -153,7 +154,7 @@ export default function PnlCalculatorPage() {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>
+              <label className="block section-title mb-2">
                 Входная цена ($)
               </label>
               <input
@@ -167,7 +168,7 @@ export default function PnlCalculatorPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>
+              <label className="block section-title mb-2">
                 Цена выхода ($)
               </label>
               <input
@@ -181,7 +182,7 @@ export default function PnlCalculatorPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>
+              <label className="block section-title mb-2">
                 Маржа ($)
               </label>
               <input
@@ -195,7 +196,7 @@ export default function PnlCalculatorPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>
+              <label className="block section-title mb-2">
                 Кредитное плечо: <span style={{ color: 'var(--accent)' }}>{leverage}x</span>
               </label>
               <input
@@ -204,10 +205,9 @@ export default function PnlCalculatorPage() {
                 max={125}
                 value={leverage}
                 onChange={(e) => setLeverage(Number(e.target.value))}
-                className="w-full h-2 rounded-lg cursor-pointer accent-[var(--accent)]"
-                style={{ background: 'var(--bg-hover)' }}
+                className="slider-track w-full"
               />
-              <div className="flex justify-between text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+              <div className="flex justify-between section-title text-[10px] mt-1.5">
                 <span>1x</span>
                 <span>25x</span>
                 <span>50x</span>
@@ -218,7 +218,7 @@ export default function PnlCalculatorPage() {
             </div>
             {currency === 'RUB' && (
               <div>
-                <label className="block text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>
+                <label className="block section-title mb-2">
                   Курс USD/RUB
                 </label>
                 <input
@@ -235,20 +235,13 @@ export default function PnlCalculatorPage() {
         </div>
 
         {/* РЕЗУЛЬТАТ PNL */}
-        <div
-          className="rounded-xl border p-6 flex flex-col justify-center"
-          style={{ background: 'var(--bg-elevated)', borderColor: 'var(--border)' }}
-        >
+        <div className="panel p-6 flex flex-col justify-center">
           <div className="flex justify-between items-start mb-6">
-            <h3 className="font-semibold text-sm uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            <h3 className="section-title">
               Результат PNL
             </h3>
             {result && (
-              <span
-                className={`text-xs font-bold uppercase px-3 py-1 rounded-full ${
-                  isProfit ? 'bg-[var(--success-dim)] text-[var(--success)]' : 'bg-[var(--danger-dim)] text-[var(--danger)]'
-                }`}
-              >
+              <span className={isProfit ? 'badge-long' : 'badge-short'}>
                 {result.status}
               </span>
             )}
@@ -274,18 +267,18 @@ export default function PnlCalculatorPage() {
               >
                 ROE: {pnlPrefix}{result.roe.toFixed(2)}%
               </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center py-2" style={{ borderBottom: '1px solid var(--border)' }}>
-                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Объём позиции</span>
-                  <span className="font-medium">
+              <div className="space-y-0">
+                <div className="flex justify-between items-center py-3 border-b" style={{ borderColor: 'var(--border)' }}>
+                  <span className="section-title text-xs font-normal" style={{ color: 'var(--text-muted)' }}>Объём позиции</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
                     {result.positionVolume.toLocaleString('ru-RU', { minimumFractionDigits: 0 })} $
                   </span>
                 </div>
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                    <span>💀</span> Ликвидация
+                <div className="flex justify-between items-center py-3">
+                  <span className="section-title text-xs font-normal flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
+                    <span aria-hidden>💀</span> Ликвидация
                   </span>
-                  <span className="font-medium">
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
                     {result.liquidationPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2 })} $
                   </span>
                 </div>
@@ -298,7 +291,7 @@ export default function PnlCalculatorPage() {
           )}
         </div>
       </div>
-      <p className="mt-4 text-xs" style={{ color: 'var(--text-muted)' }}>
+      <p className="mt-4 px-1 text-xs section-title font-normal" style={{ color: 'var(--text-muted)' }}>
         Анализ стакана и свечей использует данные за последние 48 часов для более точного прогноза при открытии сделки.
       </p>
     </div>
