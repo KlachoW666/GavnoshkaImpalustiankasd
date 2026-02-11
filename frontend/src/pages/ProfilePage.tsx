@@ -35,8 +35,21 @@ export default function ProfilePage() {
   const [showWelcome] = useState(hasWelcomeParam);
 
   useEffect(() => {
-    api.get('/stats').then((data: any) => setStats(data)).catch(() => setStats(null));
-  }, []);
+    if (!token) {
+      setStats(null);
+      return;
+    }
+    const headers = { Authorization: `Bearer ${token}` };
+    api.get<{ orders: { total: number; wins: number; losses: number }; volumeEarned?: number }>('/auth/me/stats', { headers })
+      .then(setStats)
+      .catch(() => setStats(null));
+    const id = setInterval(() => {
+      api.get<{ orders: { total: number; wins: number; losses: number }; volumeEarned?: number }>('/auth/me/stats', { headers })
+        .then(setStats)
+        .catch(() => {});
+    }, 20000);
+    return () => clearInterval(id);
+  }, [token]);
 
   const expiresAt = user?.activationExpiresAt ?? null;
   const active = !!user?.activationActive;
@@ -207,9 +220,11 @@ export default function ProfilePage() {
           </div>
         </div>
         <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-          Общая статистика по закрытым сделкам в приложении (раздел «Авто»).
+          Ордера, открытые ботом на OKX, и закрытые в приложении или на бирже (данные обновляются автоматически).
         </p>
-        {stats ? (
+        {!token ? (
+          <p className="text-sm py-4 rounded-xl text-center" style={{ ...miniCardStyle, color: 'var(--text-muted)' }}>Войдите в аккаунт для просмотра статистики.</p>
+        ) : stats ? (
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-xl p-3 text-center" style={miniCardStyle}>
               <dt className="text-xs" style={{ color: 'var(--text-muted)' }}>Ордеров всего</dt>

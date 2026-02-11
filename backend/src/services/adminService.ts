@@ -3,7 +3,7 @@
  */
 
 import { getAutoAnalyzeStatus } from '../routes/market';
-import { listOrders, isMemoryStore } from '../db';
+import { initDb, listOrders, isMemoryStore } from '../db';
 import { listActivationKeys, listUsers, getOnlineUserIds } from '../db/authDb';
 import { emotionalFilterInstance } from './emotionalFilter';
 import { config } from '../config';
@@ -73,9 +73,13 @@ export interface DashboardData {
 const startTime = Date.now();
 
 export async function getDashboardData(): Promise<DashboardData> {
-  const orders = listOrders({ status: 'closed', limit: 500 });
+  initDb();
+  const orders = listOrders({ status: 'closed', limit: 2000 });
   const since24h = Date.now() - 24 * 60 * 60 * 1000;
-  const orders24h = orders.filter((o) => new Date(o.open_time).getTime() >= since24h);
+  const orders24h = orders.filter((o) => {
+    const closeTime = o.close_time ? new Date(o.close_time).getTime() : 0;
+    return closeTime >= since24h;
+  });
   const withPnl = orders24h.filter((o) => o.close_price != null && o.close_price > 0 && o.pnl != null);
   const wins = withPnl.filter((o) => (o.pnl ?? 0) > 0);
   const losses = withPnl.filter((o) => (o.pnl ?? 0) < 0);
@@ -90,7 +94,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     bestTrade = { pnl: best.pnl ?? 0, pair: best.pair };
     worstTrade = { pnl: worst.pnl ?? 0, pair: worst.pair };
   }
-  const openOrders = listOrders({ status: 'open', limit: 20 });
+  const openOrders = listOrders({ status: 'open', limit: 500 });
   const efState = emotionalFilter.getState();
   const canOpen = emotionalFilter.canOpenTrade();
   const autoStatus = getAutoAnalyzeStatus();

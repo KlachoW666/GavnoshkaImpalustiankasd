@@ -8,7 +8,7 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 import { config } from '../config';
 import { getDashboardData, validateAdminPassword, createAdminToken, validateAdminToken } from '../services/adminService';
 import { stopAutoAnalyze, getAutoAnalyzeStatus, startAutoAnalyzeForUser } from './market';
-import { listOrders } from '../db';
+import { initDb, listOrders } from '../db';
 import {
   listUsers,
   listGroups,
@@ -68,7 +68,13 @@ router.post('/login', (req: Request, res: Response) => {
 router.get('/dashboard', requireAdmin, async (_req: Request, res: Response) => {
   try {
     const data = await getDashboardData();
-    res.json(data);
+    const topWithBalance = await Promise.all(
+      data.topUsers.map(async (u) => {
+        const { okxBalance } = await fetchOkxBalanceForUser(u.userId);
+        return { ...u, okxBalance: okxBalance ?? null };
+      })
+    );
+    res.json({ ...data, topUsers: topWithBalance });
   } catch (e) {
     logger.error('Admin', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });
@@ -133,6 +139,7 @@ router.post('/trading/emergency', requireAdmin, (_req: Request, res: Response) =
 /** GET /api/admin/trades/history — история сделок из БД */
 router.get('/trades/history', requireAdmin, (req: Request, res: Response) => {
   try {
+    initDb();
     const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
     const clientId = req.query.clientId as string | undefined;
     const orders = listOrders({ clientId, status: 'closed', limit });
@@ -175,8 +182,9 @@ router.get('/signals/history', requireAdmin, (req: Request, res: Response) => {
 /** GET /api/admin/analytics — аналитика по ордерам */
 router.get('/analytics', requireAdmin, (req: Request, res: Response) => {
   try {
+    initDb();
     const limit = parseInt(req.query.limit as string) || 500;
-    const orders = listOrders({ status: 'closed', limit });
+    const orders = listOrders({ status: 'closed', limit: Math.min(limit, 5000) });
     const withPnl = orders.filter((o) => o.close_price != null && o.close_price > 0 && o.pnl != null);
     const wins = withPnl.filter((o) => (o.pnl ?? 0) > 0);
     const losses = withPnl.filter((o) => (o.pnl ?? 0) < 0);
@@ -308,6 +316,7 @@ async function fetchOkxBalanceForUser(userId: string): Promise<{ okxBalance: num
 /** GET /api/admin/users/:id — детали пользователя: ордера, PnL, telegram_id, подписка, OKX баланс */
 router.get('/users/:id', requireAdmin, async (req: Request, res: Response) => {
   try {
+    initDb();
     const userId = req.params.id;
     const allUsers = listUsers();
     const u = allUsers.find((x) => x.id === userId) as (typeof allUsers[0] & { activation_expires_at?: string | null }) | undefined;
@@ -316,8 +325,10 @@ router.get('/users/:id', requireAdmin, async (req: Request, res: Response) => {
       return;
     }
     const onlineIds = new Set(getOnlineUserIds());
-    const orders = listOrders({ clientId: userId, status: 'closed', limit: 500 });
-    const totalPnl = orders.reduce((s, o) => s + (o.pnl ?? 0), 0);
+    const closedOrders = listOrders({ clientId: userId, status: 'closed', limit: 500 });
+    const openOrders = listOrders({ clientId: userId, status: 'open', limit: 100 });
+    const totalPnl = closedOrders.reduce((s, o) => s + (o.pnl ?? 0), 0);
+    const allOrders = [...openOrders, ...closedOrders].sort((a, b) => (b.open_time || '').localeCompare(a.open_time || '')).slice(0, 100);
     const telegramId = getTelegramIdForUser(userId);
     const { okxBalance, okxBalanceError } = await fetchOkxBalanceForUser(userId);
     res.json({
@@ -334,8 +345,8 @@ router.get('/users/:id', requireAdmin, async (req: Request, res: Response) => {
       totalPnl,
       okxBalance: okxBalance ?? null,
       okxBalanceError: okxBalanceError ?? null,
-      ordersCount: orders.length,
-      orders: orders.slice(0, 100).map((o) => ({
+      ordersCount: closedOrders.length,
+      orders: allOrders.map((o) => ({
         id: o.id,
         pair: o.pair,
         direction: o.direction,

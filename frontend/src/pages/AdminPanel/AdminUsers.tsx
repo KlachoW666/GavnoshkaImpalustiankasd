@@ -122,6 +122,12 @@ export default function AdminUsers() {
     else setUserDetail(null);
   }, [selectedUserId, fetchUserDetail]);
 
+  useEffect(() => {
+    if (!selectedUserId) return;
+    const id = setInterval(() => fetchUserDetail(selectedUserId), 15000);
+    return () => clearInterval(id);
+  }, [selectedUserId, fetchUserDetail]);
+
   const extendSubscription = async () => {
     if (!selectedUserId || !extendDuration.trim()) return;
     setExtendLoading(true);

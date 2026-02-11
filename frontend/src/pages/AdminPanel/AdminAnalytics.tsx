@@ -31,23 +31,27 @@ export default function AdminAnalytics() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const load = async (isInitial: boolean) => {
+    if (isInitial) setLoading(true);
+    try {
+      const [a, t] = await Promise.all([
+        adminApi.get<AnalyticsData>('/admin/analytics?limit=500'),
+        adminApi.get<TradeRow[]>('/admin/trades/history?limit=100')
+      ]);
+      setAnalytics(a);
+      setTrades(t);
+      setError('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка загрузки');
+    } finally {
+      if (isInitial) setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const [a, t] = await Promise.all([
-          adminApi.get<AnalyticsData>('/admin/analytics?limit=500'),
-          adminApi.get<TradeRow[]>('/admin/trades/history?limit=100')
-        ]);
-        setAnalytics(a);
-        setTrades(t);
-        setError('');
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Ошибка загрузки');
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    load(true);
+    const id = setInterval(() => load(false), 15000);
+    return () => clearInterval(id);
   }, []);
 
   if (loading) return <p style={{ color: 'var(--text-muted)' }}>Загрузка…</p>;

@@ -18,6 +18,7 @@ import {
   redeemActivationKeyForUser,
   setOkxCredentials
 } from '../db/authDb';
+import { initDb, listOrders } from '../db';
 import { logger } from '../lib/logger';
 
 const router = Router();
@@ -194,6 +195,35 @@ router.get('/me', requireAuth, (req: Request, res: Response) => {
   } catch (e) {
     logger.error('Auth', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** GET /api/auth/me/stats — статистика по ордерам текущего пользователя (из БД: ордера бота + закрытия в приложении) */
+router.get('/me/stats', requireAuth, (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    initDb();
+    const closed = listOrders({ clientId: userId, status: 'closed', limit: 5000 });
+    const open = listOrders({ clientId: userId, status: 'open', limit: 500 });
+    const withPnl = closed.filter((o) => o.close_price != null && o.close_price > 0 && o.pnl != null);
+    const wins = withPnl.filter((o) => (o.pnl ?? 0) > 0);
+    const losses = withPnl.filter((o) => (o.pnl ?? 0) < 0);
+    const totalPnl = withPnl.reduce((s, o) => s + (o.pnl ?? 0), 0);
+    res.json({
+      orders: {
+        total: closed.length + open.length,
+        wins: wins.length,
+        losses: losses.length,
+        openCount: open.length
+      },
+      volumeEarned: Math.round(totalPnl * 100) / 100
+    });
+  } catch (e) {
+    logger.error('Auth', (e as Error).message);
+    res.status(500).json({
+      orders: { total: 0, wins: 0, losses: 0, openCount: 0 },
+      volumeEarned: 0
+    });
   }
 });
 
