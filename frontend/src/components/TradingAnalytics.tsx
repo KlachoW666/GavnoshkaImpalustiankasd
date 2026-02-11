@@ -190,9 +190,11 @@ function computeAnalytics(history: HistoryEntry[], minConfidence?: number): Anal
 interface TradingAnalyticsProps {
   history: HistoryEntry[];
   minConfidence?: number;
+  /** Скрыть блок «Рекомендации по улучшению» (например при полном автомате) */
+  hideSuggestions?: boolean;
 }
 
-export default function TradingAnalytics({ history, minConfidence }: TradingAnalyticsProps) {
+export default function TradingAnalytics({ history, minConfidence, hideSuggestions }: TradingAnalyticsProps) {
   if (!history.length) {
     return (
       <section className="card p-6 md:p-8">
@@ -290,7 +292,7 @@ export default function TradingAnalytics({ history, minConfidence }: TradingAnal
         </div>
       )}
 
-      {a.suggestions.length > 0 && (
+      {!hideSuggestions && a.suggestions.length > 0 && (
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent)' }}>Рекомендации по улучшению</p>
           <ul className="space-y-2">

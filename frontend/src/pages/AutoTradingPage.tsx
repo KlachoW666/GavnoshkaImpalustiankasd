@@ -1375,7 +1375,7 @@ export default function AutoTradingPage() {
         </section>
       </div>
 
-      <TradingAnalytics history={history} minConfidence={settings.minConfidence} />
+      <TradingAnalytics history={history} minConfidence={settings.minConfidence} hideSuggestions={settings.fullAuto} />
 
       <section className="card p-6 md:p-8">
         <h3 className="text-lg font-bold mb-6 tracking-tight">Открытые позиции ({positions.length})</h3>

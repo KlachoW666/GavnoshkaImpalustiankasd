@@ -666,9 +666,9 @@ export default function ChartView() {
         </div>
       </div>
 
-      <div className="w-full lg:w-72 space-y-4 shrink-0 overflow-y-auto lg:max-h-[min(90vh,900px)]">
+      <div className="w-full lg:w-72 space-y-4 shrink-0 flex flex-col">
         <div
-          className="rounded-xl p-4"
+          className="rounded-xl p-4 shrink-0"
           style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}
         >
           <div className="flex justify-between items-center mb-3">
@@ -713,7 +713,7 @@ export default function ChartView() {
         </div>
 
         <div
-          className="rounded-xl p-4"
+          className="rounded-xl p-4 shrink-0"
           style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}
         >
           <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Сделки (Trades)</h3>
@@ -738,7 +738,7 @@ export default function ChartView() {
 
         {lastSignal && (
           <div
-            className={`card p-5 border-l-4 ${lastSignal.direction === 'LONG' ? 'border-l-[var(--success)]' : 'border-l-[var(--danger)]'}`}
+            className={`rounded-xl p-4 shrink-0 border-l-4 ${lastSignal.direction === 'LONG' ? 'border-l-[var(--success)]' : 'border-l-[var(--danger)]'}`}
             style={lastSignal.direction === 'LONG' ? { background: 'var(--success-bg)' } : { background: 'var(--danger-bg)' }}
           >
             <h3 className="font-semibold mb-3">Прогноз</h3>

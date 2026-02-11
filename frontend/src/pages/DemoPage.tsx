@@ -309,41 +309,49 @@ export default function DemoPage() {
     return () => clearInterval(id);
   }, [positions.length, autoClose, autoCloseTp, autoCloseSl]);
 
+  const cardStyle = { background: 'var(--bg-card-solid)', border: '1px solid var(--border)' };
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      <section className="card p-6 md:p-8">
-        <h2 className="text-lg font-semibold mb-5 tracking-tight">Демо-торговля</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 items-end">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">📊</span>
           <div>
-            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>Баланс</p>
-            <p className="text-2xl font-bold">${balance.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</p>
+            <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Демо-торговля</h1>
+            <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              Виртуальный счёт $10 000. Открывайте позиции по сигналам без риска для капитала.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <section className="rounded-xl p-5 shrink-0" style={cardStyle}>
+        <div className="flex flex-wrap items-end gap-6">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Баланс</p>
+            <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>${balance.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</p>
           </div>
           <div>
-            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>P&L</p>
+            <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>P&L</p>
             <p className={`text-2xl font-bold ${totalPnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
               {totalPnl >= 0 ? '+' : ''}${totalPnl.toLocaleString('ru-RU', { minimumFractionDigits: 2 })} ({totalPnlPercent >= 0 ? '+' : ''}{totalPnlPercent.toFixed(2)}%)
             </p>
           </div>
-          <div className="col-span-2 sm:col-span-1 pt-2">
-            <button
-              onClick={() => {
-                setBalance(10000);
-                setPositions([]);
-                setHistory([]);
-              }}
-              className="btn-secondary text-sm px-6 py-2.5"
-            >
-              Сбросить счёт
-            </button>
-          </div>
+          <button
+            onClick={() => { setBalance(10000); setPositions([]); setHistory([]); }}
+            className="px-5 py-2.5 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
+            style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
+          >
+            Сбросить счёт
+          </button>
         </div>
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <section className="card p-5 md:p-6">
-          <h3 className="font-semibold mb-4 tracking-tight">Открытые позиции ({positions.length})</h3>
+        <section className="rounded-xl p-5 shrink-0" style={cardStyle}>
+          <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Открытые позиции ({positions.length})</h3>
           {positions.length === 0 ? (
-            <p className="text-sm leading-relaxed py-4" style={{ color: 'var(--text-muted)' }}>Нет открытых позиций. Выберите сигнал ниже для открытия демо-позиции.</p>
+            <p className="text-sm leading-relaxed py-6" style={{ color: 'var(--text-muted)' }}>Нет открытых позиций. Выберите сигнал ниже для открытия демо-позиции.</p>
           ) : (
             <div className="space-y-3">
               {positions.map((pos) => {
@@ -358,7 +366,8 @@ export default function DemoPage() {
                 return (
                   <div
                     key={pos.id}
-                    className={`rounded-xl border p-5 ${pos.signal.direction === 'LONG' ? 'border-[var(--success)]/30 bg-[var(--success-bg)]' : 'border-[var(--danger)]/30 bg-[var(--danger-bg)]'}`}
+                    className={`rounded-xl p-4 border-l-4 ${pos.signal.direction === 'LONG' ? 'border-l-[var(--success)]' : 'border-l-[var(--danger)]'}`}
+                    style={pos.signal.direction === 'LONG' ? { ...cardStyle, background: 'var(--success-bg)' } : { ...cardStyle, background: 'var(--danger-bg)' }}
                   >
                     <div className="flex justify-between items-start mb-2">
                       <span className="font-bold">{pos.signal.symbol} {pos.signal.direction}</span>
@@ -412,9 +421,9 @@ export default function DemoPage() {
           )}
         </section>
 
-        <section className="card p-6 md:p-8">
-          <h3 className="font-semibold mb-6 tracking-tight">Расширенная статистика</h3>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+        <section className="rounded-xl p-5 shrink-0" style={cardStyle}>
+          <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Расширенная статистика</h3>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
             <div className="flex justify-between items-baseline gap-4">
               <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Всего сделок</span>
               <span className="font-medium">{totalTrades}</span>
@@ -468,9 +477,9 @@ export default function DemoPage() {
       </div>
 
       {history.length > 0 && (
-        <section className="card p-6 md:p-8">
-          <h3 className="font-semibold mb-6 tracking-tight">История сделок</h3>
-          <div className="overflow-x-auto">
+        <section className="rounded-xl p-5 shrink-0" style={cardStyle}>
+          <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>История сделок</h3>
+          <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left border-b" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
@@ -505,9 +514,9 @@ export default function DemoPage() {
         </section>
       )}
 
-      <section className="card p-6 md:p-8">
-        <h3 className="font-semibold mb-6 tracking-tight">Сигналы для открытия демо-позиции</h3>
-        <div className="flex flex-wrap gap-6 items-center mb-6">
+      <section className="rounded-xl p-5 shrink-0" style={cardStyle}>
+        <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Сигналы для открытия демо-позиции</h3>
+        <div className="flex flex-wrap gap-4 items-center mb-5 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
           <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -583,41 +592,43 @@ export default function DemoPage() {
             value={analyzeSymbol}
             onChange={(e) => setAnalyzeSymbol(e.target.value.toUpperCase().replace(/\s/g, ''))}
             placeholder="BTC-USDT"
-            className="input-field w-32 text-sm"
+            className="rounded-xl px-3 py-2 text-sm border w-32 bg-transparent"
+            style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
           />
           <button
             onClick={getSignal}
             disabled={analyzing}
-            className="btn-primary disabled:opacity-50 disabled:hover:translate-y-0 text-sm px-5 py-2"
+            className="px-5 py-2 rounded-xl text-sm font-medium disabled:opacity-50 transition-opacity hover:opacity-90"
+            style={{ background: 'var(--accent)', color: 'white' }}
           >
             {analyzing ? 'Анализ...' : 'Получить сигнал'}
           </button>
         </div>
         {signals.length === 0 ? (
-          <p className="text-sm leading-relaxed py-4" style={{ color: 'var(--text-muted)' }}>Нет доступных сигналов. Нажмите «Получить сигнал» или запустите анализ на Dashboard.</p>
+          <p className="text-sm leading-relaxed py-6" style={{ color: 'var(--text-muted)' }}>Нет доступных сигналов. Нажмите «Получить сигнал» или запустите анализ на Dashboard.</p>
         ) : (
           <>
-            <div className="flex items-center gap-4 mb-4">
-              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Плечо:</span>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Плечо:</span>
               {LEVERAGES.map((l) => (
                 <button
                   key={l}
                   onClick={() => setLeverage(l)}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
-                    leverage === l
-                      ? 'bg-[var(--gradient-button)] text-white'
-                      : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
+                  className={`px-4 py-2 text-sm font-medium rounded-xl transition ${
+                    leverage === l ? 'text-white' : ''
                   }`}
+                  style={leverage === l ? { background: 'var(--accent)' } : { background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
                 >
                   {l}x
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {signals.slice(0, 9).map((s, idx) => (
               <div
                 key={s.id ?? `sig-${idx}`}
-                className={`card p-5 ${s.direction === 'LONG' ? 'border-l-4 border-l-[var(--success)]' : 'border-l-4 border-l-[var(--danger)]'}`}
+                className={`rounded-xl p-4 shrink-0 ${s.direction === 'LONG' ? 'border-l-4 border-l-[var(--success)]' : 'border-l-4 border-l-[var(--danger)]'}`}
+                style={cardStyle}
               >
                 <div className="flex justify-between items-center mb-3">
                   <span className="font-bold">{s.symbol}</span>
