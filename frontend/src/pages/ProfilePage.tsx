@@ -1,6 +1,7 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import { formatNum4, formatNum4Signed } from '../utils/formatNum';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -228,22 +229,25 @@ export default function ProfilePage() {
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-xl p-3 text-center" style={miniCardStyle}>
               <dt className="text-xs" style={{ color: 'var(--text-muted)' }}>Ордеров всего</dt>
-              <dd className="text-lg font-bold mt-0.5" style={{ color: 'var(--text-primary)' }}>{stats.orders?.total ?? 0}</dd>
+              <dd className="text-lg font-bold mt-0.5 tabular-nums" style={{ color: 'var(--text-primary)' }}>{Number(stats.orders?.total) || 0}</dd>
             </div>
             <div className="rounded-xl p-3 text-center" style={miniCardStyle}>
               <dt className="text-xs" style={{ color: 'var(--text-muted)' }}>Прибыльных / Убыточных</dt>
-              <dd className="text-lg font-bold mt-0.5">
-                <span style={{ color: 'var(--success)' }}>+{stats.orders?.wins ?? 0}</span>
+              <dd className="text-lg font-bold mt-0.5 tabular-nums">
+                <span style={{ color: 'var(--success)' }}>{formatNum4Signed(Number(stats.orders?.wins) || 0)}</span>
                 <span style={{ color: 'var(--text-muted)' }}> / </span>
-                <span style={{ color: 'var(--danger)' }}>-{stats.orders?.losses ?? 0}</span>
+                <span style={{ color: 'var(--danger)' }}>-{formatNum4(Number(stats.orders?.losses) || 0)}</span>
               </dd>
             </div>
             <div className="rounded-xl p-3 text-center col-span-2" style={miniCardStyle}>
               <dt className="text-xs" style={{ color: 'var(--text-muted)' }}>Объём (PnL)</dt>
-              <dd className={`text-xl font-bold mt-0.5 tabular-nums ${(stats.volumeEarned ?? 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                {(stats.volumeEarned ?? 0) >= 0 ? '+' : ''}{(stats.volumeEarned ?? 0).toFixed(2)} $
+              <dd className={`text-xl font-bold mt-0.5 tabular-nums ${(Number(stats.volumeEarned) || 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                {formatNum4Signed(Number(stats.volumeEarned) || 0)} $
               </dd>
             </div>
+            <p className="col-span-2 text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+              Прибыльных, убыточных и объём — по закрытым сделкам. При 0 закрытых значения будут +0,0000 / -0,0000 и +0,0000 $.
+            </p>
           </dl>
         ) : (
           <p className="text-sm py-4 rounded-xl text-center" style={{ ...miniCardStyle, color: 'var(--text-muted)' }}>Загрузка…</p>

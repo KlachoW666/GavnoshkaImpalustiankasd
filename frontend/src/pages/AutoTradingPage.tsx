@@ -420,11 +420,8 @@ export default function AutoTradingPage() {
     }).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (!token) {
-      setServerHistory([]);
-      return;
-    }
+  const fetchServerHistory = () => {
+    if (!token) return;
     api.get<Array<{
       id: string; pair: string; direction: string; size: number; leverage: number;
       openPrice: number; closePrice: number | null; stopLoss: number | null; takeProfit: number[] | null;
@@ -452,6 +449,16 @@ export default function AutoTradingPage() {
         setServerHistory(list);
       })
       .catch(() => setServerHistory([]));
+  };
+
+  useEffect(() => {
+    if (!token) {
+      setServerHistory([]);
+      return;
+    }
+    fetchServerHistory();
+    const id = setInterval(fetchServerHistory, 10000);
+    return () => clearInterval(id);
   }, [token]);
 
   const fetchOkxPositionsRef = useRef<() => void>(() => {});

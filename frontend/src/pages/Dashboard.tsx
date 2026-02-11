@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { TradingSignal } from '../types/signal';
 import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import { formatNum4, formatNum4Signed } from '../utils/formatNum';
 
 export interface AppStats {
   orders: {
@@ -34,7 +35,7 @@ export default function Dashboard() {
         .catch(() => setStats(null));
     };
     fetchStats();
-    const id = setInterval(fetchStats, 15000);
+    const id = setInterval(fetchStats, 10000);
     return () => clearInterval(id);
   }, [token]);
 
@@ -132,12 +133,12 @@ export default function Dashboard() {
           <p className="text-2xl md:text-3xl font-bold tracking-tight">
             {stats?.orders.total ?? '—'}
           </p>
-          {stats && stats.orders.total > 0 && (
+          {stats && (
             <p className="text-sm mt-2 flex items-center gap-2">
-              <span style={{ color: 'var(--success)' }}>+{stats.orders.wins}</span>
-              <span style={{ color: 'var(--text-muted)' }}>/</span>
-              <span style={{ color: 'var(--danger)' }}>-{stats.orders.losses}</span>
-              <span style={{ color: 'var(--text-muted)' }}>• Win rate {stats.orders.winRate}%</span>
+              <span style={{ color: 'var(--success)' }}>{formatNum4Signed(stats.orders.wins)}</span>
+              <span style={{ color: 'var(--text-muted)' }}> / </span>
+              <span style={{ color: 'var(--danger)' }}>-{formatNum4(stats.orders.losses)}</span>
+              <span style={{ color: 'var(--text-muted)' }}> • Win rate {formatNum4(stats.orders.winRate)}%</span>
             </p>
           )}
         </div>
@@ -155,8 +156,8 @@ export default function Dashboard() {
         </div>
         <div className="card p-5 md:p-6">
           <p className="text-sm mb-1 tracking-wide" style={{ color: 'var(--text-muted)' }}>Объём заработанных</p>
-          <p className={`text-2xl md:text-3xl font-bold tracking-tight ${(stats?.volumeEarned ?? 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-            {(stats?.volumeEarned ?? 0) >= 0 ? '+' : ''}{(stats?.volumeEarned ?? 0).toFixed(2)} $
+          <p className={`text-2xl md:text-3xl font-bold tracking-tight tabular-nums ${(stats?.volumeEarned ?? 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+            {formatNum4Signed(stats?.volumeEarned ?? 0)} $
           </p>
         </div>
         <div className="card p-5 md:p-6">
@@ -209,12 +210,12 @@ export default function Dashboard() {
         </div>
         <div className="card p-5 md:p-6">
           <p className="section-title mb-2">Ордера (прибыль / убыток)</p>
-          <p className="text-sm font-medium">
+          <p className="text-sm font-medium tabular-nums">
             {stats ? (
               <>
-                <span style={{ color: 'var(--success)' }}>+{stats.orders.wins}</span>
+                <span style={{ color: 'var(--success)' }}>{formatNum4Signed(stats.orders.wins)}</span>
                 <span style={{ color: 'var(--text-muted)' }}> / </span>
-                <span style={{ color: 'var(--danger)' }}>-{stats.orders.losses}</span>
+                <span style={{ color: 'var(--danger)' }}>-{formatNum4(stats.orders.losses)}</span>
                 <span className="block mt-1" style={{ color: 'var(--text-muted)' }}>Всего: {stats.orders.total}</span>
               </>
             ) : (

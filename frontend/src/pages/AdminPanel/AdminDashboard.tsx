@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { adminApi, clearAdminToken } from '../../utils/adminApi';
 import { api } from '../../utils/api';
+import { formatNum4, formatNum4Signed } from '../../utils/formatNum';
 
 interface DashboardData {
   system: {
@@ -167,14 +168,14 @@ export default function AdminDashboard() {
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>сделок</p>
             </div>
             <div className="rounded-xl p-3 text-center" style={miniCardStyle}>
-              <p className="text-xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{d.trading.winRate.toFixed(1)}%</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Win ({d.trading.wins}W/{d.trading.losses}L)</p>
+              <p className="text-xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{formatNum4(d.trading.winRate)}%</p>
+              <p className="text-xs mt-0.5 tabular-nums" style={{ color: 'var(--text-muted)' }}>Win ({formatNum4Signed(d.trading.wins)} / -{formatNum4(d.trading.losses)})</p>
             </div>
           </div>
           <div className="rounded-xl p-3 mb-2" style={miniCardStyle}>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Total PnL</p>
             <p className="text-lg font-bold tabular-nums" style={{ color: d.trading.totalPnl >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-              {d.trading.totalPnl >= 0 ? '+' : ''}${d.trading.totalPnl.toFixed(2)} ({d.trading.totalPnlPercent >= 0 ? '+' : ''}{d.trading.totalPnlPercent.toFixed(1)}%)
+              {formatNum4Signed(d.trading.totalPnl)} $ ({formatNum4Signed(d.trading.totalPnlPercent)}%)
             </p>
           </div>
           {(d.trading.bestTrade || d.trading.worstTrade) && (
@@ -182,14 +183,14 @@ export default function AdminDashboard() {
               {d.trading.bestTrade && (
                 <div className="rounded-xl p-2 text-center" style={miniCardStyle}>
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Лучшая</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--success)' }}>+${d.trading.bestTrade.pnl.toFixed(2)}</p>
+                  <p className="text-sm font-semibold tabular-nums" style={{ color: 'var(--success)' }}>{formatNum4Signed(d.trading.bestTrade.pnl)} $</p>
                   <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{d.trading.bestTrade.pair}</p>
                 </div>
               )}
               {d.trading.worstTrade && (
                 <div className="rounded-xl p-2 text-center" style={miniCardStyle}>
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Худшая</p>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--danger)' }}>${d.trading.worstTrade.pnl.toFixed(2)}</p>
+                  <p className="text-sm font-semibold tabular-nums" style={{ color: 'var(--danger)' }}>-{formatNum4(Math.abs(d.trading.worstTrade.pnl))} $</p>
                   <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{d.trading.worstTrade.pair}</p>
                 </div>
               )}
@@ -214,7 +215,7 @@ export default function AdminDashboard() {
             <div className="rounded-xl p-3 flex justify-between items-center text-sm" style={miniCardStyle}>
               <span style={{ color: 'var(--text-muted)' }}>Просадка дня</span>
               <span className="font-semibold" style={{ color: d.risk.dailyDrawdownPercent >= d.risk.dailyDrawdownLimitPercent ? 'var(--danger)' : 'var(--success)' }}>
-                {d.risk.dailyDrawdownPercent.toFixed(1)}% / {d.risk.dailyDrawdownLimitPercent}%
+                {formatNum4(d.risk.dailyDrawdownPercent)}% / {d.risk.dailyDrawdownLimitPercent}%
               </span>
             </div>
             <div className="rounded-xl p-3 flex justify-between items-center text-sm" style={miniCardStyle}>
@@ -296,7 +297,7 @@ export default function AdminDashboard() {
           {d.topUsers.length === 0 ? (
             <div className="py-10 text-center rounded-xl" style={miniCardStyle}>
               <span className="text-4xl opacity-50">💰</span>
-              <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>Нет сделок</p>
+              <p className="text-sm mt-2 tabular-nums" style={{ color: 'var(--text-muted)' }}>Сводка PnL: {formatNum4Signed(0)} $</p>
               <p className="text-xs mt-1" style={{ color: 'var(--text-muted)', opacity: 0.8 }}>Данные появятся после закрытия ордеров</p>
             </div>
           ) : (
@@ -308,7 +309,7 @@ export default function AdminDashboard() {
                     <span className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>{u.username}</span>
                   </span>
                   <span className="flex-shrink-0 font-semibold tabular-nums" style={{ color: u.totalPnl >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-                    {u.totalPnl >= 0 ? '+' : ''}${u.totalPnl.toFixed(2)}
+                    {formatNum4Signed(u.totalPnl)} $
                   </span>
                 </li>
               ))}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminApi } from '../../utils/adminApi';
+import { formatNum4, formatNum4Signed } from '../../utils/formatNum';
 
 interface AnalyticsData {
   totalTrades: number;
@@ -85,14 +86,14 @@ export default function AdminAnalytics() {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: 'Всего сделок', value: String(a.totalTrades), color: 'var(--text-primary)' },
-            { label: 'Win Rate', value: `${a.winRate.toFixed(1)}%`, color: 'var(--accent)' },
-            { label: 'Прибыльных', value: String(a.wins), color: 'var(--success)' },
-            { label: 'Убыточных', value: String(a.losses), color: 'var(--danger)' },
-            { label: 'Total PnL', value: `${a.totalPnl >= 0 ? '+' : ''}${a.totalPnl.toFixed(2)}`, color: a.totalPnl >= 0 ? 'var(--success)' : 'var(--danger)' },
-            { label: 'Profit Factor', value: a.profitFactor.toFixed(2), color: 'var(--text-primary)' },
-            { label: 'Лучшая сделка', value: `+${a.bestTrade.toFixed(2)}`, color: 'var(--success)' },
-            { label: 'Худшая сделка', value: String(a.worstTrade.toFixed(2)), color: 'var(--danger)' }
+            { label: 'Всего сделок', value: formatNum4(a.totalTrades), color: 'var(--text-primary)' },
+            { label: 'Win Rate', value: `${formatNum4(a.winRate)}%`, color: 'var(--accent)' },
+            { label: 'Прибыльных', value: formatNum4Signed(a.wins), color: 'var(--success)' },
+            { label: 'Убыточных', value: `-${formatNum4(a.losses)}`, color: 'var(--danger)' },
+            { label: 'Total PnL', value: formatNum4Signed(a.totalPnl), color: a.totalPnl >= 0 ? 'var(--success)' : 'var(--danger)' },
+            { label: 'Profit Factor', value: formatNum4(a.profitFactor), color: 'var(--text-primary)' },
+            { label: 'Лучшая сделка', value: formatNum4Signed(a.bestTrade), color: 'var(--success)' },
+            { label: 'Худшая сделка', value: formatNum4Signed(a.worstTrade), color: 'var(--danger)' }
           ].map((row) => (
             <div key={row.label} className="rounded-xl p-3 flex flex-col" style={miniCardStyle}>
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{row.label}</span>
@@ -133,7 +134,7 @@ export default function AdminAnalytics() {
                     <td className="text-right py-2 px-2 tabular-nums">{row.openPrice?.toFixed(4) ?? '—'}</td>
                     <td className="text-right py-2 px-2 tabular-nums">{row.closePrice != null ? row.closePrice.toFixed(4) : '—'}</td>
                     <td className={`text-right py-2 px-2 tabular-nums ${(row.pnl ?? 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                      {row.pnl != null ? (row.pnl >= 0 ? '+' : '') + row.pnl.toFixed(2) : '—'}
+                      {row.pnl != null ? formatNum4Signed(row.pnl) : '—'}
                     </td>
                     <td className="py-2 px-2 text-xs" style={{ color: 'var(--text-muted)' }}>{row.closeTime ? new Date(row.closeTime).toLocaleString('ru-RU') : '—'}</td>
                   </tr>

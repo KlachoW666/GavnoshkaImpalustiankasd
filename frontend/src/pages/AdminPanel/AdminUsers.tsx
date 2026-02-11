@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminApi, clearAdminToken } from '../../utils/adminApi';
+import { formatNum4, formatNum4Signed } from '../../utils/formatNum';
 
 interface UserRow {
   id: string;
@@ -381,7 +382,7 @@ export default function AdminUsers() {
                 <div className="rounded-xl p-4" style={miniCardStyle}>
                   <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Прибыль (PnL)</p>
                   <p className="text-lg font-bold tabular-nums" style={{ color: userDetail.totalPnl >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-                    {userDetail.totalPnl >= 0 ? '+' : ''}{userDetail.totalPnl.toFixed(2)} $
+                    {formatNum4Signed(userDetail.totalPnl)} $
                   </p>
                 </div>
                 <div className="rounded-xl p-4" style={miniCardStyle}>
@@ -393,7 +394,7 @@ export default function AdminUsers() {
                   {userDetail.okxBalanceError ? (
                     <p className="text-sm font-medium" style={{ color: 'var(--danger)' }} title={userDetail.okxBalanceError}>Ошибка</p>
                   ) : userDetail.okxBalance != null ? (
-                    <p className="text-lg font-bold tabular-nums" style={{ color: 'var(--success)' }}>{userDetail.okxBalance.toFixed(2)} $</p>
+                    <p className="text-lg font-bold tabular-nums" style={{ color: 'var(--success)' }}>{formatNum4(userDetail.okxBalance)} $</p>
                   ) : (
                     <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Не подключено</p>
                   )}
@@ -448,7 +449,7 @@ export default function AdminUsers() {
                             <td className="p-3">{o.openPrice}</td>
                             <td className="p-3">{o.closePrice ?? '—'}</td>
                             <td className="p-3 text-right font-medium tabular-nums" style={{ color: (o.pnl ?? 0) >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-                              {(o.pnl ?? 0) >= 0 ? '+' : ''}{(o.pnl ?? 0).toFixed(2)}
+                              {formatNum4Signed(o.pnl ?? 0)}
                             </td>
                             <td className="p-3" style={{ color: 'var(--text-muted)' }}>{o.closeTime ? new Date(o.closeTime).toLocaleString('ru-RU') : '—'}</td>
                           </tr>
