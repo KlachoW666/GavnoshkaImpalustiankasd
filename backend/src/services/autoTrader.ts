@@ -171,14 +171,17 @@ export async function executeSignal(
     return { ok: false, error: 'No balance available' };
   }
 
-  /** Минимальный баланс для реального счёта: OKX при малой марже часто отклоняет ордера */
-  const MIN_BALANCE_REAL = 25;
+  /** Минимальный баланс для реального счёта (порог, ниже которого не пробуем открывать) */
+  const MIN_BALANCE_REAL = 10;
   if (!useTestnet && balance < MIN_BALANCE_REAL) {
     return {
       ok: false,
-      error: `Баланс OKX (Real) слишком мал: $${balance.toFixed(2)}. Для реальной торговли пополните счёт до $${MIN_BALANCE_REAL}+ или переключитесь на «Демо (Testnet)» в настройках.`
+      error: `Баланс OKX (Real) слишком мал: $${balance.toFixed(2)}. Пополните счёт до $${MIN_BALANCE_REAL}+ или используйте «Демо (Testnet)».`
     };
   }
+
+  /** Минимальный объём позиции в USDT (OKX отклоняет слишком мелкие ордера) */
+  const MIN_NOTIONAL_USD = 5;
 
   const symbol = normalizeSymbol(signal.symbol);
   const ccxtSymbol = toOkxCcxtSymbol(symbol) || 'BTC/USDT:USDT';
@@ -204,8 +207,21 @@ export async function executeSignal(
   // Ограничиваем долю баланса запасом (OKX может отклонять при точном 100% из-за комиссий и маржи)
   const reserveRatio = balance < 50 ? 0.7 : 0.85; // при малом балансе — больший запас
   const maxUsableBalance = balance * reserveRatio;
-  const margin = Math.min((balance * options.sizePercent) / 100, maxUsableBalance);
-  const positionValue = margin * options.leverage;
+  let margin = Math.min((balance * options.sizePercent) / 100, maxUsableBalance);
+  let positionValue = margin * options.leverage;
+  // OKX не принимает слишком мелкие ордера — не менее MIN_NOTIONAL_USD
+  if (positionValue < MIN_NOTIONAL_USD) {
+    const needMargin = MIN_NOTIONAL_USD / options.leverage;
+    if (needMargin <= maxUsableBalance) {
+      margin = needMargin;
+      positionValue = MIN_NOTIONAL_USD;
+    } else {
+      return {
+        ok: false,
+        error: `Размер позиции меньше минимума OKX (~$${MIN_NOTIONAL_USD} объём). Нужна маржа ~$${needMargin.toFixed(2)}. Пополните счёт или переключитесь на Демо.`
+      };
+    }
+  }
   let amount = positionValue / entryPrice; // контракты в базе (BTC и т.д.)
 
   if (amount <= 0 || !Number.isFinite(amount)) {
@@ -214,18 +230,32 @@ export async function executeSignal(
 
   const { minAmount, precision } = getOkxMinAmountAndPrecision(ccxtSymbol);
   amount = roundToPrecision(Math.max(amount, minAmount), precision);
-  let requiredMargin = (amount * entryPrice) / options.leverage;
+  const notional = amount * entryPrice;
+  // Фактический объём не должен быть ниже минимума OKX
+  let requiredMargin = notional / options.leverage;
+  if (notional < MIN_NOTIONAL_USD && requiredMargin <= maxUsableBalance) {
+    const minAmountForNotional = MIN_NOTIONAL_USD / entryPrice;
+    amount = roundToPrecision(Math.max(amount, minAmountForNotional), precision);
+    requiredMargin = (amount * entryPrice) / options.leverage;
+    positionValue = amount * entryPrice;
+  }
   if (requiredMargin > maxUsableBalance) {
-    // Уменьшаем размер под доступную маржу
     const maxMargin = maxUsableBalance;
     const maxAmount = (maxMargin * options.leverage) / entryPrice;
     amount = roundToPrecision(Math.max(minAmount, Math.min(amount, maxAmount)), precision);
     requiredMargin = (amount * entryPrice) / options.leverage;
+    positionValue = amount * entryPrice;
   }
   if (requiredMargin > balance || amount < minAmount) {
     return {
       ok: false,
       error: `Недостаточно маржи на счёте (доступно ~$${balance.toFixed(2)} USDT, нужно ~$${requiredMargin.toFixed(2)}). Уменьшите «Долю баланса» или пополните счёт.`
+    };
+  }
+  if (amount * entryPrice < MIN_NOTIONAL_USD) {
+    return {
+      ok: false,
+      error: `Объём позиции получился меньше минимума OKX (~$${MIN_NOTIONAL_USD}). Пополните счёт или увеличьте «Долю баланса».`
     };
   }
 
