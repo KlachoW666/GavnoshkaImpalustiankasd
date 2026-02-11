@@ -265,12 +265,13 @@ async function fetchOkxBalanceForUser(userId: string): Promise<{ okxBalance: num
   const creds = getOkxCredentials(userId);
   if (!creds) return { okxBalance: null, okxBalanceError: null };
   const proxyUrl = getProxy(config.proxyList) || config.proxy || '';
+  const okxTimeout = config.okx.timeout;
   const baseOpts: Record<string, unknown> = {
     apiKey: creds.apiKey,
     secret: creds.secret,
     password: creds.passphrase || undefined,
     enableRateLimit: true,
-    timeout: 15000,
+    timeout: okxTimeout,
     options: { defaultType: 'swap' }
   };
   if (proxyUrl) baseOpts.httpsProxy = proxyUrl;

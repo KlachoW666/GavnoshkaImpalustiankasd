@@ -46,7 +46,7 @@ function buildExchange(useTestnet: boolean): Exchange {
       defaultType: 'swap',
       sandboxMode: useTestnet
     },
-    timeout: 20000
+    timeout: config.okx.timeout
   };
   const proxyUrl = getProxy(config.proxyList) || config.proxy;
   if (proxyUrl) (opts as any).httpsProxy = proxyUrl;
@@ -63,7 +63,7 @@ function buildExchangeFromCreds(creds: UserOkxCreds, useTestnet: boolean): Excha
       defaultType: 'swap',
       sandboxMode: useTestnet
     },
-    timeout: 20000
+    timeout: config.okx.timeout
   };
   const proxyUrl = getProxy(config.proxyList) || config.proxy;
   if (proxyUrl) (opts as any).httpsProxy = proxyUrl;

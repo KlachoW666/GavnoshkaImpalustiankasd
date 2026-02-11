@@ -29,6 +29,8 @@ export const config = {
     apiKey: envStr('OKX_API_KEY'),
     secret: envStr('OKX_SECRET'),
     passphrase: envStr('OKX_PASSPHRASE'),
+    /** Таймаут запросов к OKX (мс). OKX_TIMEOUT=45000 — при медленной сети или блокировках. */
+    timeout: Math.max(15000, envNum('OKX_TIMEOUT', 45000)),
     get hasCredentials(): boolean {
       return Boolean(this.apiKey && this.secret);
     },
