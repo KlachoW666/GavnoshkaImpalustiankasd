@@ -179,10 +179,20 @@ export async function executeSignal(
 
   const margin = (balance * options.sizePercent) / 100;
   const positionValue = margin * options.leverage;
-  const amount = positionValue / entryPrice; // контракты в базе (BTC и т.д.)
+  let amount = positionValue / entryPrice; // контракты в базе (BTC и т.д.)
 
   if (amount <= 0 || !Number.isFinite(amount)) {
     return { ok: false, error: 'Invalid position size' };
+  }
+
+  const { minAmount, precision } = getOkxMinAmountAndPrecision(ccxtSymbol);
+  amount = roundToPrecision(Math.max(amount, minAmount), precision);
+  const requiredMargin = (amount * entryPrice) / options.leverage;
+  if (requiredMargin > balance) {
+    return {
+      ok: false,
+      error: `Минимум на OKX: ${minAmount} ${ccxtSymbol.split('/')[0]}. Не хватает маржи (нужно ~$${requiredMargin.toFixed(2)}). Пополните счёт.`
+    };
   }
 
   const side = signal.direction === 'LONG' ? 'buy' : 'sell';
@@ -232,6 +242,30 @@ export async function executeSignal(
     const shortMsg = parseOkxShortError(errMsg);
     return { ok: false, error: shortMsg || errMsg };
   }
+}
+
+/** Минимальный объём и точность по инструменту OKX (swap). OKX: BTC 0.001, ETH 0.01, большинство альтов 0.01 или 0.1 */
+function getOkxMinAmountAndPrecision(ccxtSymbol: string): { minAmount: number; precision: number } {
+  const base = (ccxtSymbol.split('/')[0] || '').toUpperCase();
+  const byBase: Record<string, { min: number; prec: number }> = {
+    BTC: { min: 0.001, prec: 3 },
+    ETH: { min: 0.01, prec: 2 },
+    SOL: { min: 0.1, prec: 1 },
+    DOGE: { min: 1, prec: 0 },
+    XRP: { min: 1, prec: 0 },
+    OP: { min: 0.1, prec: 1 },
+    ARB: { min: 0.1, prec: 1 },
+    RIVER: { min: 0.01, prec: 2 }
+  };
+  const def = { min: 0.01, prec: 2 };
+  const v = byBase[base] ?? def;
+  return { minAmount: v.min, precision: v.prec };
+}
+
+function roundToPrecision(value: number, decimalPlaces: number): number {
+  if (decimalPlaces <= 0) return Math.max(1, Math.floor(value));
+  const p = 10 ** decimalPlaces;
+  return Math.round(value * p) / p;
 }
 
 /** Извлечь короткое сообщение из ответа OKX (например sMsg из data[0]) для отображения пользователю */
