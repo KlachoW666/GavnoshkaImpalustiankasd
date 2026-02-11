@@ -22,6 +22,7 @@ import { FundamentalFilter } from '../services/fundamentalFilter';
 import { adjustConfidence, update as mlUpdate } from '../services/onlineMLService';
 import { calcLiquidationPrice, calcLiquidationPriceSimple } from '../lib/liquidationPrice';
 import { executeSignal } from '../services/autoTrader';
+import { initDb, insertOrder } from '../db';
 
 const router = Router();
 
@@ -641,6 +642,32 @@ async function runAutoTradingBestCycle(
     if (result.ok) {
       logger.info('runAutoTradingBestCycle', `OKX order placed: ${result.orderId} (${useTestnet ? 'testnet' : 'real'})`);
       setLastExecution(undefined, result.orderId);
+      if (userId && result.orderId) {
+        try {
+          initDb();
+          insertOrder({
+            id: `okx-${result.orderId}-${Date.now()}`,
+            clientId: userId,
+            pair: best.signal.symbol,
+            direction: best.signal.direction === 'SHORT' ? 'SHORT' : 'LONG',
+            size: result.positionSize ?? 0,
+            leverage,
+            openPrice: best.signal.entry_price ?? 0,
+            stopLoss: best.signal.stop_loss ? Number(best.signal.stop_loss) : undefined,
+            takeProfit: best.signal.take_profit != null
+            ? (Array.isArray(best.signal.take_profit)
+              ? (best.signal.take_profit as number[]).map(Number)
+              : [Number(best.signal.take_profit)])
+            : undefined,
+            openTime: new Date().toISOString(),
+            status: 'open',
+            autoOpened: true,
+            confidenceAtOpen: best.signal.confidence ? Number(best.signal.confidence) * 100 : undefined
+          });
+        } catch (e) {
+          logger.warn('runAutoTradingBestCycle', 'insertOrder failed', { error: (e as Error).message });
+        }
+      }
     } else {
       logger.warn('runAutoTradingBestCycle', `OKX execution skipped: ${result.error}`);
       setLastExecution(result.error ?? 'Unknown error');

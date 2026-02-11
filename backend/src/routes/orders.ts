@@ -5,6 +5,7 @@
 import { Router, Request, Response } from 'express';
 import { initDb, insertOrder, updateOrderClose, listOrders } from '../db';
 import { logger } from '../lib/logger';
+import { optionalAuth } from './auth';
 
 const router = Router();
 
@@ -77,11 +78,13 @@ router.patch('/:id', (req: Request, res: Response) => {
   }
 });
 
-/** GET /api/orders — список ордеров (всех или по clientId) */
-router.get('/', (req: Request, res: Response) => {
+/** GET /api/orders — список ордеров (всех или по clientId). При авторизации без clientId в query — по userId. */
+router.get('/', optionalAuth, (req: Request, res: Response) => {
   try {
     initDb();
-    const clientId = req.query.clientId as string | undefined;
+    const userId = (req as any).userId as string | undefined;
+    let clientId = req.query.clientId as string | undefined;
+    if (!clientId && userId) clientId = userId;
     const status = req.query.status as 'open' | 'closed' | undefined;
     const limit = Math.min(Math.max(0, Number(req.query.limit) || 100), 500);
     const rows = listOrders({ clientId, status, limit });

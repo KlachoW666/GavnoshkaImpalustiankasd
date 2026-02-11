@@ -60,6 +60,18 @@ export function requireAuth(req: Request, res: Response, next: () => void): void
   next();
 }
 
+/** Как requireAuth, но не возвращает 401 при отсутствии токена — только выставляет req.userId при валидном токене. */
+export function optionalAuth(req: Request, _res: Response, next: () => void): void {
+  const token = getBearerToken(req);
+  if (!token) {
+    next();
+    return;
+  }
+  const userId = findSessionUserId(token);
+  if (userId) (req as any).userId = userId;
+  next();
+}
+
 /** POST /api/auth/register — регистрация (без подтверждения почты) */
 router.post('/register', (req: Request, res: Response) => {
   try {

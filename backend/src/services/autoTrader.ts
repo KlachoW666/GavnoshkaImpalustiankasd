@@ -172,10 +172,18 @@ export async function executeSignal(
   const symbol = normalizeSymbol(signal.symbol);
   const ccxtSymbol = toOkxCcxtSymbol(symbol) || 'BTC/USDT:USDT';
   const entryPrice = signal.entry_price ?? 0;
-  const stopLoss = signal.stop_loss ?? 0;
-  const takeProfit1 = Array.isArray(signal.take_profit) && signal.take_profit.length
+  const isLong = signal.direction === 'LONG';
+  let stopLoss = signal.stop_loss ?? 0;
+  let takeProfit1 = Array.isArray(signal.take_profit) && signal.take_profit.length
     ? signal.take_profit[0]
-    : entryPrice * (signal.direction === 'LONG' ? 1.02 : 0.98);
+    : entryPrice * (isLong ? 1.02 : 0.98);
+  if (isLong) {
+    if (stopLoss > 0 && stopLoss >= entryPrice) stopLoss = 0;
+    if (takeProfit1 <= entryPrice) takeProfit1 = entryPrice * 1.02;
+  } else {
+    if (stopLoss > 0 && stopLoss <= entryPrice) stopLoss = entryPrice * 1.005;
+    if (takeProfit1 >= entryPrice) takeProfit1 = entryPrice * 0.98;
+  }
 
   const margin = (balance * options.sizePercent) / 100;
   const positionValue = margin * options.leverage;
@@ -244,11 +252,11 @@ export async function executeSignal(
   }
 }
 
-/** Минимальный объём и точность по инструменту OKX (swap). OKX: BTC 0.001, ETH 0.01, большинство альтов 0.01 или 0.1 */
+/** Минимальный объём и точность по инструменту OKX (swap). Для всех пар минимум не ниже 0.01 (требование OKX). */
 function getOkxMinAmountAndPrecision(ccxtSymbol: string): { minAmount: number; precision: number } {
   const base = (ccxtSymbol.split('/')[0] || '').toUpperCase();
   const byBase: Record<string, { min: number; prec: number }> = {
-    BTC: { min: 0.001, prec: 3 },
+    BTC: { min: 0.01, prec: 2 },
     ETH: { min: 0.01, prec: 2 },
     SOL: { min: 0.1, prec: 1 },
     DOGE: { min: 1, prec: 0 },
@@ -259,7 +267,8 @@ function getOkxMinAmountAndPrecision(ccxtSymbol: string): { minAmount: number; p
   };
   const def = { min: 0.01, prec: 2 };
   const v = byBase[base] ?? def;
-  return { minAmount: v.min, precision: v.prec };
+  const minAmount = Math.max(v.min, 0.01);
+  return { minAmount, precision: v.prec };
 }
 
 function roundToPrecision(value: number, decimalPlaces: number): number {
@@ -335,15 +344,23 @@ async function fetchBalanceAndPositions(exchange: Exchange): Promise<{ balance: 
       const sz = Number(p.contracts ?? p.info?.pos ?? 0);
       return sz !== 0;
     })
-    .map((p: any) => ({
-      symbol: p.symbol ?? p.info?.instId ?? '',
-      side: p.side ?? (Number(p.info?.pos ?? 0) > 0 ? 'long' : 'short'),
-      contracts: Number(p.contracts ?? p.info?.pos ?? 0),
-      entryPrice: Number(p.entryPrice ?? p.info?.avgPx ?? 0),
-      markPrice: p.markPrice != null ? Number(p.markPrice) : undefined,
-      unrealizedPnl: p.unrealizedPnl != null ? Number(p.unrealizedPnl) : undefined,
-      leverage: Number(p.leverage ?? p.info?.lever ?? 1)
-    }));
+    .map((p: any) => {
+      const contracts = Number(p.contracts ?? p.info?.pos ?? 0);
+      const entryPrice = Number(p.entryPrice ?? p.info?.avgPx ?? 0);
+      const info = p.info ?? {};
+      return {
+        symbol: p.symbol ?? info?.instId ?? '',
+        side: p.side ?? (Number(info?.pos ?? 0) > 0 ? 'long' : 'short'),
+        contracts,
+        entryPrice,
+        notional: contracts * entryPrice,
+        markPrice: p.markPrice != null ? Number(p.markPrice) : undefined,
+        unrealizedPnl: p.unrealizedPnl != null ? Number(p.unrealizedPnl) : undefined,
+        leverage: Number(p.leverage ?? info?.lever ?? 1),
+        stopLoss: info?.slTriggerPx != null ? Number(info.slTriggerPx) : undefined,
+        takeProfit: info?.tpTriggerPx != null ? Number(info.tpTriggerPx) : undefined
+      };
+    });
   return { balance, positions };
 }
 
@@ -351,7 +368,7 @@ async function fetchBalanceAndPositions(exchange: Exchange): Promise<{ balance: 
 export async function getPositionsAndBalanceForApi(
   useTestnet: boolean,
   userCreds?: UserOkxCreds | null
-): Promise<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number; leverage: number }>; balance: number; openCount: number; balanceError?: string }> {
+): Promise<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; notional?: number; markPrice?: number; unrealizedPnl?: number; leverage: number; stopLoss?: number; takeProfit?: number }>; balance: number; openCount: number; balanceError?: string }> {
   const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
   if (!useUserCreds && !config.okx.hasCredentials) {
     return { positions: [], balance: 0, openCount: 0 };

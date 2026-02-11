@@ -374,6 +374,7 @@ export default function AutoTradingPage() {
   const [status, setStatus] = useState<'idle' | 'running' | 'error' | 'stopped_daily_loss'>('idle');
   const [okxData, setOkxData] = useState<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number }>; balance: number; openCount: number; useTestnet: boolean; balanceError?: string; executionAvailable?: boolean } | null>(null);
   const [lastExecution, setLastExecution] = useState<{ lastError?: string; lastOrderId?: string; useTestnet?: boolean; at?: number } | null>(null);
+  const [serverHistory, setServerHistory] = useState<HistoryEntry[]>([]);
   const closePositionRef = useRef<(pos: DemoPosition, price?: number) => void>(() => {});
   const positionsRef = useRef<DemoPosition[]>([]);
   const closingIdsRef = useRef<Set<string>>(new Set());
@@ -389,7 +390,10 @@ export default function AutoTradingPage() {
   const symbols = settings.symbols;
   const mode = settings.mode;
   const leverage = mode === 'spot' ? 1 : settings.leverage;
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+
+  /** История для отображения: при авторизации — с сервера (OKX/ордера по userId), иначе локальная. */
+  const displayHistory = token ? serverHistory : history;
 
   const updateSetting = <K extends keyof AutoTradingSettings>(key: K, value: AutoTradingSettings[K]) => {
     setSettings((prev) => {
@@ -415,6 +419,40 @@ export default function AutoTradingPage() {
       }
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!token) {
+      setServerHistory([]);
+      return;
+    }
+    api.get<Array<{
+      id: string; pair: string; direction: string; size: number; leverage: number;
+      openPrice: number; closePrice: number | null; stopLoss: number | null; takeProfit: number[] | null;
+      pnl: number | null; pnlPercent: number | null; openTime: string; closeTime: string | null;
+      status: string; autoOpened?: boolean; confidenceAtOpen?: number | null;
+    }>>('/orders?status=closed&limit=100', { headers: { Authorization: `Bearer ${token}` } })
+      .then((orders) => {
+        const list: HistoryEntry[] = (orders ?? []).map((r) => ({
+          id: r.id,
+          pair: r.pair,
+          direction: r.direction === 'SHORT' ? 'SHORT' : 'LONG',
+          size: r.size,
+          leverage: r.leverage,
+          openPrice: r.openPrice,
+          closePrice: r.closePrice ?? 0,
+          pnl: r.pnl ?? 0,
+          pnlPercent: r.pnlPercent ?? 0,
+          openTime: new Date(r.openTime),
+          closeTime: new Date(r.closeTime || r.openTime),
+          autoOpened: r.autoOpened,
+          confidenceAtOpen: r.confidenceAtOpen ?? undefined,
+          stopLoss: r.stopLoss ?? undefined,
+          takeProfit: Array.isArray(r.takeProfit) ? r.takeProfit : undefined
+        }));
+        setServerHistory(list);
+      })
+      .catch(() => setServerHistory([]));
+  }, [token]);
 
   const fetchOkxPositionsRef = useRef<() => void>(() => {});
   useEffect(() => {
@@ -597,7 +635,7 @@ export default function AutoTradingPage() {
     setBalance((prev) => prev - size);
     api.post(`${API}/orders`, {
       id: pos.id,
-      clientId: getClientId(),
+      clientId: user?.id ?? getClientId(),
       pair: signal.symbol,
       direction: signal.direction,
       size: pos.size,
@@ -1230,23 +1268,30 @@ export default function AutoTradingPage() {
                         <tr style={{ borderColor: 'var(--border)' }}>
                           <th className="text-left py-1 px-2">Символ</th>
                           <th className="text-right py-1 px-2">Сторона</th>
-                          <th className="text-right py-1 px-2">Контракты</th>
+                          <th className="text-right py-1 px-2">Кол-во</th>
                           <th className="text-right py-1 px-2">Вход</th>
+                          <th className="text-right py-1 px-2">Сумма</th>
                           <th className="text-right py-1 px-2">P&L</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {okxData.positions.map((p: any, i: number) => (
-                          <tr key={i} className="border-t" style={{ borderColor: 'var(--border)' }}>
-                            <td className="py-1 px-2">{p.symbol}</td>
-                            <td className="text-right py-1 px-2">{p.side}</td>
-                            <td className="text-right py-1 px-2">{p.contracts}</td>
-                            <td className="text-right py-1 px-2">{p.entryPrice?.toFixed(4)}</td>
-                            <td className={`text-right py-1 px-2 ${(p.unrealizedPnl ?? 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                              {p.unrealizedPnl != null ? (p.unrealizedPnl >= 0 ? '+' : '') + p.unrealizedPnl.toFixed(2) : '—'}
-                            </td>
-                          </tr>
-                        ))}
+                        {okxData.positions.map((p: any, i: number) => {
+                          const symNorm = normSymbol((p.symbol || '').replace(/:.*$/, ''));
+                          const base = symNorm ? symNorm.split('-')[0] : (p.symbol || '').split(/[/:-]/)[0] || '—';
+                          const amountStr = p.contracts != null ? `${Math.abs(Number(p.contracts)).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${base}` : '—';
+                          return (
+                            <tr key={i} className="border-t" style={{ borderColor: 'var(--border)' }}>
+                              <td className="py-1 px-2">{symNorm || p.symbol}</td>
+                              <td className="text-right py-1 px-2">{p.side === 'long' ? 'LONG' : 'SHORT'}</td>
+                              <td className="text-right py-1 px-2 tabular-nums">{amountStr}</td>
+                              <td className="text-right py-1 px-2 tabular-nums">{p.entryPrice != null ? Number(p.entryPrice).toLocaleString('ru-RU') : '—'}</td>
+                              <td className="text-right py-1 px-2 tabular-nums">{p.notional != null ? `$${Number(p.notional).toFixed(2)}` : '—'}</td>
+                              <td className={`text-right py-1 px-2 tabular-nums ${(p.unrealizedPnl ?? 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                                {p.unrealizedPnl != null ? (p.unrealizedPnl >= 0 ? '+' : '') + p.unrealizedPnl.toFixed(2) : '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1517,25 +1562,33 @@ export default function AutoTradingPage() {
                   OKX {okxData.useTestnet ? '(Demo)' : '(Real)'} — ордера бота
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {(okxData.positions ?? []).map((p: any, i: number) => (
-                    <div
-                      key={`okx-${i}-${p.symbol ?? i}`}
-                      className="rounded-xl border p-4 flex flex-col gap-1"
-                      style={{ borderColor: 'var(--accent)', background: 'var(--accent-dim)' }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold">{p.symbol ?? '—'} {p.side === 'long' ? 'LONG' : 'SHORT'}</span>
-                        <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'var(--accent)', color: 'white' }}>
-                          OKX {okxData.useTestnet ? 'Demo' : 'Real'}
-                        </span>
+                  {(okxData.positions ?? []).map((p: any, i: number) => {
+                    const symNorm = normSymbol((p.symbol || '').replace(/:.*$/, ''));
+                    const base = symNorm ? symNorm.split('-')[0] : (p.symbol || '').split(/[/:-]/)[0] || '';
+                    const amountStr = p.contracts != null ? `${Math.abs(Number(p.contracts)).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${base}` : '—';
+                    return (
+                      <div
+                        key={`okx-${i}-${p.symbol ?? i}`}
+                        className="rounded-xl border p-4 flex flex-col gap-1"
+                        style={{ borderColor: 'var(--accent)', background: 'var(--accent-dim)' }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold">{symNorm || p.symbol ?? '—'} {p.side === 'long' ? 'LONG' : 'SHORT'}</span>
+                          <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'var(--accent)', color: 'white' }}>
+                            OKX {okxData.useTestnet ? 'Demo' : 'Real'}
+                          </span>
+                        </div>
+                        <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Количество: </span>{amountStr}</p>
+                        <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Вход: </span>{p.entryPrice != null ? Number(p.entryPrice).toLocaleString('ru-RU') : '—'}</p>
+                        {p.notional != null && <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Объём: </span>${Number(p.notional).toFixed(2)}</p>}
+                        {p.stopLoss != null && <p className="text-sm"><span style={{ color: 'var(--danger)' }}>SL: </span>{Number(p.stopLoss).toLocaleString('ru-RU')}</p>}
+                        {p.takeProfit != null && <p className="text-sm"><span style={{ color: 'var(--success)' }}>TP: </span>{Number(p.takeProfit).toLocaleString('ru-RU')}</p>}
+                        <p className={`text-sm font-medium ${(p.unrealizedPnl ?? 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                          P&L: {p.unrealizedPnl != null ? (p.unrealizedPnl >= 0 ? '+' : '') + p.unrealizedPnl.toFixed(2) : '—'}
+                        </p>
                       </div>
-                      <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Контракты: </span>{p.contracts ?? '—'}</p>
-                      <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Вход: </span>{p.entryPrice != null ? Number(p.entryPrice).toLocaleString('ru-RU') : '—'}</p>
-                      <p className={`text-sm font-medium ${(p.unrealizedPnl ?? 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                        P&L: {p.unrealizedPnl != null ? (p.unrealizedPnl >= 0 ? '+' : '') + p.unrealizedPnl.toFixed(2) : '—'}
-                      </p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -1604,8 +1657,8 @@ export default function AutoTradingPage() {
       </section>
 
       <section className="rounded-2xl p-6 md:p-8" style={cardStyle}>
-        <h3 className="text-lg font-bold mb-6 tracking-tight" style={{ color: 'var(--text-primary)' }}>История сделок ({history.length})</h3>
-        {history.length === 0 ? (
+        <h3 className="text-lg font-bold mb-6 tracking-tight" style={{ color: 'var(--text-primary)' }}>История сделок ({displayHistory.length})</h3>
+        {displayHistory.length === 0 ? (
           <p className="text-sm py-4" style={{ color: 'var(--text-muted)' }}>История пуста.</p>
         ) : (
           <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
@@ -1623,7 +1676,7 @@ export default function AutoTradingPage() {
                 </tr>
               </thead>
               <tbody>
-                {history.slice(0, 20).map((h) => (
+                {displayHistory.slice(0, 20).map((h) => (
                   <tr key={h.id} className="border-b" style={{ borderColor: 'var(--border)' }}>
                     <td className="py-3 px-2">{h.pair}</td>
                     <td className="py-3 px-2">{h.direction}</td>
