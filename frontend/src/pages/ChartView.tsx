@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart, IChartApi, ISeriesApi, CandlestickData, HistogramData, type Time } from 'lightweight-charts';
+import { createChart, IChartApi, ISeriesApi, CandlestickData, HistogramData } from 'lightweight-charts';
 import { OHLCVCandle } from '../types/signal';
 import { fetchPrice, normSymbol } from '../utils/fetchPrice';
 import { getSettings, updateSettings } from '../store/settingsStore';
@@ -42,7 +42,7 @@ function ohlcToHeikinAshi(candles: OHLCVCandle[], timeframe: string): Candlestic
   return out;
 }
 
-const OB_ROWS = 10;
+const OB_ROWS = 4;
 
 /** Стакан с фиксированным числом строк и ключами по индексу — не прыгает при обновлении */
 function StableOrderbookList({
@@ -220,13 +220,6 @@ export default function ChartView() {
   const [lastSignal, setLastSignal] = useState<any>(null);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [lastCandle, setLastCandle] = useState<OHLCVCandle | null>(null);
-  const timeRangeRef = useRef<{ from: Time; to: Time } | null>(null);
-  const [drawingTool, setDrawingTool] = useState<'crosshair' | 'horizontal' | 'trend'>('crosshair');
-  const drawingToolRef = useRef(drawingTool);
-  const drawingSeriesRef = useRef<any[]>([]);
-  const trendLinePointsRef = useRef<{ time: Time; value: number }[]>([]);
-
-  drawingToolRef.current = drawingTool;
 
   const exchangeId = 'okx';
   const { token } = useAuth();
@@ -263,37 +256,6 @@ export default function ChartView() {
     seriesRef.current = series as ISeriesApi<'Candlestick'>;
     volumeRef.current = volumeSeries;
 
-    const clickHandler = (param: { point?: { x: number; y: number } }) => {
-      const tool = drawingToolRef.current;
-      const tr = timeRangeRef.current;
-      const mainSeries = seriesRef.current;
-      if (!param.point || !tr || !mainSeries) return;
-      const price = mainSeries.coordinateToPrice(param.point.y);
-      const time = chart.timeScale().coordinateToTime(param.point.x);
-      if (price == null || !Number.isFinite(price)) return;
-      if (tool === 'horizontal') {
-        const lineSeries = chart.addLineSeries({ color: '#f59e0b', lineWidth: 2, priceLineVisible: false });
-        lineSeries.setData([
-          { time: tr.from as Time, value: price },
-          { time: tr.to as Time, value: price }
-        ]);
-        drawingSeriesRef.current = [...drawingSeriesRef.current, lineSeries];
-      }
-      if (tool === 'trend' && time != null) {
-        const pts = trendLinePointsRef.current;
-        const t = time as Time;
-        if (pts.length === 0) {
-          trendLinePointsRef.current = [{ time: t, value: price }];
-        } else if (pts.length === 1) {
-          trendLinePointsRef.current = [];
-          const lineSeries = chart.addLineSeries({ color: '#3b82f6', lineWidth: 2, priceLineVisible: false });
-          lineSeries.setData([...pts, { time: t, value: price }]);
-          drawingSeriesRef.current = [...drawingSeriesRef.current, lineSeries];
-        }
-      }
-    };
-    chart.subscribeClick(clickHandler);
-
     const resize = () => {
       const w = el.offsetWidth;
       const h = el.offsetHeight;
@@ -315,9 +277,6 @@ export default function ChartView() {
     resize();
 
     return () => {
-      chart.unsubscribeClick(clickHandler);
-      drawingSeriesRef.current = [];
-      trendLinePointsRef.current = [];
       io.disconnect();
       ro.disconnect();
       chart.remove();
@@ -338,9 +297,6 @@ export default function ChartView() {
         if (!candles.length || !seriesRef.current) return;
         const last = candles[candles.length - 1] as OHLCVCandle;
         setLastCandle(last);
-        const firstTime = toChartTime(candles[0].timestamp, timeframe) as Time;
-        const lastTime = toChartTime(last.timestamp, timeframe) as Time;
-        timeRangeRef.current = { from: firstTime, to: lastTime };
         const volData: HistogramData[] = candles.map((c: OHLCVCandle) => ({
           time: toChartTime(c.timestamp, timeframe) as any,
           value: c.volume,
@@ -411,12 +367,6 @@ export default function ChartView() {
     setLoading(true);
     setLastCandle(null);
     lastCandleTimeRef.current = null;
-    timeRangeRef.current = null;
-    drawingSeriesRef.current.forEach((s) => {
-      try { chartInstance.current?.removeSeries(s); } catch {}
-    });
-    drawingSeriesRef.current = [];
-    trendLinePointsRef.current = [];
     loadCandles(true);
     const t = setTimeout(() => setLoading(false), 2000);
     return () => clearTimeout(t);
@@ -653,50 +603,7 @@ export default function ChartView() {
           {live && <span className="text-[var(--primary)] text-sm flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] animate-pulse" style={{ boxShadow: '0 0 8px var(--primary)' }} /> Live</span>}
         </div>
 
-        <div className="rounded-[14px] overflow-hidden shrink-0 card flex">
-          <div className="flex flex-col shrink-0" style={{ width: '36px', background: 'var(--bg-hover)', borderRight: '1px solid var(--border)' }}>
-            <button
-              type="button"
-              title="Курсор"
-              onClick={() => setDrawingTool('crosshair')}
-              className="p-2 flex items-center justify-center transition-opacity hover:opacity-100"
-              style={{ opacity: drawingTool === 'crosshair' ? 1 : 0.6, color: 'var(--text-secondary)' }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 2v20M2 12h20" /><circle cx="12" cy="12" r="2" /></svg>
-            </button>
-            <button
-              type="button"
-              title="Горизонтальная линия"
-              onClick={() => setDrawingTool('horizontal')}
-              className="p-2 flex items-center justify-center transition-opacity hover:opacity-100"
-              style={{ opacity: drawingTool === 'horizontal' ? 1 : 0.6, color: 'var(--text-secondary)' }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="2" y1="12" x2="22" y2="12" /></svg>
-            </button>
-            <button
-              type="button"
-              title="Трендовая линия"
-              onClick={() => setDrawingTool('trend')}
-              className="p-2 flex items-center justify-center transition-opacity hover:opacity-100"
-              style={{ opacity: drawingTool === 'trend' ? 1 : 0.6, color: 'var(--text-secondary)' }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" y1="20" x2="20" y2="4" /><line x1="4" y1="20" x2="8" y2="20" /><line x1="20" y1="4" x2="20" y2="8" /></svg>
-            </button>
-            <button
-              type="button"
-              title="Очистить линии"
-              onClick={() => {
-                drawingSeriesRef.current.forEach((s) => { try { chartInstance.current?.removeSeries(s); } catch {} });
-                drawingSeriesRef.current = [];
-                trendLinePointsRef.current = [];
-              }}
-              className="p-2 flex items-center justify-center transition-opacity hover:opacity-100 mt-auto"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-            </button>
-          </div>
-          <div className="flex-1 min-w-0 flex flex-col">
+        <div className="rounded-[14px] overflow-hidden shrink-0 card flex flex-col">
             <div className="px-4 py-2 flex flex-wrap items-center gap-3 border-b" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
               <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
                 Инструмент: <strong style={{ color: 'var(--text-primary)' }}>{symbol || 'BTC-USDT'}</strong>
@@ -756,61 +663,64 @@ export default function ChartView() {
               className="w-full"
               style={{ height: 'min(70vh, 620px)' }}
             />
-          </div>
         </div>
       </div>
 
       <div className="w-full lg:w-72 space-y-4 shrink-0">
-        <div className="card p-5">
-          <div className="flex justify-between items-center mb-4 px-1">
-            <div>
-              <h3 className="font-semibold">Стакан ({platform})</h3>
-              {currentPrice != null && (
-                <p className="text-sm mt-0.5 font-mono" style={{ color: 'var(--primary)' }}>
-                  {currentPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              )}
-            </div>
+        <div
+          className="rounded-xl p-4"
+          style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}
+        >
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Стакан ({platform})</h3>
             <div className="flex gap-1">
               <button
                 type="button"
                 onClick={() => updateSettings({ display: { ...getSettings().display, orderbookStyle: 'default' } })}
-                className={`px-2 py-0.5 text-xs rounded-[10px] ${orderbookView === 'list' ? 'text-white' : ''}`}
-                style={orderbookView === 'list' ? { background: 'var(--gradient-cyan)' } : { color: 'var(--text-muted)' }}
+                className="px-2 py-0.5 text-xs rounded-lg font-medium"
+                style={orderbookView === 'list' ? { background: 'var(--accent)', color: 'white' } : { background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
               >
                 Список
               </button>
               <button
                 type="button"
                 onClick={() => updateSettings({ display: { ...getSettings().display, orderbookStyle: 'heatmap' } })}
-                className={`px-2 py-0.5 text-xs rounded-[10px] ${orderbookView === 'depth' ? 'text-white' : ''}`}
-                style={orderbookView === 'depth' ? { background: 'var(--gradient-cyan)' } : { color: 'var(--text-muted)' }}
+                className="px-2 py-0.5 text-xs rounded-lg font-medium"
+                style={orderbookView === 'depth' ? { background: 'var(--accent)', color: 'white' } : { background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
               >
                 Depth
               </button>
             </div>
           </div>
-          <div className="overflow-hidden" style={{ height: '420px', minHeight: '420px' }}>
+          {currentPrice != null && (
+            <p className="text-sm font-mono mb-3" style={{ color: 'var(--accent)' }}>
+              {currentPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          )}
+          <div className="overflow-hidden" style={{ height: '220px', minHeight: '220px' }}>
             {orderbook ? (
               orderbookView === 'depth' ? (
-                <div className="mt-2"><OrderbookDepthChart bids={orderbook.bids || []} asks={orderbook.asks || []} /></div>
+                <div className="mt-1"><OrderbookDepthChart bids={orderbook.bids || []} asks={orderbook.asks || []} /></div>
               ) : (
-                <div className="mt-2 px-1">
+                <div className="mt-1">
                   <StableOrderbookList bids={orderbook.bids || []} asks={orderbook.asks || []} />
                 </div>
               )
             ) : (
-              <p className="text-sm py-4" style={{ color: 'var(--text-muted)' }}>Загрузка стакана...</p>
+              <p className="text-sm py-3" style={{ color: 'var(--text-muted)' }}>Загрузка стакана...</p>
             )}
           </div>
         </div>
 
-        <div className="card p-5">
-          <h3 className="font-semibold mb-4">Сделки (Trades)</h3>
-          <div className="space-y-1 text-sm font-mono max-h-48 overflow-y-auto px-1">
+        <div
+          className="rounded-xl p-4"
+          style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}
+        >
+          <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Сделки (Trades)</h3>
+          <div className="space-y-0 text-sm font-mono">
             {trades.length ? (
-              trades.slice(0, 15).map((t, i) => (
-                <div key={i} className="flex justify-between items-center gap-4 py-2 border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
+              trades.slice(0, 4).map((t, i) => (
+                <div key={i} className="flex justify-between items-center gap-3 py-2 border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
                   <span className="min-w-0 flex-1" style={{ color: t.isBuy ? 'var(--success)' : 'var(--danger)' }}>
                     {t.price.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}
                   </span>
@@ -821,7 +731,7 @@ export default function ChartView() {
                 </div>
               ))
             ) : (
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Ожидание сделок...</p>
+              <p className="text-sm py-3" style={{ color: 'var(--text-muted)' }}>Ожидание сделок...</p>
             )}
           </div>
         </div>
