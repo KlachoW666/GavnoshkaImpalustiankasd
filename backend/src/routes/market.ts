@@ -32,6 +32,7 @@ let autoAnalyzeUseTestnet = true;
 let autoAnalyzeMaxPositions = 2;
 let autoAnalyzeSizePercent = 5;
 let autoAnalyzeLeverage = 25;
+let autoAnalyzeTpMultiplier = 1;
 
 interface PerUserAutoState {
   timer: ReturnType<typeof setInterval>;
@@ -40,6 +41,7 @@ interface PerUserAutoState {
   maxPositions: number;
   sizePercent: number;
   leverage: number;
+  tpMultiplier: number;
 }
 const autoAnalyzeByUser = new Map<string, PerUserAutoState>();
 /** Результат последнего исполнения по userId (для отображения на фронте) */
@@ -554,7 +556,7 @@ async function runAutoTradingBestCycle(
   timeframe = '5m',
   useScanner = false,
   userId?: string,
-  execOpts?: { executeOrders: boolean; useTestnet: boolean; maxPositions: number; sizePercent: number; leverage: number }
+  execOpts?: { executeOrders: boolean; useTestnet: boolean; maxPositions: number; sizePercent: number; leverage: number; tpMultiplier?: number }
 ): Promise<void> {
   let syms = symbols.slice(0, MAX_SYMBOLS);
   if (useScanner) {
@@ -582,6 +584,7 @@ async function runAutoTradingBestCycle(
   const maxPositions = execOpts?.maxPositions ?? autoAnalyzeMaxPositions;
   const sizePercent = execOpts?.sizePercent ?? autoAnalyzeSizePercent;
   const leverage = execOpts?.leverage ?? autoAnalyzeLeverage;
+  const tpMultiplier = execOpts?.tpMultiplier ?? autoAnalyzeTpMultiplier;
 
   const results: Array<{ signal: Awaited<ReturnType<typeof runAnalysis>>['signal']; breakdown: any; score: number }> = [];
   await Promise.all(
@@ -637,7 +640,8 @@ async function runAutoTradingBestCycle(
     sizePercent,
     leverage,
     maxPositions,
-    useTestnet
+    useTestnet,
+    tpMultiplier
   }, hasUserCreds ? userCreds : undefined).then((result) => {
     if (result.ok) {
       logger.info('runAutoTradingBestCycle', `OKX order placed: ${result.orderId} (${useTestnet ? 'testnet' : 'real'})`);
@@ -702,12 +706,14 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   const maxPositions = Math.max(1, Math.min(10, parseInt(String(body?.maxPositions)) || 2));
   const sizePercent = Math.max(1, Math.min(50, parseInt(String(body?.sizePercent)) || 5));
   const leverage = Math.max(1, Math.min(125, parseInt(String(body?.leverage)) || 25));
+  const tpMultiplier = Math.max(0.5, Math.min(1, parseFloat(String(body?.tpMultiplier)) || 0.85));
 
   autoAnalyzeExecuteOrders = fullAuto && executeOrders;
   autoAnalyzeUseTestnet = useTestnet;
   autoAnalyzeMaxPositions = maxPositions;
   autoAnalyzeSizePercent = sizePercent;
   autoAnalyzeLeverage = leverage;
+  autoAnalyzeTpMultiplier = tpMultiplier;
 
   const runAll = () => {
     if (fullAuto) {
@@ -716,7 +722,8 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
         useTestnet,
         maxPositions,
         sizePercent,
-        leverage
+        leverage,
+        tpMultiplier
       }).catch((e) => logger.error('auto-analyze', (e as Error).message));
     } else {
       for (const sym of syms) {
@@ -726,7 +733,7 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   };
   runAll();
   const timer = setInterval(runAll, intervalMs);
-  autoAnalyzeByUser.set(userId, { timer, executeOrders: fullAuto && executeOrders, useTestnet, maxPositions, sizePercent, leverage });
+  autoAnalyzeByUser.set(userId, { timer, executeOrders: fullAuto && executeOrders, useTestnet, maxPositions, sizePercent, leverage, tpMultiplier });
   return {
     status: 'started',
     symbols: syms,

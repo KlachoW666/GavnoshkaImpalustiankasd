@@ -32,6 +32,8 @@ export interface ExecuteOptions {
   maxPositions: number;
   /** Использовать testnet (OKX demo) */
   useTestnet?: boolean;
+  /** Множитель TP (0.5–1): 0.85 = уже TP, быстрее выход из позиции */
+  tpMultiplier?: number;
 }
 
 export interface ExecuteResult {
@@ -184,8 +186,15 @@ export async function executeSignal(
     if (stopLoss > 0 && stopLoss <= entryPrice) stopLoss = entryPrice * 1.005;
     if (takeProfit1 >= entryPrice) takeProfit1 = entryPrice * 0.98;
   }
+  const tpMult = Math.max(0.5, Math.min(1, options.tpMultiplier ?? 1));
+  if (tpMult < 1) {
+    const distance = takeProfit1 - entryPrice;
+    takeProfit1 = entryPrice + distance * tpMult;
+  }
 
-  const margin = (balance * options.sizePercent) / 100;
+  // Ограничиваем долю баланса запасом (OKX может отклонять при точном 100% из-за комиссий и маржи)
+  const maxUsableBalance = balance * 0.85;
+  const margin = Math.min((balance * options.sizePercent) / 100, maxUsableBalance);
   const positionValue = margin * options.leverage;
   let amount = positionValue / entryPrice; // контракты в базе (BTC и т.д.)
 
@@ -195,11 +204,18 @@ export async function executeSignal(
 
   const { minAmount, precision } = getOkxMinAmountAndPrecision(ccxtSymbol);
   amount = roundToPrecision(Math.max(amount, minAmount), precision);
-  const requiredMargin = (amount * entryPrice) / options.leverage;
-  if (requiredMargin > balance) {
+  let requiredMargin = (amount * entryPrice) / options.leverage;
+  if (requiredMargin > maxUsableBalance) {
+    // Уменьшаем размер под доступную маржу
+    const maxMargin = maxUsableBalance;
+    const maxAmount = (maxMargin * options.leverage) / entryPrice;
+    amount = roundToPrecision(Math.max(minAmount, Math.min(amount, maxAmount)), precision);
+    requiredMargin = (amount * entryPrice) / options.leverage;
+  }
+  if (requiredMargin > balance || amount < minAmount) {
     return {
       ok: false,
-      error: `Минимум на OKX: ${minAmount} ${ccxtSymbol.split('/')[0]}. Не хватает маржи (нужно ~$${requiredMargin.toFixed(2)}). Пополните счёт.`
+      error: `Недостаточно маржи на счёте (доступно ~$${balance.toFixed(2)} USDT, нужно ~$${requiredMargin.toFixed(2)}). Уменьшите «Долю баланса» или пополните счёт.`
     };
   }
 
@@ -247,8 +263,11 @@ export async function executeSignal(
   } catch (e: any) {
     const errMsg = e?.message ?? String(e);
     logger.error('AutoTrader', 'createOrder failed', { symbol: signal.symbol, error: errMsg });
-    const shortMsg = parseOkxShortError(errMsg);
-    return { ok: false, error: shortMsg || errMsg };
+    let userMsg = parseOkxShortError(errMsg) || errMsg;
+    if (/insufficient|margin|51020|51119/i.test(errMsg)) {
+      userMsg = `Недостаточно маржи на OKX. Уменьшите «Долю баланса» в настройках, закройте часть позиций или пополните счёт USDT.`;
+    }
+    return { ok: false, error: userMsg };
   }
 }
 
