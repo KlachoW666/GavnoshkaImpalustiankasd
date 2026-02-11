@@ -217,13 +217,13 @@ export async function executeSignal(
   try {
     let order: unknown;
     try {
-      order = await tryPlaceOrder('isolated');
+      order = await tryPlaceOrder('cross');
     } catch (e: any) {
       const errMsg = e?.message ?? String(e);
       const isAccountModeError = /51010|account mode|cannot complete.*account mode/i.test(errMsg);
       if (isAccountModeError) {
-        logger.info('AutoTrader', 'Retrying with tdMode=cross (account mode 51010)', { symbol: signal.symbol });
-        order = await tryPlaceOrder('cross');
+        logger.info('AutoTrader', 'Retrying with tdMode=isolated (account mode 51010)', { symbol: signal.symbol });
+        order = await tryPlaceOrder('isolated');
       } else {
         throw e;
       }
