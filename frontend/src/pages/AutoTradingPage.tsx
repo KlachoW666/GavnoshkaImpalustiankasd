@@ -1476,19 +1476,19 @@ export default function AutoTradingPage() {
 
       <section className="rounded-2xl p-6 md:p-8" style={cardStyle}>
         <h3 className="text-lg font-bold mb-6 tracking-tight" style={{ color: 'var(--text-primary)' }}>
-          Открытые позиции ({positions.length + (settings.fullAuto && settings.executeOrders && okxData?.positions?.length ? okxData.positions.length : 0)})
+          Открытые позиции ({positions.length + (settings.fullAuto && settings.executeOrders && okxData ? (okxData.positions?.length ?? 0) : 0)})
         </h3>
         {positions.length === 0 && (!okxData?.positions?.length || !settings.fullAuto || !settings.executeOrders) ? (
           <p className="text-sm py-4" style={{ color: 'var(--text-muted)' }}>Нет открытых позиций.</p>
         ) : (
           <div className="space-y-4">
-            {okxData?.positions?.length > 0 && settings.fullAuto && settings.executeOrders && (
+            {okxData && (okxData.positions?.length ?? 0) > 0 && settings.fullAuto && settings.executeOrders && (
               <>
                 <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
                   OKX {okxData.useTestnet ? '(Demo)' : '(Real)'} — ордера бота
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {okxData.positions.map((p: any, i: number) => (
+                  {(okxData.positions ?? []).map((p: any, i: number) => (
                     <div
                       key={`okx-${i}-${p.symbol ?? i}`}
                       className="rounded-xl border p-4 flex flex-col gap-1"
@@ -1512,7 +1512,7 @@ export default function AutoTradingPage() {
             )}
             {positions.length > 0 && (
               <>
-                {okxData?.positions?.length > 0 && settings.fullAuto && settings.executeOrders && (
+                {okxData && (okxData.positions?.length ?? 0) > 0 && settings.fullAuto && settings.executeOrders && (
                   <p className="text-xs font-semibold uppercase tracking-wider mt-4 mb-2" style={{ color: 'var(--text-muted)' }}>Демо-позиции (локальные)</p>
                 )}
                 {positions.map((pos) => {
