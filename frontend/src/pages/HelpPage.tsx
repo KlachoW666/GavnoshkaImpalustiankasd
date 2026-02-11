@@ -73,7 +73,7 @@ export default function HelpPage() {
         <div className="flex items-center gap-3 mb-4">
           <span className="text-2xl">📊</span>
           <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
-            Обзор и дашборд
+            Главная и дашборд
           </h2>
         </div>
         <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>

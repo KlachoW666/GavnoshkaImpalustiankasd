@@ -673,8 +673,18 @@ async function runAutoTradingBestCycle(
         }
       }
     } else {
-      logger.warn('runAutoTradingBestCycle', `OKX execution skipped: ${result.error}`);
-      setLastExecution(result.error ?? 'Unknown error');
+      const err = result.error ?? 'Unknown error';
+      const isBalanceSkip = /Баланс ОКХ \(Real\) слишком мал|Недостаточно маржи|пополните счёт до \$\d+\+|No balance available/i.test(err);
+      logger.warn('runAutoTradingBestCycle', `OKX execution skipped: ${err}`);
+      if (userId) {
+        const cur = lastExecutionByUser.get(userId);
+        lastExecutionByUser.set(userId, {
+          lastError: isBalanceSkip ? undefined : err,
+          lastOrderId: cur?.lastOrderId,
+          useTestnet,
+          at: Date.now()
+        });
+      }
     }
   }).catch((e) => {
     const msg = (e as Error).message;

@@ -3,7 +3,7 @@ import { adminApi, clearAdminToken } from '../../utils/adminApi';
 
 const TAB_IDS = ['dashboard', 'signals', 'chart', 'demo', 'autotrade', 'scanner', 'pnl', 'settings', 'admin'] as const;
 const TAB_LABELS: Record<string, string> = {
-  dashboard: 'Обзор',
+  dashboard: 'Главная',
   signals: 'Сигналы',
   chart: 'График',
   demo: 'Демо',

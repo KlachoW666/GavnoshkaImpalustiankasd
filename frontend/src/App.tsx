@@ -66,7 +66,7 @@ function getPageFromLocation(allowed: Set<Page>): Page {
 }
 
 const ALL_PAGES: { id: Page; label: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Обзор', icon: '◉' },
+  { id: 'dashboard', label: 'Главная', icon: '◉' },
   { id: 'signals', label: 'Сигналы', icon: '◈' },
   { id: 'chart', label: 'График', icon: '▣' },
   { id: 'demo', label: 'Демо', icon: '◆' },
@@ -162,11 +162,12 @@ export default function App() {
   }, [allowedSet, user?.activationActive]);
 
   const [page, setPage] = useState<Page>(() => {
-    const baseAllowed = new Set<Page>(FALLBACK_TABS);
-    const fromLocation = getPageFromLocation(baseAllowed);
+    if (typeof window === 'undefined') return 'dashboard';
+    const path = normalizePath(window.location.pathname);
+    const fromPath = PATH_TO_PAGE[path] as Page | undefined;
+    if (fromPath && fromPath !== 'admin') return fromPath;
     const saved = getSavedPage() as Page | null;
-    const candidate = saved && baseAllowed.has(saved) ? saved : fromLocation;
-    return candidate ?? 'dashboard';
+    return saved ?? 'dashboard';
   });
   const [notifOpen, setNotifOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -281,20 +282,29 @@ export default function App() {
           <h1 className="text-lg font-semibold tracking-tight">CLABX 🚀 Crypto Trading Soft</h1>
         </div>
         <nav className="flex items-center gap-1">
-          {PAGES.filter((p) => p.id !== 'settings').map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setPageSafe(p.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all relative ${
-                safePage === p.id ? 'text-[var(--accent)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-              }`}
-            >
-              {p.label}
-              {safePage === p.id && (
-                <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full" style={{ background: 'var(--accent)' }} />
-              )}
-            </button>
-          ))}
+          {PAGES.filter((p) => p.id !== 'settings').map((p) => {
+            const path = PAGE_PATHS[p.id];
+            return (
+              <a
+                key={p.id}
+                href={path}
+                onClick={(e) => {
+                  if (e.button === 0 && !e.ctrlKey && !e.metaKey) {
+                    e.preventDefault();
+                    setPageSafe(p.id);
+                  }
+                }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all relative inline-block ${
+                  safePage === p.id ? 'text-[var(--accent)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                }`}
+              >
+                {p.label}
+                {safePage === p.id && (
+                  <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full" style={{ background: 'var(--accent)' }} />
+                )}
+              </a>
+            );
+          })}
         </nav>
         <div className="flex items-center gap-2">
           <div className="relative">

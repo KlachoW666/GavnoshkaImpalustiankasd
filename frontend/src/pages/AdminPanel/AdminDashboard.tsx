@@ -114,7 +114,7 @@ export default function AdminDashboard() {
         <span className="text-2xl">📋</span>
         <div>
           <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Dashboard</h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Обзор системы и статистика</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Главная: система и статистика</p>
         </div>
       </div>
 

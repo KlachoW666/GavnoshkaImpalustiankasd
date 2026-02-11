@@ -1009,6 +1009,9 @@ export default function AutoTradingPage() {
                 Ордер не выставлен: {lastExecution.lastError}
               </p>
             ) : null}
+            <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+              При нехватке баланса исполнение пропустится, анализ продолжается — откроемся, когда хватит средств или на Демо.
+            </p>
           </div>
         )}
         </div>
