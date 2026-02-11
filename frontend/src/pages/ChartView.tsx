@@ -42,35 +42,123 @@ function ohlcToHeikinAshi(candles: OHLCVCandle[], timeframe: string): Candlestic
   return out;
 }
 
-function OrderbookDepthChart({ bids, asks }: { bids: [number, number][]; asks: [number, number][] }) {
-  const bidRows = bids.slice(0, 10);
-  const askRows = [...(asks || [])].reverse().slice(0, 10);
-  const maxBid = Math.max(...bidRows.map(([, a]) => a), 0.001);
-  const maxAsk = Math.max(...askRows.map(([, a]) => a), 0.001);
-  const maxVol = Math.max(maxBid, maxAsk);
+const OB_ROWS = 10;
+
+/** Стакан с фиксированным числом строк и ключами по индексу — не прыгает при обновлении */
+function StableOrderbookList({
+  bids,
+  asks,
+  className = ''
+}: {
+  bids: [number, number][];
+  asks: [number, number][];
+  className?: string;
+}) {
+  const askRows = [...(asks || [])].reverse().slice(0, OB_ROWS);
+  const bidRows = (bids || []).slice(0, OB_ROWS);
+
   return (
-    <div className="space-y-2 text-xs font-mono px-1">
+    <div className={`text-sm font-mono ${className}`}>
+      <div className="text-[10px] uppercase tracking-wider py-1.5" style={{ color: 'var(--danger)' }}>ПРОДАЖИ (ASK)</div>
+      <div className="space-y-0">
+        {Array.from({ length: OB_ROWS }, (_, i) => {
+          const row = askRows[i];
+          return (
+            <div
+              key={`ask-${i}`}
+              className="flex justify-between items-center gap-3 py-1 h-7 box-border"
+              style={{ color: 'var(--danger)', minHeight: '28px' }}
+            >
+              <span className="min-w-0 flex-1 truncate">
+                {row ? Number(row[0]).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+              </span>
+              <span className="text-right min-w-[4rem] shrink-0" style={{ color: 'var(--text-muted)' }}>
+                {row ? Number(row[1]).toFixed(4) : '—'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="border-t py-2 my-1 font-bold text-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--warning)' }}>Спред</div>
+      <div className="text-[10px] uppercase tracking-wider py-1.5" style={{ color: 'var(--success)' }}>ПОКУПКИ (BID)</div>
+      <div className="space-y-0">
+        {Array.from({ length: OB_ROWS }, (_, i) => {
+          const row = bidRows[i];
+          return (
+            <div
+              key={`bid-${i}`}
+              className="flex justify-between items-center gap-3 py-1 h-7 box-border"
+              style={{ color: 'var(--success)', minHeight: '28px' }}
+            >
+              <span className="min-w-0 flex-1 truncate">
+                {row ? Number(row[0]).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+              </span>
+              <span className="text-right min-w-[4rem] shrink-0" style={{ color: 'var(--text-muted)' }}>
+                {row ? Number(row[1]).toFixed(4) : '—'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function OrderbookDepthChart({ bids, asks }: { bids: [number, number][]; asks: [number, number][] }) {
+  const askRows = [...(asks || [])].reverse().slice(0, OB_ROWS);
+  const bidRows = (bids || []).slice(0, OB_ROWS);
+  const maxVol = Math.max(
+    ...askRows.map(([, a]) => a),
+    ...bidRows.map(([, a]) => a),
+    0.001
+  );
+  return (
+    <div className="space-y-1 text-xs font-mono px-1">
       <div className="text-[10px] uppercase tracking-wider py-1" style={{ color: 'var(--danger)' }}>Ask</div>
-      {askRows.map(([price, amt]) => (
-        <div key={`ask-${price}`} className="flex items-center gap-3 py-0.5">
-          <div className="min-w-[4.5rem] flex-shrink-0" style={{ color: 'var(--danger)' }}>{Number(price).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</div>
-          <div className="flex-1 h-4 rounded overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
-            <div className="h-full rounded" style={{ width: `${Math.min(100, (amt / maxVol) * 100)}%`, background: 'var(--danger)', opacity: 0.7 }} />
+      {Array.from({ length: OB_ROWS }, (_, i) => {
+        const row = askRows[i];
+        const [price, amt] = row ?? [0, 0];
+        const pct = row ? Math.min(100, (amt / maxVol) * 100) : 0;
+        return (
+          <div key={`ask-${i}`} className="flex items-center gap-3 py-0.5 h-6" style={{ minHeight: '24px' }}>
+            <div className="min-w-[4.5rem] flex-shrink-0" style={{ color: 'var(--danger)' }}>
+              {row ? Number(price).toLocaleString('ru-RU', { minimumFractionDigits: 2 }) : '—'}
+            </div>
+            <div className="flex-1 h-4 rounded overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
+              <div
+                className="h-full rounded transition-[width] duration-150"
+                style={{ width: `${pct}%`, background: 'var(--danger)', opacity: 0.7 }}
+              />
+            </div>
+            <span className="min-w-[3.5rem] text-right text-[var(--text-muted)]">
+              {row ? Number(amt).toFixed(2) : '—'}
+            </span>
           </div>
-          <span className="min-w-[3.5rem] text-right text-[var(--text-muted)]">{Number(amt).toFixed(2)}</span>
-        </div>
-      ))}
+        );
+      })}
       <div className="border-t py-2 my-1 font-bold text-center text-[10px]" style={{ borderColor: 'var(--border)', color: 'var(--warning)' }}>Спред</div>
       <div className="text-[10px] uppercase tracking-wider py-1" style={{ color: 'var(--success)' }}>Bid</div>
-      {bidRows.map(([price, amt]) => (
-        <div key={`bid-${price}`} className="flex items-center gap-3 py-0.5">
-            <div className="min-w-[4.5rem] flex-shrink-0" style={{ color: 'var(--primary)' }}>{Number(price).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</div>
-          <div className="flex-1 h-4 rounded overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
-            <div className="h-full rounded" style={{ width: `${Math.min(100, (amt / maxVol) * 100)}%`, background: 'var(--success)', opacity: 0.7 }} />
+      {Array.from({ length: OB_ROWS }, (_, i) => {
+        const row = bidRows[i];
+        const [price, amt] = row ?? [0, 0];
+        const pct = row ? Math.min(100, (amt / maxVol) * 100) : 0;
+        return (
+          <div key={`bid-${i}`} className="flex items-center gap-3 py-0.5 h-6" style={{ minHeight: '24px' }}>
+            <div className="min-w-[4.5rem] flex-shrink-0" style={{ color: 'var(--primary)' }}>
+              {row ? Number(price).toLocaleString('ru-RU', { minimumFractionDigits: 2 }) : '—'}
+            </div>
+            <div className="flex-1 h-4 rounded overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
+              <div
+                className="h-full rounded transition-[width] duration-150"
+                style={{ width: `${pct}%`, background: 'var(--success)', opacity: 0.7 }}
+              />
+            </div>
+            <span className="min-w-[3.5rem] text-right text-[var(--text-muted)]">
+              {row ? Number(amt).toFixed(2) : '—'}
+            </span>
           </div>
-          <span className="min-w-[3.5rem] text-right text-[var(--text-muted)]">{Number(amt).toFixed(2)}</span>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -96,11 +184,49 @@ export default function ChartView() {
   const [live, setLive] = useState(true);
   const [orderbook, setOrderbook] = useState<{ bids: [number, number][]; asks: [number, number][] } | null>(null);
   const orderbookSigRef = useRef<string>('');
+  const orderbookPendingRef = useRef<{ bids: [number, number][]; asks: [number, number][] } | null>(null);
+  const orderbookTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushOrderbook = () => {
+    if (orderbookTimerRef.current) {
+      clearTimeout(orderbookTimerRef.current);
+      orderbookTimerRef.current = null;
+    }
+    const pending = orderbookPendingRef.current;
+    if (pending != null) {
+      orderbookPendingRef.current = null;
+      setOrderbook(pending);
+    }
+  };
+
+  const scheduleOrderbookUpdate = (data: { bids: [number, number][]; asks: [number, number][] }) => {
+    orderbookPendingRef.current = data;
+    if (orderbookTimerRef.current) return;
+    orderbookTimerRef.current = setTimeout(flushOrderbook, 180);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (orderbookTimerRef.current) {
+        clearTimeout(orderbookTimerRef.current);
+        orderbookTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const displaySettings = getSettings().display;
   const orderbookView: 'list' | 'depth' = displaySettings.orderbookStyle === 'heatmap' ? 'depth' : 'list';
   const [trades, setTrades] = useState<{ price: number; amount: number; time: number; isBuy: boolean }[]>([]);
   const [lastSignal, setLastSignal] = useState<any>(null);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [lastCandle, setLastCandle] = useState<OHLCVCandle | null>(null);
+  const timeRangeRef = useRef<{ from: number | string; to: number | string } | null>(null);
+  const [drawingTool, setDrawingTool] = useState<'crosshair' | 'horizontal' | 'trend'>('crosshair');
+  const drawingToolRef = useRef(drawingTool);
+  const drawingSeriesRef = useRef<any[]>([]);
+  const trendLinePointsRef = useRef<{ time: number | string; value: number }[]>([]);
+
+  drawingToolRef.current = drawingTool;
 
   const exchangeId = 'okx';
   const { token } = useAuth();
@@ -137,6 +263,35 @@ export default function ChartView() {
     seriesRef.current = series as ISeriesApi<'Candlestick'>;
     volumeRef.current = volumeSeries;
 
+    const unsubClick = chart.subscribeClick((param: { point?: { x: number; y: number } }) => {
+      const tool = drawingToolRef.current;
+      const tr = timeRangeRef.current;
+      const mainSeries = seriesRef.current;
+      if (!param.point || !tr || !mainSeries) return;
+      const price = mainSeries.coordinateToPrice(param.point.y);
+      const time = chart.timeScale().coordinateToTime(param.point.x);
+      if (price == null || !Number.isFinite(price)) return;
+      if (tool === 'horizontal') {
+        const lineSeries = chart.addLineSeries({ color: '#f59e0b', lineWidth: 2, priceLineVisible: false });
+        lineSeries.setData([
+          { time: tr.from, value: price },
+          { time: tr.to, value: price }
+        ]);
+        drawingSeriesRef.current = [...drawingSeriesRef.current, lineSeries];
+      }
+      if (tool === 'trend' && time != null) {
+        const pts = trendLinePointsRef.current;
+        if (pts.length === 0) {
+          trendLinePointsRef.current = [{ time, value: price }];
+        } else if (pts.length === 1) {
+          trendLinePointsRef.current = [];
+          const lineSeries = chart.addLineSeries({ color: '#3b82f6', lineWidth: 2, priceLineVisible: false });
+          lineSeries.setData([...pts, { time, value: price }]);
+          drawingSeriesRef.current = [...drawingSeriesRef.current, lineSeries];
+        }
+      }
+    });
+
     const resize = () => {
       const w = el.offsetWidth;
       const h = el.offsetHeight;
@@ -158,6 +313,9 @@ export default function ChartView() {
     resize();
 
     return () => {
+      unsubClick();
+      drawingSeriesRef.current = [];
+      trendLinePointsRef.current = [];
       io.disconnect();
       ro.disconnect();
       chart.remove();
@@ -176,6 +334,11 @@ export default function ChartView() {
       .then((data) => {
         const candles = Array.isArray(data) ? data : [];
         if (!candles.length || !seriesRef.current) return;
+        const last = candles[candles.length - 1] as OHLCVCandle;
+        setLastCandle(last);
+        const firstTime = toChartTime(candles[0].timestamp, timeframe);
+        const lastTime = toChartTime(last.timestamp, timeframe);
+        timeRangeRef.current = { from: firstTime, to: lastTime };
         const volData: HistogramData[] = candles.map((c: OHLCVCandle) => ({
           time: toChartTime(c.timestamp, timeframe) as any,
           value: c.volume,
@@ -244,7 +407,14 @@ export default function ChartView() {
 
   useEffect(() => {
     setLoading(true);
+    setLastCandle(null);
     lastCandleTimeRef.current = null;
+    timeRangeRef.current = null;
+    drawingSeriesRef.current.forEach((s) => {
+      try { chartInstance.current?.removeSeries(s); } catch {}
+    });
+    drawingSeriesRef.current = [];
+    trendLinePointsRef.current = [];
     loadCandles(true);
     const t = setTimeout(() => setLoading(false), 2000);
     return () => clearTimeout(t);
@@ -314,7 +484,7 @@ export default function ChartView() {
           const sig = `${topBid}-${topAsk}-${(data.bids?.length ?? 0)}-${(data.asks?.length ?? 0)}`;
           if (sig !== orderbookSigRef.current) {
             orderbookSigRef.current = sig;
-            setOrderbook({ bids: data.bids ?? [], asks: data.asks ?? [] });
+            scheduleOrderbookUpdate({ bids: data.bids ?? [], asks: data.asks ?? [] });
           }
         }
         else if (msg.type === 'trade' && msg.data) setTrades((prev) => [{ ...msg.data }, ...prev.slice(0, 29)]);
@@ -335,6 +505,11 @@ export default function ChartView() {
     if (!sym) return;
     const applyOrderbook = (data: { bids?: [number, number][]; asks?: [number, number][] } | null) => {
       if (!data?.bids?.length && !data?.asks?.length) {
+        orderbookPendingRef.current = null;
+        if (orderbookTimerRef.current) {
+          clearTimeout(orderbookTimerRef.current);
+          orderbookTimerRef.current = null;
+        }
         setOrderbook(null);
         orderbookSigRef.current = '';
         return;
@@ -344,7 +519,7 @@ export default function ChartView() {
       const sig = `${topBid}-${topAsk}-${(data.bids?.length ?? 0)}-${(data.asks?.length ?? 0)}`;
       if (sig !== orderbookSigRef.current) {
         orderbookSigRef.current = sig;
-        setOrderbook({ bids: data.bids ?? [], asks: data.asks ?? [] });
+        scheduleOrderbookUpdate({ bids: data.bids ?? [], asks: data.asks ?? [] });
       }
     };
     fetch(`${API}/market/orderbook/${encodeURIComponent(sym)}?limit=15&exchange=${exchangeId}`)
@@ -404,9 +579,35 @@ export default function ChartView() {
   }, [symbol]);
 
   return (
-    <div className="flex gap-6 flex-col lg:flex-row h-full min-h-0 overflow-hidden max-w-[1600px] mx-auto">
-      <div className="flex-1 min-w-0 flex flex-col gap-4 min-h-0 overflow-hidden">
-        <div className="flex flex-wrap gap-4 items-center shrink-0">
+    <div className="flex flex-col gap-4 max-w-[1600px] mx-auto">
+      <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">📈</span>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>График</h1>
+            <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              Свечи, стакан и сделки по инструменту. Для сигналов по этому инструменту откройте вкладку Сигналы.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              window.history.pushState({}, '', '/signals');
+              (window as any).__navigateTo?.('signals');
+            }
+          }}
+          className="px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
+          style={{ background: 'var(--bg-hover)', color: 'var(--accent)' }}
+        >
+          Перейти к Сигналам
+        </button>
+      </div>
+
+      <div className="flex gap-6 flex-col lg:flex-row min-h-0 overflow-hidden">
+        <div className="flex-1 min-w-0 flex flex-col gap-4 min-h-0 overflow-hidden">
+          <div className="flex flex-wrap gap-4 items-center shrink-0">
           <div className="flex rounded-[10px] overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
             {PLATFORMS.map((p) => (
               <button
@@ -450,31 +651,110 @@ export default function ChartView() {
           {live && <span className="text-[var(--primary)] text-sm flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] animate-pulse" style={{ boxShadow: '0 0 8px var(--primary)' }} /> Live</span>}
         </div>
 
-        <div className="rounded-[14px] overflow-hidden shrink-0 card">
-          <div className="px-4 py-2 flex flex-wrap items-center gap-3 border-b" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
-            <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-              Инструмент: <strong style={{ color: 'var(--text-primary)' }}>{symbol || 'BTC-USDT'}</strong>
-            </span>
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>•</span>
-            <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-              Таймфрейм: <strong style={{ color: 'var(--text-primary)' }}>{timeframe}</strong>
-            </span>
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>•</span>
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{platform.toUpperCase()}</span>
-            {currentPrice != null && (
-              <>
-                <span className="text-sm" style={{ color: 'var(--text-muted)' }}>•</span>
-                <span className="text-sm font-mono" style={{ color: 'var(--primary)' }}>
-                  Цена: {currentPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </>
-            )}
+        <div className="rounded-[14px] overflow-hidden shrink-0 card flex">
+          <div className="flex flex-col shrink-0" style={{ width: '36px', background: 'var(--bg-hover)', borderRight: '1px solid var(--border)' }}>
+            <button
+              type="button"
+              title="Курсор"
+              onClick={() => setDrawingTool('crosshair')}
+              className="p-2 flex items-center justify-center transition-opacity hover:opacity-100"
+              style={{ opacity: drawingTool === 'crosshair' ? 1 : 0.6, color: 'var(--text-secondary)' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 2v20M2 12h20" /><circle cx="12" cy="12" r="2" /></svg>
+            </button>
+            <button
+              type="button"
+              title="Горизонтальная линия"
+              onClick={() => setDrawingTool('horizontal')}
+              className="p-2 flex items-center justify-center transition-opacity hover:opacity-100"
+              style={{ opacity: drawingTool === 'horizontal' ? 1 : 0.6, color: 'var(--text-secondary)' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="2" y1="12" x2="22" y2="12" /></svg>
+            </button>
+            <button
+              type="button"
+              title="Трендовая линия"
+              onClick={() => setDrawingTool('trend')}
+              className="p-2 flex items-center justify-center transition-opacity hover:opacity-100"
+              style={{ opacity: drawingTool === 'trend' ? 1 : 0.6, color: 'var(--text-secondary)' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" y1="20" x2="20" y2="4" /><line x1="4" y1="20" x2="8" y2="20" /><line x1="20" y1="4" x2="20" y2="8" /></svg>
+            </button>
+            <button
+              type="button"
+              title="Очистить линии"
+              onClick={() => {
+                drawingSeriesRef.current.forEach((s) => { try { chartInstance.current?.removeSeries(s); } catch {} });
+                drawingSeriesRef.current = [];
+                trendLinePointsRef.current = [];
+              }}
+              className="p-2 flex items-center justify-center transition-opacity hover:opacity-100 mt-auto"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+            </button>
           </div>
-          <div
-            ref={chartRef}
-            className="w-full"
-            style={{ height: 'min(70vh, 620px)' }}
-          />
+          <div className="flex-1 min-w-0 flex flex-col">
+            <div className="px-4 py-2 flex flex-wrap items-center gap-3 border-b" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
+              <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Инструмент: <strong style={{ color: 'var(--text-primary)' }}>{symbol || 'BTC-USDT'}</strong>
+              </span>
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>•</span>
+              <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Таймфрейм: <strong style={{ color: 'var(--text-primary)' }}>{timeframe}</strong>
+              </span>
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>•</span>
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{platform.toUpperCase()}</span>
+              {currentPrice != null && (
+                <>
+                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>•</span>
+                  <span className="text-sm font-mono" style={{ color: 'var(--primary)' }}>
+                    Цена: {currentPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </>
+              )}
+            </div>
+            {lastCandle && (
+              <div className="px-4 py-2 flex flex-wrap items-center gap-4 border-b" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+                <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>ОТКР</span>
+                <span className="text-sm font-mono" style={{ color: 'var(--text-primary)' }}>
+                  {Number(lastCandle.open).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>МАКС</span>
+                <span className="text-sm font-mono" style={{ color: 'var(--success)' }}>
+                  {Number(lastCandle.high).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>МИН</span>
+                <span className="text-sm font-mono" style={{ color: 'var(--danger)' }}>
+                  {Number(lastCandle.low).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>ЗАКР</span>
+                <span className="text-sm font-mono" style={{ color: 'var(--text-primary)' }}>
+                  {Number(lastCandle.close).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                {(() => {
+                  const ch = lastCandle.close - lastCandle.open;
+                  const pct = lastCandle.open ? (ch / lastCandle.open) * 100 : 0;
+                  const up = ch >= 0;
+                  return (
+                    <>
+                      <span className="text-sm font-mono" style={{ color: up ? 'var(--success)' : 'var(--danger)' }}>
+                        {up ? '+' : ''}{ch.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-sm font-mono" style={{ color: up ? 'var(--success)' : 'var(--danger)' }}>
+                        ({up ? '+' : ''}{pct.toFixed(2)}%)
+                      </span>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+            <div
+              ref={chartRef}
+              className="w-full"
+              style={{ height: 'min(70vh, 620px)' }}
+            />
+          </div>
         </div>
       </div>
 
@@ -508,31 +788,17 @@ export default function ChartView() {
               </button>
             </div>
           </div>
-          <div style={{ minHeight: '480px' }}>
+          <div className="overflow-hidden" style={{ height: '420px', minHeight: '420px' }}>
             {orderbook ? (
               orderbookView === 'depth' ? (
                 <div className="mt-2"><OrderbookDepthChart bids={orderbook.bids || []} asks={orderbook.asks || []} /></div>
               ) : (
-                <div className="space-y-2 text-sm font-mono mt-2 px-1">
-                  <div className="text-xs mb-2 uppercase tracking-wider py-1" style={{ color: 'var(--danger)' }}>Продажи (Ask)</div>
-                  {orderbook.asks?.slice(0, 8).reverse().map(([price, amt]) => (
-                    <div key={`ask-${price}`} className="flex justify-between items-center py-0.5 gap-4" style={{ color: 'var(--danger)' }}>
-                      <span className="min-w-0 flex-1">{Number(price).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</span>
-                      <span className="text-right min-w-[4rem]" style={{ color: 'var(--text-muted)' }}>{Number(amt).toFixed(4)}</span>
-                    </div>
-                  ))}
-                  <div className="border-t my-3 pt-3 font-bold text-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--warning)' }}>Спред</div>
-                  <div className="text-xs mb-2 uppercase tracking-wider py-1" style={{ color: 'var(--success)' }}>Покупки (Bid)</div>
-                  {orderbook.bids?.slice(0, 8).map(([price, amt]) => (
-                    <div key={`bid-${price}`} className="flex justify-between items-center py-0.5 gap-4" style={{ color: 'var(--success)' }}>
-                      <span className="min-w-0 flex-1">{Number(price).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</span>
-                      <span className="text-right min-w-[4rem]" style={{ color: 'var(--text-muted)' }}>{Number(amt).toFixed(4)}</span>
-                    </div>
-                  ))}
+                <div className="mt-2 px-1">
+                  <StableOrderbookList bids={orderbook.bids || []} asks={orderbook.asks || []} />
                 </div>
               )
             ) : (
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Загрузка стакана...</p>
+              <p className="text-sm py-4" style={{ color: 'var(--text-muted)' }}>Загрузка стакана...</p>
             )}
           </div>
         </div>
@@ -576,6 +842,7 @@ export default function ChartView() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
