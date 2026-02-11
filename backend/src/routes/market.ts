@@ -41,6 +41,8 @@ interface PerUserAutoState {
   leverage: number;
 }
 const autoAnalyzeByUser = new Map<string, PerUserAutoState>();
+/** Результат последнего исполнения по userId (для отображения на фронте) */
+const lastExecutionByUser = new Map<string, { lastError?: string; lastOrderId?: string; useTestnet?: boolean; at: number }>();
 const faFilter = new FundamentalFilter();
 const aggregator = new DataAggregator();
 const candleAnalyzer = new CandleAnalyzer();
@@ -613,20 +615,41 @@ async function runAutoTradingBestCycle(
   const userCreds = userId ? getOkxCredentials(userId) : null;
   const hasUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
   const canExecute = config.autoTradingExecutionEnabled && executeOrders && (config.okx.hasCredentials || hasUserCreds);
-  if (canExecute) {
-    executeSignal(best.signal, {
-      sizePercent,
-      leverage,
-      maxPositions,
-      useTestnet
-    }, hasUserCreds ? userCreds : undefined).then((result) => {
-      if (result.ok) {
-        logger.info('runAutoTradingBestCycle', `OKX order placed: ${result.orderId} (${useTestnet ? 'testnet' : 'real'})`);
-      } else {
-        logger.warn('runAutoTradingBestCycle', `OKX execution skipped: ${result.error}`);
-      }
-    }).catch((e) => logger.error('runAutoTradingBestCycle', 'OKX execute failed', { error: (e as Error).message }));
+
+  const setLastExecution = (err?: string, orderId?: string) => {
+    if (userId) {
+      lastExecutionByUser.set(userId, { lastError: err, lastOrderId: orderId, useTestnet, at: Date.now() });
+    }
+  };
+
+  if (!canExecute) {
+    let reason = 'Исполнение отключено';
+    if (!config.autoTradingExecutionEnabled) reason = 'Исполнение отключено на сервере (AUTO_TRADING_EXECUTION_ENABLED)';
+    else if (!executeOrders) reason = 'Исполнение ордеров выключено';
+    else if (!config.okx.hasCredentials && !hasUserCreds) reason = 'Нет ключей OKX (профиль или .env)';
+    logger.info('runAutoTradingBestCycle', `Execution skipped: ${reason}`, { userId, useTestnet });
+    setLastExecution(reason);
+    return;
   }
+
+  executeSignal(best.signal, {
+    sizePercent,
+    leverage,
+    maxPositions,
+    useTestnet
+  }, hasUserCreds ? userCreds : undefined).then((result) => {
+    if (result.ok) {
+      logger.info('runAutoTradingBestCycle', `OKX order placed: ${result.orderId} (${useTestnet ? 'testnet' : 'real'})`);
+      setLastExecution(undefined, result.orderId);
+    } else {
+      logger.warn('runAutoTradingBestCycle', `OKX execution skipped: ${result.error}`);
+      setLastExecution(result.error ?? 'Unknown error');
+    }
+  }).catch((e) => {
+    const msg = (e as Error).message;
+    logger.error('runAutoTradingBestCycle', 'OKX execute failed', { error: msg });
+    setLastExecution(msg);
+  });
 }
 
 export function startAutoAnalyzeForUser(userId: string, body: Record<string, unknown>): { status: string; symbols: string[]; timeframe: string; intervalMs: number; mode: string; fullAuto: boolean; useScanner?: boolean; executeOrders?: boolean; useTestnet?: boolean } {
@@ -648,7 +671,7 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   const fullAuto = Boolean(body?.fullAuto);
   const useScanner = Boolean(body?.useScanner);
   const executeOrders = Boolean(body?.executeOrders);
-  const useTestnet = (body?.useTestnet as boolean) !== false;
+  const useTestnet = typeof body?.useTestnet === 'boolean' ? body.useTestnet : true;
   const maxPositions = Math.max(1, Math.min(10, parseInt(String(body?.maxPositions)) || 2));
   const sizePercent = Math.max(1, Math.min(50, parseInt(String(body?.sizePercent)) || 5));
   const leverage = Math.max(1, Math.min(125, parseInt(String(body?.leverage)) || 25));
@@ -727,6 +750,19 @@ export function getAutoAnalyzeStatus(userId?: string): { running: boolean } {
 router.get('/auto-analyze/status', requireAuth, (req, res) => {
   const userId = (req as any).userId as string;
   res.json(getAutoAnalyzeStatus(userId));
+});
+
+/** Результат последнего исполнения (ордер или причина пропуска) для отображения на странице авто-торговли */
+router.get('/auto-analyze/last-execution', requireAuth, (req, res) => {
+  const userId = (req as any).userId as string;
+  const last = lastExecutionByUser.get(userId);
+  if (!last) return res.json({});
+  return res.json({
+    lastError: last.lastError,
+    lastOrderId: last.lastOrderId,
+    useTestnet: last.useTestnet,
+    at: last.at
+  });
 });
 
 /** Тестовый сигнал для проверки потока (демо). Не исполняется на OKX. */

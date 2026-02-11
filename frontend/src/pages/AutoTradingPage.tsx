@@ -373,6 +373,7 @@ export default function AutoTradingPage() {
   const [lastBreakdown, setLastBreakdown] = useState<BreakdownType | null>(null);
   const [status, setStatus] = useState<'idle' | 'running' | 'error' | 'stopped_daily_loss'>('idle');
   const [okxData, setOkxData] = useState<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number }>; balance: number; openCount: number; useTestnet: boolean; balanceError?: string; executionAvailable?: boolean } | null>(null);
+  const [lastExecution, setLastExecution] = useState<{ lastError?: string; lastOrderId?: string; useTestnet?: boolean; at?: number } | null>(null);
   const closePositionRef = useRef<(pos: DemoPosition, price?: number) => void>(() => {});
   const positionsRef = useRef<DemoPosition[]>([]);
   const closingIdsRef = useRef<Set<string>>(new Set());
@@ -434,6 +435,21 @@ export default function AutoTradingPage() {
     const id = setInterval(fetchOkx, 15000);
     return () => clearInterval(id);
   }, [enabled, settings.fullAuto, settings.executeOrders, settings.useTestnet, token]);
+
+  useEffect(() => {
+    if (!enabled || !settings.fullAuto || !settings.executeOrders || !token) {
+      setLastExecution(null);
+      return;
+    }
+    const fetchLast = () => {
+      api.get<{ lastError?: string; lastOrderId?: string; useTestnet?: boolean; at?: number }>('/market/auto-analyze/last-execution', { headers: { Authorization: `Bearer ${token}` } })
+        .then((data) => setLastExecution(data?.lastError !== undefined || data?.lastOrderId !== undefined ? data : null))
+        .catch(() => setLastExecution(null));
+    };
+    fetchLast();
+    const id = setInterval(fetchLast, 10000);
+    return () => clearInterval(id);
+  }, [enabled, settings.fullAuto, settings.executeOrders, token]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -933,6 +949,19 @@ export default function AutoTradingPage() {
             )}
             <span className="text-sm px-4 py-2 rounded-xl font-medium" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>{mode === 'spot' ? 'SPOT 1x' : `Futures ${leverage}x`}</span>
           </div>
+        {enabled && settings.fullAuto && settings.executeOrders && lastExecution && (
+          <div className="mt-4 pt-4 border-t text-sm" style={{ borderColor: 'var(--border)' }}>
+            {lastExecution.lastOrderId ? (
+              <p className="font-medium" style={{ color: 'var(--success)' }}>
+                Последнее исполнение: ордер #{lastExecution.lastOrderId} {lastExecution.useTestnet === false ? '(реальный счёт)' : lastExecution.useTestnet === true ? '(демо)' : ''}
+              </p>
+            ) : lastExecution.lastError ? (
+              <p className="font-medium" style={{ color: 'var(--danger)' }} title={lastExecution.lastError}>
+                Ордер не выставлен: {lastExecution.lastError}
+              </p>
+            ) : null}
+          </div>
+        )}
         </div>
       </section>
 
