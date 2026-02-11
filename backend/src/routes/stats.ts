@@ -4,9 +4,8 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { listOrders } from '../db';
+import { initDb, listOrders, isMemoryStore } from '../db';
 import { getActiveSessionsCount, getTotalUsersCount } from '../db/authDb';
-import { isMemoryStore } from '../db';
 import { config } from '../config';
 
 const router = Router();
@@ -32,8 +31,9 @@ export interface StatsResponse {
 /** GET /api/stats — агрегированная статистика для главной страницы */
 router.get('/', (_req: Request, res: Response) => {
   try {
+    initDb();
     const closed = listOrders({ status: 'closed', limit: 5000 });
-    const open = listOrders({ status: 'open', limit: 100 });
+    const open = listOrders({ status: 'open', limit: 500 });
     const withPnl = closed.filter((o) => o.close_price != null && o.close_price > 0 && o.pnl != null);
     const wins = withPnl.filter((o) => (o.pnl ?? 0) > 0);
     const losses = withPnl.filter((o) => (o.pnl ?? 0) < 0);
@@ -46,7 +46,7 @@ router.get('/', (_req: Request, res: Response) => {
 
     res.json({
       orders: {
-        total: closed.length,
+        total: closed.length + open.length,
         wins: wins.length,
         losses: losses.length,
         totalPnl: Math.round(totalPnl * 100) / 100,

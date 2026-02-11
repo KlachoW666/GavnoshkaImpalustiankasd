@@ -28,17 +28,19 @@ export default function Dashboard() {
 
   useEffect(() => {
     const fetchStats = () => {
-      api.get<AppStats>('/stats')
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+      api.get<AppStats>('/stats', { headers })
         .then(setStats)
         .catch(() => setStats(null));
     };
     fetchStats();
     const id = setInterval(fetchStats, 15000);
     return () => clearInterval(id);
-  }, []);
+  }, [token]);
 
   useEffect(() => {
-    api.get<TradingSignal[]>('/signals?limit=10')
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+    api.get<TradingSignal[]>('/signals?limit=10', { headers })
       .then(setSignals)
       .catch(() => {});
 
