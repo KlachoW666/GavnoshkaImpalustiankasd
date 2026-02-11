@@ -185,38 +185,39 @@ export async function executeSignal(
     return { ok: false, error: 'Invalid position size' };
   }
 
-  try {
-    await exchange.setLeverage(options.leverage, ccxtSymbol, { marginMode: 'isolated' });
-  } catch (e) {
-    logger.warn('AutoTrader', 'setLeverage failed', { symbol: ccxtSymbol, error: (e as Error).message });
-  }
-
   const side = signal.direction === 'LONG' ? 'buy' : 'sell';
-  const params: Record<string, unknown> = {
-    tdMode: 'isolated'
+
+  const tryPlaceOrder = async (tdMode: 'isolated' | 'cross') => {
+    try {
+      await exchange.setLeverage(options.leverage, ccxtSymbol, { marginMode: tdMode });
+    } catch (e) {
+      logger.warn('AutoTrader', 'setLeverage failed', { symbol: ccxtSymbol, tdMode, error: (e as Error).message });
+    }
+    const params: Record<string, unknown> = { tdMode };
+    if (stopLoss > 0) {
+      params.stopLoss = { triggerPrice: stopLoss, type: 'market' };
+    }
+    if (takeProfit1 > 0 && takeProfit1 !== entryPrice) {
+      params.takeProfit = { triggerPrice: takeProfit1, type: 'market' };
+    }
+    const order = await exchange.createOrder(ccxtSymbol, 'market', side, amount, undefined, params);
+    return order;
   };
-  if (stopLoss > 0) {
-    params.stopLoss = {
-      triggerPrice: stopLoss,
-      type: 'market'
-    };
-  }
-  if (takeProfit1 > 0 && takeProfit1 !== entryPrice) {
-    params.takeProfit = {
-      triggerPrice: takeProfit1,
-      type: 'market'
-    };
-  }
 
   try {
-    const order = await exchange.createOrder(
-      ccxtSymbol,
-      'market',
-      side,
-      amount,
-      undefined,
-      params
-    );
+    let order: unknown;
+    try {
+      order = await tryPlaceOrder('isolated');
+    } catch (e: any) {
+      const errMsg = e?.message ?? String(e);
+      const isAccountModeError = /51010|account mode|cannot complete.*account mode/i.test(errMsg);
+      if (isAccountModeError) {
+        logger.info('AutoTrader', 'Retrying with tdMode=cross (account mode 51010)', { symbol: signal.symbol });
+        order = await tryPlaceOrder('cross');
+      } else {
+        throw e;
+      }
+    }
     const orderId = (order as any).id ?? (order as any).orderId;
     logger.info('AutoTrader', `Order placed: ${signal.symbol} ${signal.direction}`, {
       orderId,
@@ -228,8 +229,26 @@ export async function executeSignal(
   } catch (e: any) {
     const errMsg = e?.message ?? String(e);
     logger.error('AutoTrader', 'createOrder failed', { symbol: signal.symbol, error: errMsg });
-    return { ok: false, error: errMsg };
+    const shortMsg = parseOkxShortError(errMsg);
+    return { ok: false, error: shortMsg || errMsg };
   }
+}
+
+/** Извлечь короткое сообщение из ответа OKX (например sMsg из data[0]) для отображения пользователю */
+function parseOkxShortError(errMsg: string): string | null {
+  try {
+    const m = errMsg.match(/"sMsg"\s*:\s*"([^"]+)"/);
+    if (m?.[1]) return m[1];
+    const j = errMsg.replace(/^okx\s+/i, '').trim();
+    if (j.startsWith('{')) {
+      const o = JSON.parse(j) as { msg?: string; data?: Array<{ sMsg?: string }> };
+      if (o.data?.[0]?.sMsg) return o.data[0].sMsg;
+      if (o.msg) return o.msg;
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return null;
 }
 
 /**
