@@ -4,6 +4,7 @@
 
 import { Router, Request, Response } from 'express';
 import ccxt from 'ccxt';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import { config } from '../config';
 import { getDashboardData, validateAdminPassword, createAdminToken, validateAdminToken } from '../services/adminService';
 import { stopAutoAnalyze, getAutoAnalyzeStatus, startAutoAnalyzeForUser } from './market';
@@ -260,6 +261,16 @@ router.get('/users', requireAdmin, (req: Request, res: Response) => {
   }
 });
 
+function okxProxyAgent(): ReturnType<typeof HttpsProxyAgent<string>> | undefined {
+  const proxyUrl = getProxy(config.proxyList) || config.proxy || '';
+  if (!proxyUrl || !proxyUrl.startsWith('http')) return undefined;
+  try {
+    return new HttpsProxyAgent(proxyUrl);
+  } catch {
+    return undefined;
+  }
+}
+
 /** Получить баланс USDT с OKX по ключам пользователя. Пробует real и testnet — ключи могут быть для любого из них. */
 async function fetchOkxBalanceForUser(userId: string): Promise<{ okxBalance: number | null; okxBalanceError: string | null }> {
   const creds = getOkxCredentials(userId);
@@ -275,6 +286,8 @@ async function fetchOkxBalanceForUser(userId: string): Promise<{ okxBalance: num
     options: { defaultType: 'swap' }
   };
   if (proxyUrl) baseOpts.httpsProxy = proxyUrl;
+  const agent = okxProxyAgent();
+  if (agent) baseOpts.agent = agent;
   let lastError: string | null = null;
   for (const sandboxMode of [false, true]) {
     try {

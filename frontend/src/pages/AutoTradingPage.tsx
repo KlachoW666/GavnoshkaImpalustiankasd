@@ -476,7 +476,7 @@ export default function AutoTradingPage() {
       fetch(`${API}/market/auto-analyze/stop`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } }).catch(() => {});
       setStatus('idle');
     };
-  }, [enabled, symbols, settings.intervalMs, settings.scalpingMode, settings.strategy, settings.fullAuto, settings.useScanner, token]);
+  }, [enabled, symbols, settings.intervalMs, settings.scalpingMode, settings.strategy, settings.fullAuto, settings.useScanner, settings.executeOrders, settings.useTestnet, token]);
 
   useEffect(() => {
     const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';

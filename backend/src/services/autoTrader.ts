@@ -4,6 +4,7 @@
  */
 
 import ccxt, { Exchange } from 'ccxt';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import { config } from '../config';
 import { getProxy } from '../db/proxies';
 import { toOkxCcxtSymbol } from '../lib/symbol';
@@ -11,6 +12,16 @@ import { normalizeSymbol } from '../lib/symbol';
 import { TradingSignal } from '../types/signal';
 import { emotionalFilterInstance } from './emotionalFilter';
 import { logger } from '../lib/logger';
+
+function okxProxyAgent(): HttpsProxyAgent<string> | undefined {
+  const proxyUrl = getProxy(config.proxyList) || config.proxy;
+  if (!proxyUrl || !proxyUrl.startsWith('http')) return undefined;
+  try {
+    return new HttpsProxyAgent(proxyUrl);
+  } catch {
+    return undefined;
+  }
+}
 
 export interface ExecuteOptions {
   /** Доля баланса на позицию (0–100) */
@@ -50,6 +61,8 @@ function buildExchange(useTestnet: boolean): Exchange {
   };
   const proxyUrl = getProxy(config.proxyList) || config.proxy;
   if (proxyUrl) (opts as any).httpsProxy = proxyUrl;
+  const agent = okxProxyAgent();
+  if (agent) (opts as any).agent = agent;
   return new ccxt.okx(opts);
 }
 
@@ -67,6 +80,8 @@ function buildExchangeFromCreds(creds: UserOkxCreds, useTestnet: boolean): Excha
   };
   const proxyUrl = getProxy(config.proxyList) || config.proxy;
   if (proxyUrl) (opts as any).httpsProxy = proxyUrl;
+  const agent = okxProxyAgent();
+  if (agent) (opts as any).agent = agent;
   return new ccxt.okx(opts);
 }
 
@@ -106,14 +121,17 @@ export async function getOpenPositionsCount(useTestnet: boolean): Promise<number
 
 /**
  * Исполнить сигнал: маркет-ордер + SL/TP (TP1).
- * Проверяет: credentials, emotional filter, max positions, баланс.
+ * Проверяет: credentials (сервер или userCreds), emotional filter, max positions, баланс.
+ * При передаче userCreds ордер исполняется на счёте пользователя (реальная торговля).
  */
 export async function executeSignal(
   signal: TradingSignal,
-  options: ExecuteOptions
+  options: ExecuteOptions,
+  userCreds?: UserOkxCreds | null
 ): Promise<ExecuteResult> {
-  if (!config.okx.hasCredentials) {
-    return { ok: false, error: 'OKX credentials not set' };
+  const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
+  if (!useUserCreds && !config.okx.hasCredentials) {
+    return { ok: false, error: 'OKX credentials not set (настройте ключи в профиле или в .env)' };
   }
 
   const canOpen = emotionalFilterInstance.canOpenTrade();
@@ -122,12 +140,31 @@ export async function executeSignal(
   }
 
   const useTestnet = options.useTestnet ?? config.okx.sandbox;
-  const openCount = await getOpenPositionsCount(useTestnet);
+  const exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
+
+  let openCount: number;
+  let balance: number;
+  try {
+    const [positionsRes, balanceRes] = await Promise.all([
+      exchange.fetchPositions(),
+      exchange.fetchBalance()
+    ]);
+    openCount = positionsRes.filter((p: any) => {
+      const sz = Number(p.contracts ?? p.info?.pos ?? 0);
+      return sz !== 0 && (p.side === 'long' || p.side === 'short');
+    }).length;
+    const usdt = (balanceRes as any).USDT ?? balanceRes?.usdt;
+    const free = usdt?.free ?? usdt?.total ?? 0;
+    balance = typeof free === 'number' ? free : 0;
+  } catch (e) {
+    const msg = (e as Error).message || String(e);
+    logger.warn('AutoTrader', 'executeSignal fetch positions/balance failed', { error: msg });
+    return { ok: false, error: msg };
+  }
+
   if (openCount >= options.maxPositions) {
     return { ok: false, error: `Max positions (${options.maxPositions}) reached` };
   }
-
-  const balance = await getTradingBalance(useTestnet);
   if (balance <= 0) {
     return { ok: false, error: 'No balance available' };
   }
@@ -147,8 +184,6 @@ export async function executeSignal(
   if (amount <= 0 || !Number.isFinite(amount)) {
     return { ok: false, error: 'Invalid position size' };
   }
-
-  const exchange = buildExchange(useTestnet);
 
   try {
     await exchange.setLeverage(options.leverage, ccxtSymbol, { marginMode: 'isolated' });
@@ -233,44 +268,57 @@ export async function fetchPositionsForApi(useTestnet: boolean): Promise<Array<{
   }
 }
 
-/** Позиции и баланс OKX: при передаче userCreds — ключи пользователя (как в админке), иначе ключи из .env */
+async function fetchBalanceAndPositions(exchange: Exchange): Promise<{ balance: number; positions: any[] }> {
+  const [balanceRes, positionsRes] = await Promise.all([
+    exchange.fetchBalance(),
+    exchange.fetchPositions()
+  ]);
+  const usdt = (balanceRes as any).USDT ?? balanceRes?.usdt;
+  const total = usdt?.total ?? 0;
+  const free = usdt?.free ?? total;
+  const balance = typeof free === 'number' ? free : 0;
+  const positions = positionsRes
+    .filter((p: any) => {
+      const sz = Number(p.contracts ?? p.info?.pos ?? 0);
+      return sz !== 0;
+    })
+    .map((p: any) => ({
+      symbol: p.symbol ?? p.info?.instId ?? '',
+      side: p.side ?? (Number(p.info?.pos ?? 0) > 0 ? 'long' : 'short'),
+      contracts: Number(p.contracts ?? p.info?.pos ?? 0),
+      entryPrice: Number(p.entryPrice ?? p.info?.avgPx ?? 0),
+      markPrice: p.markPrice != null ? Number(p.markPrice) : undefined,
+      unrealizedPnl: p.unrealizedPnl != null ? Number(p.unrealizedPnl) : undefined,
+      leverage: Number(p.leverage ?? p.info?.lever ?? 1)
+    }));
+  return { balance, positions };
+}
+
+/** Позиции и баланс OKX: при передаче userCreds — ключи пользователя (как в админке), иначе ключи из .env. При таймауте — один повтор с новым прокси. */
 export async function getPositionsAndBalanceForApi(
   useTestnet: boolean,
   userCreds?: UserOkxCreds | null
 ): Promise<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number; leverage: number }>; balance: number; openCount: number; balanceError?: string }> {
   const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
-  const exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
   if (!useUserCreds && !config.okx.hasCredentials) {
     return { positions: [], balance: 0, openCount: 0 };
   }
-  try {
-    const [balanceRes, positionsRes] = await Promise.all([
-      exchange.fetchBalance(),
-      exchange.fetchPositions()
-    ]);
-    const usdt = (balanceRes as any).USDT ?? balanceRes?.usdt;
-    const total = usdt?.total ?? 0;
-    const free = usdt?.free ?? total;
-    const balance = typeof free === 'number' ? free : 0;
-    const positions = positionsRes
-      .filter((p: any) => {
-        const sz = Number(p.contracts ?? p.info?.pos ?? 0);
-        return sz !== 0;
-      })
-      .map((p: any) => ({
-        symbol: p.symbol ?? p.info?.instId ?? '',
-        side: p.side ?? (Number(p.info?.pos ?? 0) > 0 ? 'long' : 'short'),
-        contracts: Number(p.contracts ?? p.info?.pos ?? 0),
-        entryPrice: Number(p.entryPrice ?? p.info?.avgPx ?? 0),
-        markPrice: p.markPrice != null ? Number(p.markPrice) : undefined,
-        unrealizedPnl: p.unrealizedPnl != null ? Number(p.unrealizedPnl) : undefined,
-        leverage: Number(p.leverage ?? p.info?.lever ?? 1)
-      }));
-    const openCount = positions.length;
-    return { positions, balance, openCount };
-  } catch (e) {
-    const msg = (e as Error).message || String(e);
-    logger.warn('AutoTrader', 'getPositionsAndBalance failed', { error: msg, useUserCreds: !!useUserCreds });
-    return { positions: [], balance: 0, openCount: 0, balanceError: msg };
+  let exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { balance, positions } = await fetchBalanceAndPositions(exchange);
+      return { positions, balance, openCount: positions.length };
+    } catch (e) {
+      const msg = (e as Error).message || String(e);
+      const isTimeout = /timed out|timeout|ETIMEDOUT/i.test(msg);
+      if (isTimeout && attempt === 0) {
+        logger.warn('AutoTrader', 'getPositionsAndBalance timeout, retrying with new proxy', { useUserCreds: !!useUserCreds });
+        exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
+        continue;
+      }
+      logger.warn('AutoTrader', 'getPositionsAndBalance failed', { error: msg, useUserCreds: !!useUserCreds });
+      return { positions: [], balance: 0, openCount: 0, balanceError: msg };
+    }
   }
+  return { positions: [], balance: 0, openCount: 0, balanceError: 'Request failed after retry' };
 }

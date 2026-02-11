@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { DataAggregator } from '../services/dataAggregator';
 import { getBroadcastSignal } from '../websocket';
-import { findSessionUserId } from '../db/authDb';
+import { findSessionUserId, getOkxCredentials } from '../db/authDb';
 import { requireAuth } from './auth';
 import { CandleAnalyzer } from '../services/candleAnalyzer';
 import { SignalGenerator } from '../services/signalGenerator';
@@ -610,15 +610,18 @@ async function runAutoTradingBestCycle(
   getBroadcastSignal()?.(best.signal, best.breakdown, userId);
   logger.info('runAutoTradingBestCycle', `Best: ${best.signal.symbol} ${best.signal.direction} conf=${((best.signal.confidence ?? 0) * 100).toFixed(0)}% score=${best.score.toFixed(3)}`);
 
-  if (config.autoTradingExecutionEnabled && executeOrders && config.okx.hasCredentials) {
+  const userCreds = userId ? getOkxCredentials(userId) : null;
+  const hasUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
+  const canExecute = config.autoTradingExecutionEnabled && executeOrders && (config.okx.hasCredentials || hasUserCreds);
+  if (canExecute) {
     executeSignal(best.signal, {
       sizePercent,
       leverage,
       maxPositions,
       useTestnet
-    }).then((result) => {
+    }, hasUserCreds ? userCreds : undefined).then((result) => {
       if (result.ok) {
-        logger.info('runAutoTradingBestCycle', `OKX order placed: ${result.orderId}`);
+        logger.info('runAutoTradingBestCycle', `OKX order placed: ${result.orderId} (${useTestnet ? 'testnet' : 'real'})`);
       } else {
         logger.warn('runAutoTradingBestCycle', `OKX execution skipped: ${result.error}`);
       }
