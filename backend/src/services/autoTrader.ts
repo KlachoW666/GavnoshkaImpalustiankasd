@@ -91,7 +91,7 @@ export async function getOpenPositionsCount(useTestnet: boolean): Promise<number
   if (!config.okx.hasCredentials) return 0;
   const exchange = buildExchange(useTestnet);
   try {
-    const positions = await exchange.fetchPositions(['swap']);
+    const positions = await exchange.fetchPositions();
     const withSize = positions.filter((p: any) => {
       const contracts = Number(p.contracts ?? p.contractSize ?? 0);
       const size = Number(p.info?.pos ?? p.contracts ?? 0);
@@ -212,7 +212,7 @@ export async function fetchPositionsForApi(useTestnet: boolean): Promise<Array<{
   if (!config.okx.hasCredentials) return [];
   const exchange = buildExchange(useTestnet);
   try {
-    const positions = await exchange.fetchPositions(['swap']);
+    const positions = await exchange.fetchPositions();
     return positions
       .filter((p: any) => {
         const sz = Number(p.contracts ?? p.info?.pos ?? 0);
@@ -246,7 +246,7 @@ export async function getPositionsAndBalanceForApi(
   try {
     const [balanceRes, positionsRes] = await Promise.all([
       exchange.fetchBalance(),
-      exchange.fetchPositions(['swap'])
+      exchange.fetchPositions()
     ]);
     const usdt = (balanceRes as any).USDT ?? balanceRes?.usdt;
     const total = usdt?.total ?? 0;
