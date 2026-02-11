@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart, IChartApi, ISeriesApi, CandlestickData, HistogramData } from 'lightweight-charts';
+import { createChart, IChartApi, ISeriesApi, CandlestickData, HistogramData, type Time } from 'lightweight-charts';
 import { OHLCVCandle } from '../types/signal';
 import { fetchPrice, normSymbol } from '../utils/fetchPrice';
 import { getSettings, updateSettings } from '../store/settingsStore';
@@ -220,11 +220,11 @@ export default function ChartView() {
   const [lastSignal, setLastSignal] = useState<any>(null);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [lastCandle, setLastCandle] = useState<OHLCVCandle | null>(null);
-  const timeRangeRef = useRef<{ from: number | string; to: number | string } | null>(null);
+  const timeRangeRef = useRef<{ from: Time; to: Time } | null>(null);
   const [drawingTool, setDrawingTool] = useState<'crosshair' | 'horizontal' | 'trend'>('crosshair');
   const drawingToolRef = useRef(drawingTool);
   const drawingSeriesRef = useRef<any[]>([]);
-  const trendLinePointsRef = useRef<{ time: number | string; value: number }[]>([]);
+  const trendLinePointsRef = useRef<{ time: Time; value: number }[]>([]);
 
   drawingToolRef.current = drawingTool;
 
@@ -263,7 +263,7 @@ export default function ChartView() {
     seriesRef.current = series as ISeriesApi<'Candlestick'>;
     volumeRef.current = volumeSeries;
 
-    const unsubClick = chart.subscribeClick((param: { point?: { x: number; y: number } }) => {
+    const clickHandler = (param: { point?: { x: number; y: number } }) => {
       const tool = drawingToolRef.current;
       const tr = timeRangeRef.current;
       const mainSeries = seriesRef.current;
@@ -274,23 +274,25 @@ export default function ChartView() {
       if (tool === 'horizontal') {
         const lineSeries = chart.addLineSeries({ color: '#f59e0b', lineWidth: 2, priceLineVisible: false });
         lineSeries.setData([
-          { time: tr.from, value: price },
-          { time: tr.to, value: price }
+          { time: tr.from as Time, value: price },
+          { time: tr.to as Time, value: price }
         ]);
         drawingSeriesRef.current = [...drawingSeriesRef.current, lineSeries];
       }
       if (tool === 'trend' && time != null) {
         const pts = trendLinePointsRef.current;
+        const t = time as Time;
         if (pts.length === 0) {
-          trendLinePointsRef.current = [{ time, value: price }];
+          trendLinePointsRef.current = [{ time: t, value: price }];
         } else if (pts.length === 1) {
           trendLinePointsRef.current = [];
           const lineSeries = chart.addLineSeries({ color: '#3b82f6', lineWidth: 2, priceLineVisible: false });
-          lineSeries.setData([...pts, { time, value: price }]);
+          lineSeries.setData([...pts, { time: t, value: price }]);
           drawingSeriesRef.current = [...drawingSeriesRef.current, lineSeries];
         }
       }
-    });
+    };
+    chart.subscribeClick(clickHandler);
 
     const resize = () => {
       const w = el.offsetWidth;
@@ -313,7 +315,7 @@ export default function ChartView() {
     resize();
 
     return () => {
-      unsubClick();
+      chart.unsubscribeClick(clickHandler);
       drawingSeriesRef.current = [];
       trendLinePointsRef.current = [];
       io.disconnect();
@@ -336,8 +338,8 @@ export default function ChartView() {
         if (!candles.length || !seriesRef.current) return;
         const last = candles[candles.length - 1] as OHLCVCandle;
         setLastCandle(last);
-        const firstTime = toChartTime(candles[0].timestamp, timeframe);
-        const lastTime = toChartTime(last.timestamp, timeframe);
+        const firstTime = toChartTime(candles[0].timestamp, timeframe) as Time;
+        const lastTime = toChartTime(last.timestamp, timeframe) as Time;
         timeRangeRef.current = { from: firstTime, to: lastTime };
         const volData: HistogramData[] = candles.map((c: OHLCVCandle) => ({
           time: toChartTime(c.timestamp, timeframe) as any,
