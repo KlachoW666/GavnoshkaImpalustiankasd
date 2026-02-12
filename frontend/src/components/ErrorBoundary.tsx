@@ -35,7 +35,7 @@ export class ErrorBoundary extends Component<Props, State> {
             type="button"
             onClick={() => this.setState({ hasError: false, error: null })}
             className="px-4 py-2 rounded-lg font-medium"
-            style={{ background: '#57CA7A', color: '#fff' }}
+            style={{ background: 'linear-gradient(135deg, #F59E0B 0%, #EA580C 100%)', color: '#fff' }}
           >
             Закрыть
           </button>

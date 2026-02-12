@@ -8,31 +8,36 @@
 
 @layer base {
   :root {
-    /* Фоны — design/style.txt Crypto Portfolio */
-    --bg-base: #242424;
-    --bg-surface: linear-gradient(108.21deg, rgba(73, 73, 73, 0.9) 0%, rgba(73, 73, 73, 0.054) 100%);
-    --bg-topbar: linear-gradient(89.81deg, #3D3D3D 0.15%, #303030 99.83%);
-    --bg-elevated: linear-gradient(108.21deg, rgba(73, 73, 73, 0.3) 0%, rgba(73, 73, 73, 0.018) 100%);
-    --bg-card: rgba(49, 49, 49, 0.6);
-    --bg-card-solid: #303030;
-    --bg-hover: rgba(73, 73, 73, 0.4);
+    /* Cyber-Tech палитра: Amber-500 #F59E0B → Orange-600 #EA580C, фон #1A1A1A */
+    --color-amber: #F59E0B;
+    --color-orange: #EA580C;
+    --color-bg-dark: #1A1A1A;
 
-    /* Зелёный акцент — Cryptory */
-    --accent: #57CA7A;
-    --accent-dark: #47A663;
-    --accent-gradient: linear-gradient(253.96deg, #3D8F55 6.39%, #62BC7C 50.79%, #3D8F55 114.31%);
-    --accent-dim: rgba(71, 166, 99, 0.2);
-    --accent-hover: #62BC7C;
+    /* Фоны — глубокий тёмно-серый как в логотипе */
+    --bg-base: #1A1A1A;
+    --bg-surface: linear-gradient(108.21deg, rgba(38, 38, 38, 0.95) 0%, rgba(38, 38, 38, 0.06) 100%);
+    --bg-topbar: linear-gradient(89.81deg, #262626 0.15%, #1A1A1A 99.83%);
+    --bg-elevated: linear-gradient(108.21deg, rgba(38, 38, 38, 0.4) 0%, rgba(38, 38, 38, 0.02) 100%);
+    --bg-card: rgba(38, 38, 38, 0.6);
+    --bg-card-solid: #262626;
+    --bg-hover: rgba(255, 255, 255, 0.06);
 
-    /* Кнопки — style.txt */
-    --btn-green: linear-gradient(90deg, #57BC76 0%, #399252 100%);
+    /* Акцент — Cyber-Tech Gradient (янтарь → оранжевый) */
+    --accent: #F59E0B;
+    --accent-dark: #EA580C;
+    --accent-gradient: linear-gradient(135deg, #F59E0B 0%, #EA580C 100%);
+    --accent-dim: rgba(245, 158, 11, 0.2);
+    --accent-hover: #FBBF24;
 
-    /* Семантика */
+    /* Кнопки — градиент логотипа */
+    --btn-primary: linear-gradient(135deg, #F59E0B 0%, #EA580C 100%);
+
+    /* Семантика (Long/Short оставляем зелёный/красный) */
     --success: #47A663;
     --success-dim: rgba(71, 166, 99, 0.15);
     --danger: #ef4444;
     --danger-dim: rgba(239, 68, 68, 0.15);
-    --warning: #f59e0b;
+    --warning: #F59E0B;
     --chart-line: #57CA7A;
 
     /* Текст */
@@ -43,7 +48,7 @@
     /* Границы */
     --border: rgba(255, 255, 255, 0.08);
     --border-hover: rgba(255, 255, 255, 0.15);
-    --border-input: 1.5px solid #47A663;
+    --border-input: 1.5px solid #F59E0B;
 
     /* Тени */
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
@@ -62,14 +67,14 @@
     --success-bg: var(--success-dim);
     --danger-bg: var(--danger-dim);
     --danger-light: var(--danger);
-    --gradient-button: var(--btn-green);
-    --gradient-cyan: var(--btn-green);
+    --gradient-button: var(--btn-primary);
+    --gradient-cyan: var(--btn-primary);
+    --gradient-green: linear-gradient(90deg, #57BC76 0%, #399252 100%);
     --gradient-magenta: linear-gradient(90deg, #ec4899 0%, #be185d 100%);
-    --gradient-green: var(--btn-green);
     --bg-sidebar: var(--bg-surface);
     --bg-modal: var(--bg-card-solid);
     --bg-card-hover: var(--bg-hover);
-    --glow-primary-soft: 0 0 20px rgba(87, 202, 122, 0.2);
+    --glow-primary-soft: 0 0 20px rgba(245, 158, 11, 0.25);
   }
 
   /* Светлая тема (переключается через data-theme="light" на html/body) */
@@ -82,19 +87,19 @@
     --bg-card-solid: #ffffff;
     --bg-hover: rgba(15, 23, 42, 0.05);
 
-    --accent: #16a34a;
-    --accent-dark: #15803d;
-    --accent-gradient: linear-gradient(253.96deg, #16a34a 6.39%, #22c55e 50.79%, #16a34a 114.31%);
-    --accent-dim: rgba(22, 163, 74, 0.1);
-    --accent-hover: #22c55e;
+    --accent: #EA580C;
+    --accent-dark: #C2410C;
+    --accent-gradient: linear-gradient(135deg, #F59E0B 0%, #EA580C 100%);
+    --accent-dim: rgba(245, 158, 11, 0.12);
+    --accent-hover: #F59E0B;
 
-    --btn-green: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+    --btn-primary: linear-gradient(135deg, #F59E0B 0%, #EA580C 100%);
 
     --success: #16a34a;
     --success-dim: rgba(22, 163, 74, 0.12);
     --danger: #dc2626;
     --danger-dim: rgba(220, 38, 38, 0.1);
-    --warning: #f59e0b;
+    --warning: #F59E0B;
     --chart-line: #22c55e;
 
     --text-primary: #0f172a;
@@ -194,7 +199,7 @@
 
   .card-highlight {
     border-left: 3px solid var(--accent);
-    background: linear-gradient(90deg, rgba(71, 166, 99, 0.06) 0%, transparent 100%);
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.08) 0%, transparent 100%);
   }
   .card-danger {
     border-left: 3px solid var(--danger);
@@ -210,7 +215,7 @@
   }
 
   .btn-primary {
-    background: var(--btn-green);
+    background: var(--btn-primary);
     color: white;
     @apply font-medium px-5 py-2.5 rounded-lg transition-all duration-200;
     border: none;
@@ -273,24 +278,24 @@
     -webkit-appearance: none;
     width: 20px;
     height: 20px;
-    background: linear-gradient(135deg, #57CA7A 0%, #47A663 100%);
+    background: linear-gradient(135deg, #F59E0B 0%, #EA580C 100%);
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(71, 166, 99, 0.4);
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
     transition: transform 0.15s, box-shadow 0.15s;
   }
   .slider-track::-webkit-slider-thumb:hover {
     transform: scale(1.1);
-    box-shadow: 0 0 16px rgba(71, 166, 99, 0.5);
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.5);
   }
   .slider-track::-moz-range-thumb {
     width: 20px;
     height: 20px;
-    background: linear-gradient(135deg, #57CA7A 0%, #47A663 100%);
+    background: linear-gradient(135deg, #F59E0B 0%, #EA580C 100%);
     border-radius: 50%;
     cursor: pointer;
     border: none;
-    box-shadow: 0 2px 8px rgba(71, 166, 99, 0.4);
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
   }
   .slider-track::-moz-range-thumb:hover {
     transform: scale(1.1);
