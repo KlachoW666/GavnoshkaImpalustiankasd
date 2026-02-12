@@ -5,7 +5,7 @@
 import { Router, Request, Response } from 'express';
 import { emotionalFilterInstance } from '../services/emotionalFilter';
 import { setNotificationConfig, getNotificationConfig } from '../services/notificationService';
-import { getPositionsAndBalanceForApi } from '../services/autoTrader';
+import { getPositionsAndBalanceForApi, syncClosedOrdersFromOkx } from '../services/autoTrader';
 import { getBearerToken } from './auth';
 import { findSessionUserId } from '../db/authDb';
 import { getOkxCredentials } from '../db/authDb';
@@ -119,6 +119,11 @@ router.get('/positions', async (req: Request, res: Response) => {
       return;
     }
     const { positions, balance, openCount, balanceError } = await getPositionsAndBalanceForApi(useTestnet, hasCreds ? userCreds : undefined);
+    if (userId && hasCreds) {
+      syncClosedOrdersFromOkx(useTestnet, userCreds, userId).then((r) => {
+        if (r.synced > 0) logger.info('Trading', 'Synced closed orders from OKX', { userId, synced: r.synced });
+      }).catch((e) => logger.warn('Trading', 'syncClosedOrdersFromOkx failed', { error: (e as Error).message }));
+    }
     res.json({
       positions,
       balance,

@@ -403,7 +403,9 @@ const PATTERN_WEIGHTS: Record<string, { bull: number; bear: number }> = {
   adx_trend: { bull: 1, bear: 1 },
   emarsi_oversold: { bull: 2, bear: 0 },
   supertrend_up: { bull: 1, bear: 0 },
-  supertrend_down: { bull: 0, bear: 1 }
+  supertrend_down: { bull: 0, bear: 1 },
+  rsi_bullish_divergence: { bull: 2, bear: 0 },
+  rsi_bearish_divergence: { bull: 0, bear: 2 }
 };
 
 export interface CandlesAnalysisInput {

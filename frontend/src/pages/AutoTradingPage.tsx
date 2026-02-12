@@ -521,7 +521,8 @@ export default function AutoTradingPage() {
           useTestnet: settings.useTestnet !== false,
           maxPositions: FULL_AUTO_DEFAULTS.maxPositions,
           sizePercent: FULL_AUTO_DEFAULTS.sizePercent,
-          leverage: FULL_AUTO_DEFAULTS.leverage
+          leverage: FULL_AUTO_DEFAULTS.leverage,
+          tpMultiplier: Math.max(0.5, Math.min(1, settings.tpMultiplier ?? 0.85))
         }
       : {
           symbols: syms,

@@ -128,8 +128,14 @@ export default function AnalysisBreakdown({ data }: { data: AnalysisBreakdown })
             {candles.rsi != null && <span className="text-xs">RSI {candles.rsi.toFixed(0)}</span>}
           </div>
           <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-            {candles.patterns.length ? candles.patterns.slice(0, 2).join(', ') : '—'}
+            {candles.patterns.length ? candles.patterns.slice(0, 4).join(', ') : '—'}
             {candles.emaTrend && ` · EMA ${candles.emaTrend}`}
+            {candles.patterns.some((p) => p === 'rsi_bullish_divergence') && (
+              <span className="block mt-0.5 text-[var(--success)]">Дивергенция RSI: бычья</span>
+            )}
+            {candles.patterns.some((p) => p === 'rsi_bearish_divergence') && (
+              <span className="block mt-0.5 text-[var(--danger)]">Дивергенция RSI: медвежья</span>
+            )}
           </p>
         </div>
       </div>

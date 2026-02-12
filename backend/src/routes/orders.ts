@@ -4,6 +4,10 @@
 
 import { Router, Request, Response } from 'express';
 import { initDb, insertOrder, updateOrderClose, listOrders } from '../db';
+import { syncClosedOrdersFromOkx } from '../services/autoTrader';
+import { getBearerToken } from './auth';
+import { findSessionUserId } from '../db/authDb';
+import { getOkxCredentials } from '../db/authDb';
 import { logger } from '../lib/logger';
 import { optionalAuth } from './auth';
 
@@ -78,13 +82,22 @@ router.patch('/:id', (req: Request, res: Response) => {
   }
 });
 
-/** GET /api/orders — список ордеров (всех или по clientId). При авторизации без clientId в query — по userId. */
-router.get('/', optionalAuth, (req: Request, res: Response) => {
+/** GET /api/orders — список ордеров (всех или по clientId). При авторизации без clientId в query — по userId. Перед выдачей синхронизируем закрытые ордера с OKX. */
+router.get('/', optionalAuth, async (req: Request, res: Response) => {
   try {
     initDb();
     const userId = (req as any).userId as string | undefined;
     let clientId = req.query.clientId as string | undefined;
     if (!clientId && userId) clientId = userId;
+    const useTestnet = req.query.useTestnet !== 'false';
+    if (userId && clientId) {
+      try {
+        const userCreds = getOkxCredentials(userId);
+        if (userCreds?.apiKey && userCreds?.secret) {
+          await syncClosedOrdersFromOkx(useTestnet, userCreds, clientId);
+        }
+      } catch (_) { /* ignore */ }
+    }
     const status = req.query.status as 'open' | 'closed' | undefined;
     const limit = Math.min(Math.max(0, Number(req.query.limit) || 100), 500);
     const rows = listOrders({ clientId, status, limit });

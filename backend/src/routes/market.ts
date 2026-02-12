@@ -328,6 +328,8 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
   if (emarsi != null && emarsi <= 20) patterns = [...patterns, 'emarsi_oversold'];
   const supertrendDir = candleAnalyzer.getSupertrend(candles5m);
   if (supertrendDir) patterns = [...patterns, supertrendDir === 'up' ? 'supertrend_up' : 'supertrend_down'];
+  const rsiDiv = candleAnalyzer.detectRSIDivergence(candles5m, 14, 30);
+  if (rsiDiv) patterns = [...patterns, rsiDiv === 'bullish' ? 'rsi_bullish_divergence' : 'rsi_bearish_divergence'];
   const lastC5 = candles5m[candles5m.length - 1];
   const highVolatility = lastC5 && lastC5.close > 0
     ? (lastC5.high - lastC5.low) / lastC5.close > 0.03

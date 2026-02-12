@@ -51,4 +51,6 @@ export type CandlePattern =
   | 'emarsi_oversold'
   | 'supertrend_up'
   | 'supertrend_down'
+  | 'rsi_bullish_divergence'
+  | 'rsi_bearish_divergence'
   | 'none';

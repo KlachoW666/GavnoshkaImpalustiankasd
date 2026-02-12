@@ -7,6 +7,7 @@ import ccxt, { Exchange } from 'ccxt';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { config } from '../config';
 import { getProxy } from '../db/proxies';
+import { listOrders, updateOrderClose } from '../db';
 import { toOkxCcxtSymbol } from '../lib/symbol';
 import { normalizeSymbol } from '../lib/symbol';
 import { TradingSignal } from '../types/signal';
@@ -202,11 +203,16 @@ export async function executeSignal(
   if (tpMult < 1) {
     const distance = takeProfit1 - entryPrice;
     takeProfit1 = entryPrice + distance * tpMult;
+    logger.info('AutoTrader', 'Быстрый выход: TP уменьшен по множителю', { tpMultiplier: tpMult, takeProfit1, entryPrice, symbol: signal.symbol });
   }
 
   // Ограничиваем долю баланса запасом (OKX может отклонять при точном 100% из-за комиссий и маржи)
   const reserveRatio = balance < 50 ? 0.7 : 0.85; // при малом балансе — больший запас
-  const maxUsableBalance = balance * reserveRatio;
+  let maxUsableBalance = balance * reserveRatio;
+  // При очень малом балансе OKX часто отклоняет — используем не более 15% баланса под одну позицию
+  if (balance < 20) {
+    maxUsableBalance = Math.min(maxUsableBalance, balance * 0.15);
+  }
   let margin = Math.min((balance * options.sizePercent) / 100, maxUsableBalance);
   let positionValue = margin * options.leverage;
   // OKX не принимает слишком мелкие ордера — не менее MIN_NOTIONAL_USD
@@ -351,6 +357,63 @@ function parseOkxShortError(errMsg: string): string | null {
     // ignore parse errors
   }
   return null;
+}
+
+/**
+ * Синхронизация закрытых ордеров с OKX: для каждого открытого в БД ордера с id okx-* проверяем статус на OKX;
+ * если ордер закрыт — обновляем close_price, pnl, close_time в БД.
+ */
+export async function syncClosedOrdersFromOkx(
+  useTestnet: boolean,
+  userCreds?: UserOkxCreds | null,
+  clientId?: string | null
+): Promise<{ synced: number }> {
+  const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
+  if (!useUserCreds && !config.okx.hasCredentials) return { synced: 0 };
+  const openOrders = listOrders({ status: 'open', clientId: clientId ?? undefined, limit: 200 });
+  const okxOrders = openOrders.filter((o) => o.id && String(o.id).startsWith('okx-'));
+  if (okxOrders.length === 0) return { synced: 0 };
+  const exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
+  let synced = 0;
+  for (const row of okxOrders) {
+    const parts = String(row.id).split('-');
+    if (parts.length < 3) continue;
+    const okxOrderId = parts.slice(1, -1).join('-');
+    const ccxtSymbol = toOkxCcxtSymbol(row.pair) || row.pair.replace('-', '/') + ':USDT';
+    try {
+      const okxOrder = await exchange.fetchOrder(okxOrderId, ccxtSymbol);
+      const status = (okxOrder as any).status ?? '';
+      if (status !== 'closed' && status !== 'filled' && status !== 'canceled') continue;
+      const closePrice = Number((okxOrder as any).average ?? (okxOrder as any).price ?? row.open_price) || row.open_price;
+      const openPrice = row.open_price || closePrice;
+      const size = row.size || 0;
+      let pnl = 0;
+      const info = (okxOrder as any).info ?? {};
+      if (typeof info.realizedPnl === 'number') pnl = info.realizedPnl;
+      else if (size > 0 && openPrice > 0)
+        pnl = row.direction === 'LONG'
+          ? ((closePrice - openPrice) / openPrice) * size
+          : ((openPrice - closePrice) / openPrice) * size;
+      const pnlPercent = openPrice > 0
+        ? (row.direction === 'LONG' ? (closePrice - openPrice) / openPrice : (openPrice - closePrice) / openPrice) * 100
+        : 0;
+      const closeTime = (okxOrder as any).datetime
+        ? new Date((okxOrder as any).datetime).toISOString()
+        : (info.uTime ? new Date(Number(info.uTime)).toISOString() : new Date().toISOString());
+      updateOrderClose({
+        id: row.id,
+        closePrice,
+        pnl,
+        pnlPercent,
+        closeTime
+      });
+      synced++;
+      logger.info('AutoTrader', 'Synced closed order from OKX', { id: row.id, pair: row.pair, pnl });
+    } catch (e) {
+      logger.debug('AutoTrader', 'fetchOrder skip', { id: row.id, error: (e as Error).message });
+    }
+  }
+  return { synced };
 }
 
 /**

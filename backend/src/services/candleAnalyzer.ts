@@ -436,6 +436,42 @@ export class CandleAnalyzer {
     return null;
   }
 
+  /**
+   * RSI-дивергенция: цена обновляет экстремум, RSI — нет (сигнал ослабления тренда / разворота).
+   * Бычья: цена — нижний минимум, RSI — более высокий минимум. Медвежья: цена — более высокий максимум, RSI — более низкий максимум.
+   */
+  detectRSIDivergence(
+    candles: { high: number; low: number; close: number }[],
+    period = 14,
+    lookback = 30
+  ): 'bullish' | 'bearish' | null {
+    const closes = candles.map((c) => c.close);
+    const lows = candles.map((c) => c.low);
+    const highs = candles.map((c) => c.high);
+    if (closes.length < period + lookback) return null;
+    const rsiArr = RSI.calculate({ values: closes, period });
+    const start = Math.max(0, rsiArr.length - lookback);
+    const candleOffset = period;
+
+    const swingLowIndices: number[] = [];
+    const swingHighIndices: number[] = [];
+    for (let i = start + 1; i < rsiArr.length - 1; i++) {
+      const c = candleOffset + i;
+      if (lows[c] <= lows[c - 1] && lows[c] <= lows[c + 1]) swingLowIndices.push(i);
+      if (highs[c] >= highs[c - 1] && highs[c] >= highs[c + 1]) swingHighIndices.push(i);
+    }
+
+    if (swingLowIndices.length >= 2) {
+      const [i1, i2] = swingLowIndices.slice(-2);
+      if (lows[candleOffset + i2] < lows[candleOffset + i1] && rsiArr[i2] > rsiArr[i1] && rsiArr[i1] < 45) return 'bullish';
+    }
+    if (swingHighIndices.length >= 2) {
+      const [i1, i2] = swingHighIndices.slice(-2);
+      if (highs[candleOffset + i2] > highs[candleOffset + i1] && rsiArr[i2] < rsiArr[i1] && rsiArr[i1] > 55) return 'bearish';
+    }
+    return null;
+  }
+
   /** MACD crossover: bullish = histogram cross up, bearish = cross down */
   getMACDCrossover(closes: number[]): 'bullish' | 'bearish' | null {
     if (closes.length < 35) return null;
