@@ -1,6 +1,6 @@
 /**
  * Хук для сортировки таблицы по колонке (клик по заголовку).
- * Возвращает отсортированный массив и состояние sortKey / sortDir / toggleSort.
+ * 1-й клик = asc (↑), 2-й клик = desc (↓), 3-й клик = asc, ...
  */
 
 import { useMemo, useState, useCallback } from 'react';
@@ -13,17 +13,16 @@ export function useTableSort<T>(
   defaultKey: string | null = null,
   defaultDir: SortDir = 'asc'
 ) {
-  const [sortKey, setSortKey] = useState<string | null>(defaultKey);
-  const [sortDir, setSortDir] = useState<SortDir>(defaultDir);
+  const [sort, setSort] = useState<{ key: string | null; dir: SortDir }>({ key: defaultKey, dir: defaultDir });
+  const sortKey = sort.key;
+  const sortDir = sort.dir;
 
   const toggleSort = useCallback((key: string) => {
-    setSortKey((prev) => {
-      if (prev === key) {
-        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-        return key;
+    setSort((prev) => {
+      if (prev.key === key) {
+        return { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' };
       }
-      setSortDir('asc');
-      return key;
+      return { key, dir: 'asc' };
     });
   }, []);
 
