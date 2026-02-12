@@ -446,9 +446,17 @@ router.patch('/users/:id', requireAdmin, (req: Request, res: Response) => {
     const password = req.body?.password as string;
     const groupId = req.body?.groupId != null ? parseInt(String(req.body.groupId), 10) : undefined;
     if (username !== undefined && username.length > 0) {
+      if (username.length < 2) {
+        res.status(400).json({ error: 'Логин от 2 символов' });
+        return;
+      }
       updateUsername(userId, username);
     }
-    if (password !== undefined && password.length >= 4) {
+    if (password !== undefined && password.length > 0) {
+      if (password.length < 4) {
+        res.status(400).json({ error: 'Пароль от 4 символов' });
+        return;
+      }
       const hash = bcrypt.hashSync(password, 10);
       updateUserPassword(userId, hash);
     }

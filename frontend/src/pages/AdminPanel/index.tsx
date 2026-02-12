@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { isAdminAuthenticated, clearAdminToken } from '../../utils/adminApi';
+import { isAdminAuthenticated, clearAdminToken, setAdminUnauthorizedCallback } from '../../utils/adminApi';
 import AdminLogin from './AdminLogin';
 import AdminDashboard from './AdminDashboard';
 import AdminAnalytics from './AdminAnalytics';
@@ -31,6 +31,11 @@ export default function AdminPanel() {
   useEffect(() => {
     setAuthenticated(isAdminAuthenticated());
     setChecking(false);
+  }, []);
+
+  useEffect(() => {
+    setAdminUnauthorizedCallback(() => setAuthenticated(false));
+    return () => setAdminUnauthorizedCallback(() => {});
   }, []);
 
   if (checking) {

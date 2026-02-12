@@ -28,7 +28,7 @@ export default function BacktestPage() {
   const [timeframe, setTimeframe] = useState('15m');
   const [limit, setLimit] = useState(500);
   const [initialBalance, setInitialBalance] = useState(100);
-  const [minConfidence, setMinConfidence] = useState(60);
+  const [minConfidence, setMinConfidence] = useState(85);
   const [riskRewardRatio, setRiskRewardRatio] = useState(2);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BacktestResult | null>(null);
@@ -94,7 +94,7 @@ export default function BacktestPage() {
               min={100}
               max={2000}
               value={limit}
-              onChange={(e) => setLimit(Number(e.target.value))}
+              onChange={(e) => setLimit(Math.min(2000, Math.max(100, Number(e.target.value) || 100)))}
               className="w-full px-3 py-2 rounded-lg border bg-black/20"
               style={{ borderColor: 'var(--border)' }}
             />

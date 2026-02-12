@@ -42,10 +42,17 @@ function headers(): HeadersInit {
   };
 }
 
+let onUnauthorized: (() => void) | null = null;
+
+export function setAdminUnauthorizedCallback(cb: () => void): void {
+  onUnauthorized = cb;
+}
+
 async function handleResponse<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({})) as T & { error?: string };
   if (res.status === 401) {
     clearAdminToken();
+    onUnauthorized?.();
   }
   if (!res.ok) {
     throw new Error((data as { error?: string }).error || res.statusText || `HTTP ${res.status}`);
