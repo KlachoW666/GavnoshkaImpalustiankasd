@@ -33,7 +33,7 @@ import botRouter from './routes/bot';
 import copyTradingRouter from './routes/copyTrading';
 import socialRouter from './routes/social';
 import { createWebSocketServer, getBroadcastBreakout } from './websocket';
-import { initDb, isMemoryStore } from './db';
+import { initDb, getDb, isMemoryStore } from './db';
 import { seedDefaultAdmin } from './db/seed';
 import { notifyBreakoutAlert } from './services/notificationService';
 import { startBreakoutMonitor } from './services/breakoutMonitor';
