@@ -909,101 +909,87 @@ export default function AutoTradingPage() {
 
   if (!hasApiKeys) {
     return (
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-2xl mx-auto py-6 px-4">
         <section
-          className="rounded-2xl p-8 shadow-lg"
+          className="rounded-2xl overflow-hidden"
           style={{
-            background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
+            background: 'var(--bg-card-solid)',
             border: '1px solid var(--border)',
             borderLeft: '4px solid var(--warning)',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+            boxShadow: '0 4px 16px rgba(0,0,0,0.08)'
           }}
         >
-          <div className="flex items-center gap-3 mb-6">
-            <span className="text-3xl">🔑</span>
-            <div>
-              <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-                Необходимо ввести API ключи
-              </h2>
-              <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                Доступ к Авто-торговле откроется после настройки подключения к OKX
-              </p>
+          <div className="p-6 md:p-8">
+            <div className="flex items-start gap-4 mb-6">
+              <span className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{ background: 'var(--warning)', color: 'white', opacity: 0.9 }}>🔑</span>
+              <div>
+                <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Нужны API ключи OKX</h2>
+                <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                  Авто-торговля доступна после подключения к бирже в Настройках
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="space-y-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
-            <p className="leading-relaxed">
-              Чтобы пользоваться разделом «Авто-торговля», нужно указать API ключи биржи OKX в настройках приложения.
-            </p>
-            <div className="rounded-xl p-4 space-y-2" style={{ background: 'var(--bg-hover)', borderLeft: '3px solid var(--accent)' }}>
-              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Нет аккаунта OKX?</p>
+            <div className="space-y-5 text-sm" style={{ color: 'var(--text-secondary)' }}>
               <p className="leading-relaxed">
-                Зарегистрируйтесь на бирже по нашей партнёрской ссылке — после регистрации создайте API ключи в личном кабинете (API → Trading) и введите их ниже в Настройках.
+                Укажите API ключи OKX в разделе <strong>Настройки → Подключения</strong>. Ключи нужны для отображения баланса и (по желанию) исполнения ордеров.
               </p>
-              <a
-                href={OKX_AFFILIATE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
-                style={{ background: 'var(--accent)', color: 'white' }}
-              >
-                Зарегистрироваться на OKX
-              </a>
+              <div className="rounded-xl p-5 space-y-3" style={{ background: 'var(--bg-hover)', borderLeft: '4px solid var(--accent)' }}>
+                <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Нет аккаунта OKX?</p>
+                <p className="leading-relaxed">Зарегистрируйтесь по ссылке, создайте API ключи (OKX → API → Trading) и введите их в Настройках.</p>
+                <a href={OKX_AFFILIATE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium" style={{ background: 'var(--accent)', color: 'white' }}>
+                  Зарегистрироваться на OKX
+                </a>
+              </div>
+              <div className="rounded-xl p-5 space-y-2" style={{ background: 'var(--bg-hover)' }}>
+                <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Как ввести ключи</p>
+                <ol className="list-decimal list-inside space-y-1.5 pl-1 text-sm">
+                  <li>Настройки → Подключения → блок OKX.</li>
+                  <li>API Key, Secret, Passphrase (только Trading, без Withdraw).</li>
+                  <li>Сохранить.</li>
+                </ol>
+              </div>
             </div>
-            <div className="rounded-xl p-4 space-y-2" style={{ background: 'var(--bg-hover)' }}>
-              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Инструкция (ввод ключей):</p>
-              <ol className="list-decimal list-inside space-y-1.5 pl-1">
-                <li>Откройте раздел <strong>Настройки</strong> (меню пользователя или Ctrl+,).</li>
-                <li>Перейдите на вкладку <strong>Подключения</strong>.</li>
-                <li>В блоке <strong>OKX</strong> введите API Key, Secret и Passphrase (создать ключи можно в личном кабинете OKX: API → Trading).</li>
-                <li>Включите ключ «Trading» и по желанию «Read». Не включайте «Withdraw» — для безопасности.</li>
-                <li>Нажмите <strong>Сохранить</strong> и при необходимости проверьте соединение.</li>
-              </ol>
+            <div className="mt-6">
+              <button type="button" onClick={() => (window as any).__navigateTo?.('settings')} className="px-5 py-2.5 rounded-xl text-sm font-medium" style={{ background: 'var(--accent)', color: 'white' }}>
+                Перейти в Настройки
+              </button>
             </div>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              Ключи хранятся локально в браузере и при необходимости передаются на сервер только для исполнения ордеров.
-            </p>
-          </div>
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={() => (window as any).__navigateTo?.('settings')}
-              className="px-5 py-2.5 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
-              style={{ background: 'var(--accent)', color: 'white' }}
-            >
-              Перейти в Настройки
-            </button>
           </div>
         </section>
       </div>
     );
   }
 
-  const cardStyle = { background: 'var(--bg-card-solid)', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' };
-  const sectionTitleClass = 'text-sm font-semibold uppercase tracking-wider mb-3';
+  const cardStyle = { background: 'var(--bg-card-solid)', border: '1px solid var(--border)', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' };
+  const sectionTitleClass = 'text-xs font-semibold uppercase tracking-wider mb-2';
   const sectionTitleStyle = { color: 'var(--text-muted)' };
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto px-4 sm:px-6 pb-12">
       <RiskDisclaimer storageKey="trading" />
-      {/* Заголовок страницы */}
-      <div className="flex items-center gap-4 pt-2">
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0" style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)' }}>
-          📈
+      {/* Hero */}
+      <header className="rounded-2xl overflow-hidden" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+        <div className="p-6 md:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)' }}>
+              📈
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Авто-торговля</h1>
+              <p className="text-sm mt-0.5 max-w-lg" style={{ color: 'var(--text-muted)' }}>
+                {settings.fullAuto
+                  ? 'Полный автомат: система выбирает лучший сигнал и исполняет на OKX (реал или демо)'
+                  : 'Анализ выбранных пар по сигналам. Настройте пары, плечо и порог уверенности ниже.'}
+              </p>
+            </div>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Авто-торговля</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            {settings.fullAuto
-              ? 'Полный автомат: система выбирает лучший сигнал и исполняет на OKX (реальный счёт или демо режим)'
-              : 'Анализ пар и сигналы'}
-          </p>
-        </div>
-      </div>
+      </header>
 
       {/* Управление: Запуск и статус */}
-      <section className="rounded-2xl p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
-        <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Управление</h2>
-        <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Включите авто-торговлю — анализ и исполнение по сигналам</p>
+      <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+        <h2 className="text-lg font-bold mb-0.5" style={{ color: 'var(--text-primary)' }}>Запуск</h2>
+        <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Включите авто-торговлю — анализ пойдёт по выбранному интервалу</p>
         <div className="flex flex-wrap items-center gap-4 sm:gap-6">
           <button
             type="button"
@@ -1073,9 +1059,9 @@ export default function AutoTradingPage() {
       </section>
 
       {/* Режим и настройки */}
-      <section className="rounded-2xl p-6 md:p-8" style={cardStyle}>
-        <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Режим и настройки</h2>
-        <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Полный автомат, скринер, исполнение на OKX и выбор пар</p>
+      <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+        <h2 className="text-lg font-bold mb-0.5" style={{ color: 'var(--text-primary)' }}>Режим и настройки</h2>
+        <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Полный автомат (скринер + OKX) или ручной режим: пары, плечо, порог уверенности</p>
         <div className="flex flex-wrap items-center gap-4 sm:gap-6 mb-6">
           <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition hover:border-[var(--accent)]/50 shrink-0" style={{ borderColor: settings.fullAuto ? 'var(--accent)' : 'var(--border)', background: settings.fullAuto ? 'var(--accent-dim)' : 'var(--bg-hover)' }}>
             <input
@@ -1282,8 +1268,7 @@ export default function AutoTradingPage() {
         </div>
         </div>
 
-        {/* Douglas (Trading in the Zone) */}
-        <div className="my-6 py-4 px-4 rounded-xl border text-sm" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
+        <div className="my-6 py-4 px-5 rounded-xl text-sm" style={{ background: 'var(--bg-hover)', borderLeft: '3px solid var(--text-muted)' }}>
           <span style={{ color: 'var(--text-muted)' }}>«Принятие риска — фундамент. Правота ≠ прибыль» — Douglas</span>
         </div>
 
@@ -1511,9 +1496,10 @@ export default function AutoTradingPage() {
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <section className="rounded-2xl p-6 md:p-8" style={cardStyle}>
-          <h3 className="text-lg font-bold mb-6 tracking-tight" style={{ color: 'var(--text-primary)' }}>Баланс и статистика</h3>
-          <div className="grid grid-cols-2 gap-4">
+        <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+          <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Баланс и статистика</h3>
+          <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>P&L, win rate и метрики по сделкам</p>
+          <div className="grid grid-cols-2 gap-3">
             {settings.fullAuto && settings.executeOrders && okxData && !okxData.balanceError && (
               <div className="p-4 rounded-xl" style={{ background: 'var(--accent-dim)', borderLeft: '3px solid var(--accent)' }}>
                 <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Баланс OKX {okxData.useTestnet ? '(Демо)' : '(Реальный счёт)'}</p>
@@ -1549,8 +1535,9 @@ export default function AutoTradingPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl p-6 md:p-8" style={cardStyle}>
-          <h3 className="text-lg font-bold mb-6 tracking-tight" style={{ color: 'var(--text-primary)' }}>Последний сигнал</h3>
+        <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+          <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Последний сигнал</h3>
+          <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>Последний пришедший сигнал по выбранным парам или из скринера</p>
           {lastSignal ? (
             <div className="space-y-4">
               <div className="rounded-xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
@@ -1600,12 +1587,13 @@ export default function AutoTradingPage() {
 
       <TradingAnalytics history={history} minConfidence={settings.minConfidence} hideSuggestions={settings.fullAuto} />
 
-      <section className="rounded-2xl p-6 md:p-8" style={cardStyle}>
-        <h3 className="text-lg font-bold mb-6 tracking-tight" style={{ color: 'var(--text-primary)' }}>
-          Открытые позиции {settings.fullAuto && settings.executeOrders && okxData ? `(${okxData.positions?.length ?? 0})` : ''}
-        </h3>
+      <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+        <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Открытые позиции</h3>
+        <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
+          {settings.fullAuto && settings.executeOrders ? `OKX ${okxData?.useTestnet ? '(Демо)' : '(Реальный счёт)'} · ${okxData?.positions?.length ?? 0} позиций` : 'При полном автомате с исполнением — позиции с OKX'}
+        </p>
         {(!okxData?.positions?.length || !settings.fullAuto || !settings.executeOrders) ? (
-          <p className="text-sm py-4" style={{ color: 'var(--text-muted)' }}>Нет открытых позиций.</p>
+          <p className="text-sm py-6 rounded-xl text-center" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>Нет открытых позиций</p>
         ) : (
           <div className="space-y-4">
             {okxData && (okxData.positions?.length ?? 0) > 0 && settings.fullAuto && settings.executeOrders && (
@@ -1657,36 +1645,37 @@ export default function AutoTradingPage() {
         )}
       </section>
 
-      <section className="rounded-2xl p-6 md:p-8" style={cardStyle}>
-        <h3 className="text-lg font-bold mb-6 tracking-tight" style={{ color: 'var(--text-primary)' }}>История сделок ({displayHistory.length})</h3>
+      <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+        <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>История сделок</h3>
+        <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>{displayHistory.length} записей · при авторизации — с сервера (OKX)</p>
         {displayHistory.length === 0 ? (
-          <p className="text-sm py-4" style={{ color: 'var(--text-muted)' }}>История пуста.</p>
+          <p className="text-sm py-6 rounded-xl text-center" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>История пуста</p>
         ) : (
           <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)', background: 'var(--bg-card-solid)' }}>
-                  <th className="text-left py-3 px-2">Пара</th>
-                  <th className="text-left py-3 px-2">Направление</th>
-                  <th className="text-right py-3 px-2">Сумма входа</th>
-                  <th className="text-right py-3 px-2">Вход / Выход</th>
-                  <th className="text-right py-3 px-2">SL</th>
-                  <th className="text-right py-3 px-2">TP</th>
-                  <th className="text-right py-3 px-2">P&L</th>
-                  <th className="text-left py-3 px-2">Время</th>
+                <tr className="border-b text-xs font-semibold uppercase tracking-wider" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)', background: 'var(--bg-hover)' }}>
+                  <th className="text-left py-3 px-3">Пара</th>
+                  <th className="text-left py-3 px-3">Направление</th>
+                  <th className="text-right py-3 px-3">Сумма</th>
+                  <th className="text-right py-3 px-3">Вход / Выход</th>
+                  <th className="text-right py-3 px-3">SL</th>
+                  <th className="text-right py-3 px-3">TP</th>
+                  <th className="text-right py-3 px-3">P&L</th>
+                  <th className="text-left py-3 px-3">Время</th>
                 </tr>
               </thead>
               <tbody>
                 {displayHistory.slice(0, 20).map((h) => (
-                  <tr key={h.id} className="border-b" style={{ borderColor: 'var(--border)' }}>
-                    <td className="py-3 px-2">{h.pair}</td>
-                    <td className="py-3 px-2">{h.direction}</td>
-                    <td className="text-right py-3 px-2 tabular-nums">${(h.size ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td className="text-right py-3 px-2 tabular-nums">{formatPrice(h.openPrice)} / {validClosePrice(h) ? formatPrice(h.closePrice) : '—'}</td>
-                    <td className="text-right py-3 px-2 tabular-nums" style={{ color: 'var(--danger)' }}>{h.stopLoss != null && h.stopLoss > 0 ? formatPrice(h.stopLoss) : '—'}</td>
-                    <td className="text-right py-3 px-2 tabular-nums" style={{ color: 'var(--success)' }}>{Array.isArray(h.takeProfit) && h.takeProfit.length ? h.takeProfit.map(formatPrice).join(' / ') : '—'}</td>
-                    <td className={`text-right py-3 px-2 font-medium ${validClosePrice(h) ? (h.pnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]') : ''}`}>{validClosePrice(h) ? (h.pnl >= 0 ? '+' : '') + h.pnl.toFixed(2) : '—'}</td>
-                    <td className="py-3 px-2" style={{ color: 'var(--text-muted)' }}>{new Date(h.closeTime).toLocaleString('ru-RU')}</td>
+                  <tr key={h.id} className="border-b hover:bg-[var(--bg-hover)]/50 transition-colors" style={{ borderColor: 'var(--border)' }}>
+                    <td className="py-3 px-3 font-medium">{h.pair}</td>
+                    <td className="py-3 px-3">{h.direction}</td>
+                    <td className="text-right py-3 px-3 tabular-nums">${(h.size ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="text-right py-3 px-3 tabular-nums text-xs">{formatPrice(h.openPrice)} / {validClosePrice(h) ? formatPrice(h.closePrice) : '—'}</td>
+                    <td className="text-right py-3 px-3 tabular-nums text-xs" style={{ color: 'var(--danger)' }}>{h.stopLoss != null && h.stopLoss > 0 ? formatPrice(h.stopLoss) : '—'}</td>
+                    <td className="text-right py-3 px-3 tabular-nums text-xs" style={{ color: 'var(--success)' }}>{Array.isArray(h.takeProfit) && h.takeProfit.length ? h.takeProfit.map(formatPrice).join(' / ') : '—'}</td>
+                    <td className={`text-right py-3 px-3 font-semibold tabular-nums ${validClosePrice(h) ? (h.pnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]') : ''}`}>{validClosePrice(h) ? (h.pnl >= 0 ? '+' : '') + h.pnl.toFixed(2) : '—'}</td>
+                    <td className="py-3 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>{new Date(h.closeTime).toLocaleString('ru-RU')}</td>
                   </tr>
                 ))}
               </tbody>
