@@ -67,8 +67,8 @@ export default function ProfilePage() {
     }
     const headers = { Authorization: `Bearer ${token}` };
     Promise.all([
-      api.get<{ balance: number; balanceError?: string; useTestnet?: boolean }>('/trading/positions', { headers, params: { useTestnet: 'false' } }).catch((e) => ({ balance: 0, balanceError: (e as Error).message })),
-      api.get<{ balance: number; balanceError?: string; useTestnet?: boolean }>('/trading/positions', { headers, params: { useTestnet: 'true' } }).catch((e) => ({ balance: 0, balanceError: (e as Error).message }))
+      api.get<{ balance: number; balanceError?: string; useTestnet?: boolean }>('/trading/positions?useTestnet=false', { headers }).catch((e) => ({ balance: 0, balanceError: (e as Error).message })),
+      api.get<{ balance: number; balanceError?: string; useTestnet?: boolean }>('/trading/positions?useTestnet=true', { headers }).catch((e) => ({ balance: 0, balanceError: (e as Error).message }))
     ]).then(([realRes, demoRes]) => {
       setOkxBalance({
         real: typeof (realRes as any).balance === 'number' ? (realRes as any).balance : null,
@@ -79,8 +79,8 @@ export default function ProfilePage() {
     });
     const id = setInterval(() => {
       Promise.all([
-        api.get<{ balance: number; balanceError?: string }>('/trading/positions', { headers, params: { useTestnet: 'false' } }).catch(() => ({ balance: 0 })),
-        api.get<{ balance: number; balanceError?: string }>('/trading/positions', { headers, params: { useTestnet: 'true' } }).catch(() => ({ balance: 0 }))
+        api.get<{ balance: number; balanceError?: string }>('/trading/positions?useTestnet=false', { headers }).catch(() => ({ balance: 0 })),
+        api.get<{ balance: number; balanceError?: string }>('/trading/positions?useTestnet=true', { headers }).catch(() => ({ balance: 0 }))
       ]).then(([realRes, demoRes]) => {
         setOkxBalance((prev) => ({
           ...prev,
