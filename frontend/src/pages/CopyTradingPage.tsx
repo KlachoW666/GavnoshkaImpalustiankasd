@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import { RiskDisclaimer } from '../components/RiskDisclaimer';
+import { useTableSort } from '../utils/useTableSort';
+import { SortableTh } from '../components/SortableTh';
 
 const cardStyle = { background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' };
 
@@ -63,6 +65,15 @@ export default function CopyTradingPage() {
 
   const subscribedIds = new Set(subscriptions.map((s) => s.providerId));
 
+  const providersCompare = useMemo(() => ({
+    username: (a: Provider, b: Provider) => (a.username || '').localeCompare(b.username || ''),
+    totalPnl: (a: Provider, b: Provider) => a.totalPnl - b.totalPnl,
+    wins: (a: Provider, b: Provider) => a.wins - b.wins,
+    losses: (a: Provider, b: Provider) => a.losses - b.losses,
+    subscribersCount: (a: Provider, b: Provider) => a.subscribersCount - b.subscribersCount
+  }), []);
+  const { sortedItems: sortedProviders, sortKey, sortDir, toggleSort } = useTableSort(providers, providersCompare, 'totalPnl', 'desc');
+
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
       <RiskDisclaimer storageKey="trading" />
@@ -105,16 +116,16 @@ export default function CopyTradingPage() {
           <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderColor: 'var(--border)', color: 'var(--text-muted)', background: 'var(--bg-card-solid)' }}>
-                  <th className="text-left py-3 px-2">Трейдер</th>
-                  <th className="text-right py-3 px-2">Суммарный PnL</th>
-                  <th className="text-right py-3 px-2">Плюс / Минус</th>
-                  <th className="text-right py-3 px-2">Подписчиков</th>
-                  <th className="text-right py-3 px-2">Действие</th>
+                <tr style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+                  <SortableTh label="Трейдер" sortKey="username" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Суммарный PnL" sortKey="totalPnl" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                  <SortableTh label="Плюс / Минус" sortKey="wins" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                  <SortableTh label="Подписчиков" sortKey="subscribersCount" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                  <th className="text-right py-3 px-2 text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>Действие</th>
                 </tr>
               </thead>
               <tbody>
-                {providers.map((p) => (
+                {sortedProviders.map((p) => (
                   <tr key={p.providerId} className="border-b" style={{ borderColor: 'var(--border)' }}>
                     <td className="py-3 px-2 font-medium">{p.username}</td>
                     <td className={`text-right py-3 px-2 tabular-nums ${p.totalPnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>

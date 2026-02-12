@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { TradingSignal } from '../types/signal';
 import { notifyTelegram } from '../utils/notifyTelegram';
 import { fetchPrice, normSymbol } from '../utils/fetchPrice';
@@ -10,6 +10,8 @@ import AnalysisBreakdown, { AnalysisBreakdown as BreakdownType } from '../compon
 import PositionChart from '../components/PositionChart';
 import TradingAnalytics from '../components/TradingAnalytics';
 import { RiskDisclaimer } from '../components/RiskDisclaimer';
+import { useTableSort } from '../utils/useTableSort';
+import { SortableTh } from '../components/SortableTh';
 
 const API = '/api';
 /** Партнёрская ссылка на регистрацию OKX (можно заменить в одном месте) */
@@ -397,6 +399,15 @@ export default function AutoTradingPage() {
 
   /** История для отображения: при авторизации — с сервера (OKX/ордера по userId), иначе локальная. */
   const displayHistory = token ? serverHistory : history;
+
+  const historyCompare = useMemo(() => ({
+    pair: (a: HistoryEntry, b: HistoryEntry) => (a.pair || '').localeCompare(b.pair || ''),
+    direction: (a: HistoryEntry, b: HistoryEntry) => (a.direction || '').localeCompare(b.direction || ''),
+    size: (a: HistoryEntry, b: HistoryEntry) => (a.size ?? 0) - (b.size ?? 0),
+    pnl: (a: HistoryEntry, b: HistoryEntry) => (a.pnl ?? 0) - (b.pnl ?? 0),
+    closeTime: (a: HistoryEntry, b: HistoryEntry) => new Date(a.closeTime).getTime() - new Date(b.closeTime).getTime()
+  }), []);
+  const { sortedItems: sortedHistory, sortKey: historySortKey, sortDir: historySortDir, toggleSort: historyToggleSort } = useTableSort(displayHistory, historyCompare, 'closeTime', 'desc');
 
   const updateSetting = <K extends keyof AutoTradingSettings>(key: K, value: AutoTradingSettings[K]) => {
     setSettings((prev) => {
@@ -1632,19 +1643,19 @@ export default function AutoTradingPage() {
           <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-xs font-semibold uppercase tracking-wider" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)', background: 'var(--bg-hover)' }}>
-                  <th className="text-left py-3 px-3">Пара</th>
-                  <th className="text-left py-3 px-3">Направление</th>
-                  <th className="text-right py-3 px-3">Сумма</th>
-                  <th className="text-right py-3 px-3">Вход / Выход</th>
-                  <th className="text-right py-3 px-3">SL</th>
-                  <th className="text-right py-3 px-3">TP</th>
-                  <th className="text-right py-3 px-3">P&L</th>
-                  <th className="text-left py-3 px-3">Время</th>
+                <tr className="border-b text-xs font-semibold uppercase tracking-wider" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
+                  <SortableTh label="Пара" sortKey="pair" currentKey={historySortKey} sortDir={historySortDir} onSort={historyToggleSort} />
+                  <SortableTh label="Направление" sortKey="direction" currentKey={historySortKey} sortDir={historySortDir} onSort={historyToggleSort} />
+                  <SortableTh label="Сумма" sortKey="size" currentKey={historySortKey} sortDir={historySortDir} onSort={historyToggleSort} align="right" />
+                  <th className="text-right py-3 px-3" style={{ color: 'var(--text-muted)' }}>Вход / Выход</th>
+                  <th className="text-right py-3 px-3" style={{ color: 'var(--text-muted)' }}>SL</th>
+                  <th className="text-right py-3 px-3" style={{ color: 'var(--text-muted)' }}>TP</th>
+                  <SortableTh label="P&L" sortKey="pnl" currentKey={historySortKey} sortDir={historySortDir} onSort={historyToggleSort} align="right" />
+                  <SortableTh label="Время" sortKey="closeTime" currentKey={historySortKey} sortDir={historySortDir} onSort={historyToggleSort} />
                 </tr>
               </thead>
               <tbody>
-                {displayHistory.slice(0, 20).map((h) => (
+                {sortedHistory.slice(0, 20).map((h) => (
                   <tr key={h.id} className="border-b hover:bg-[var(--bg-hover)]/50 transition-colors" style={{ borderColor: 'var(--border)' }}>
                     <td className="py-3 px-3 font-medium">{h.pair}</td>
                     <td className="py-3 px-3">{h.direction}</td>

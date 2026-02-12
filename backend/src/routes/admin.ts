@@ -912,8 +912,12 @@ router.put('/stats-display-config', requireAdmin, (req: Request, res: Response) 
     if (typeof body.ordersPerDay === 'number') patch.ordersPerDay = body.ordersPerDay;
     if (typeof body.winRateShare === 'number') patch.winRateShare = body.winRateShare;
     if (typeof body.usersPerDay === 'number') patch.usersPerDay = body.usersPerDay;
-    if (typeof body.onlineAddMax === 'number') patch.onlineAddMax = body.onlineAddMax;
+    if (body.usersPerDayTo !== undefined) patch.usersPerDayTo = body.usersPerDayTo === null ? undefined : Number(body.usersPerDayTo);
     if (typeof body.signalsPerDay === 'number') patch.signalsPerDay = body.signalsPerDay;
+    if (body.signalsPerDayTo !== undefined) patch.signalsPerDayTo = body.signalsPerDayTo === null ? undefined : Number(body.signalsPerDayTo);
+    if (body.volumePerDayTo !== undefined) patch.volumePerDayTo = body.volumePerDayTo === null ? undefined : Number(body.volumePerDayTo);
+    if (body.ordersPerDayTo !== undefined) patch.ordersPerDayTo = body.ordersPerDayTo === null ? undefined : Number(body.ordersPerDayTo);
+    if (body.winRateShareTo !== undefined) patch.winRateShareTo = body.winRateShareTo === null ? undefined : Number(body.winRateShareTo);
     const next = setStatsDisplayConfig(patch);
     logger.info('Admin', 'Stats display config updated');
     res.json(next);

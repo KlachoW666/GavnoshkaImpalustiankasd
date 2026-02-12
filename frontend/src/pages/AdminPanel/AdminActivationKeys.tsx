@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { adminApi } from '../../utils/adminApi';
+import { useTableSort } from '../../utils/useTableSort';
 
 type KeyRow = {
   id: number;
@@ -53,6 +54,14 @@ export default function AdminActivationKeys() {
     const active = total - used - revoked;
     return { total, used, revoked, active };
   }, [keys]);
+
+  const keysCompare = useMemo(() => ({
+    key: (a: KeyRow, b: KeyRow) => (a.key || '').localeCompare(b.key || ''),
+    durationDays: (a: KeyRow, b: KeyRow) => a.durationDays - b.durationDays,
+    createdAt: (a: KeyRow, b: KeyRow) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime(),
+    usedAt: (a: KeyRow, b: KeyRow) => new Date(a.usedAt || 0).getTime() - new Date(b.usedAt || 0).getTime()
+  }), []);
+  const { sortedItems: sortedKeys } = useTableSort(keys, keysCompare, 'createdAt', 'desc');
 
   const generate = async () => {
     setCreating(true);
@@ -226,7 +235,7 @@ export default function AdminActivationKeys() {
           <div className="py-8 text-center" style={{ color: 'var(--text-muted)' }}>Ключей нет</div>
         ) : (
           <div className="mt-4 space-y-3">
-            {keys.map((k) => {
+            {sortedKeys.map((k) => {
               const status = k.revokedAt ? 'revoked' : k.usedAt ? 'used' : 'active';
               const noteIsTelegramId = k.note != null && /^\d+$/.test(String(k.note).trim());
               const createdBy = k.note != null && k.note.trim() !== ''

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { adminApi } from '../../utils/adminApi';
+import { useTableSort } from '../../utils/useTableSort';
 
 interface LogEntry {
   ts: string;
@@ -18,15 +19,25 @@ export default function AdminLogs() {
   const [levelFilter, setLevelFilter] = useState<string>('ALL');
   const [searchText, setSearchText] = useState('');
 
-  const filteredLogs = logs.filter((entry) => {
-    if (levelFilter !== 'ALL' && entry.level !== levelFilter) return false;
-    if (searchText.trim()) {
-      const q = searchText.trim().toLowerCase();
-      const line = `${entry.message} ${entry.meta || ''}`.toLowerCase();
-      return line.includes(q);
-    }
-    return true;
-  });
+  const filteredLogs = useMemo(() => {
+    let list = logs.filter((entry) => {
+      if (levelFilter !== 'ALL' && entry.level !== levelFilter) return false;
+      if (searchText.trim()) {
+        const q = searchText.trim().toLowerCase();
+        const line = `${entry.message} ${entry.meta || ''}`.toLowerCase();
+        return line.includes(q);
+      }
+      return true;
+    });
+    return list;
+  }, [logs, levelFilter, searchText]);
+
+  const logsCompare = useMemo(() => ({
+    ts: (a: LogEntry, b: LogEntry) => (a.ts || '').localeCompare(b.ts || ''),
+    level: (a: LogEntry, b: LogEntry) => (a.level || '').localeCompare(b.level || ''),
+    tag: (a: LogEntry, b: LogEntry) => (a.tag || '').localeCompare(b.tag || '')
+  }), []);
+  const { sortedItems: sortedLogs } = useTableSort(filteredLogs, logsCompare, 'ts', 'desc');
 
   const fetchLogs = () => {
     setError('');
@@ -131,7 +142,7 @@ export default function AdminLogs() {
           ) : filteredLogs.length === 0 ? (
             <p style={{ color: 'var(--text-muted)' }}>Нет записей по выбранным фильтрам.</p>
           ) : (
-            filteredLogs.map((entry, i) => (
+            sortedLogs.map((entry, i) => (
               <div key={`${entry.ts}-${i}`} className="py-1 border-b border-[var(--border)] last:border-0">
                 <span className="text-[var(--text-muted)] shrink-0">{entry.ts}</span>
                 {' '}

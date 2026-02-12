@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { adminApi, clearAdminToken } from '../../utils/adminApi';
+import { useTableSort } from '../../utils/useTableSort';
 
 interface ProxyItem {
   id?: number;
@@ -101,6 +102,12 @@ export default function AdminProxies() {
     }
   };
 
+  const proxiesCompare = useMemo(() => ({
+    url: (a: ProxyItem, b: ProxyItem) => (a.url || '').localeCompare(b.url || ''),
+    source: (a: ProxyItem, b: ProxyItem) => (a.source || '').localeCompare(b.source || '')
+  }), []);
+  const { sortedItems: sortedProxies } = useTableSort(proxies, proxiesCompare, 'url', 'asc');
+
   if (loading) {
     return (
       <div className="p-8 flex items-center justify-center">
@@ -182,7 +189,7 @@ export default function AdminProxies() {
           </div>
         ) : (
           <ul className="space-y-2">
-            {proxies.map((p) => {
+            {sortedProxies.map((p) => {
               const result = checkResults[p.url];
               return (
                 <li

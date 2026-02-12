@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { adminApi } from '../../utils/adminApi';
 import { formatNum4, formatNum4Signed } from '../../utils/formatNum';
+import { useTableSort } from '../../utils/useTableSort';
+import { SortableTh } from '../../components/SortableTh';
 
 interface AnalyticsData {
   totalTrades: number;
@@ -54,6 +56,16 @@ export default function AdminAnalytics() {
     const id = setInterval(() => load(false), 15000);
     return () => clearInterval(id);
   }, []);
+
+  const tradesCompare = useMemo(() => ({
+    pair: (a: TradeRow, b: TradeRow) => (a.pair || '').localeCompare(b.pair || ''),
+    direction: (a: TradeRow, b: TradeRow) => (a.direction || '').localeCompare(b.direction || ''),
+    openPrice: (a: TradeRow, b: TradeRow) => (a.openPrice ?? 0) - (b.openPrice ?? 0),
+    closePrice: (a: TradeRow, b: TradeRow) => (a.closePrice ?? 0) - (b.closePrice ?? 0),
+    pnl: (a: TradeRow, b: TradeRow) => (a.pnl ?? 0) - (b.pnl ?? 0),
+    closeTime: (a: TradeRow, b: TradeRow) => new Date(a.closeTime || 0).getTime() - new Date(b.closeTime || 0).getTime()
+  }), []);
+  const { sortedItems: sortedTrades, sortKey, sortDir, toggleSort } = useTableSort(trades, tradesCompare, 'closeTime', 'desc');
 
   if (loading) return <p style={{ color: 'var(--text-muted)' }}>Загрузка…</p>;
   if (error) return <p style={{ color: 'var(--danger)' }}>{error}</p>;
@@ -114,20 +126,20 @@ export default function AdminAnalytics() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)', background: 'var(--bg-hover)' }}>
-                <th className="text-left py-3 px-2">Пара</th>
-                <th className="text-left py-3 px-2">Направление</th>
-                <th className="text-right py-3 px-2">Вход</th>
-                <th className="text-right py-3 px-2">Выход</th>
-                <th className="text-right py-3 px-2">P&L</th>
-                <th className="text-left py-3 px-2">Время закрытия</th>
+              <tr className="border-b" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
+                <SortableTh label="Пара" sortKey="pair" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Направление" sortKey="direction" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Вход" sortKey="openPrice" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                <SortableTh label="Выход" sortKey="closePrice" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                <SortableTh label="P&L" sortKey="pnl" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                <SortableTh label="Время закрытия" sortKey="closeTime" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
               </tr>
             </thead>
             <tbody>
-              {trades.length === 0 ? (
+              {sortedTrades.length === 0 ? (
                 <tr><td colSpan={6} className="py-6 text-center" style={{ color: 'var(--text-muted)' }}>Нет закрытых сделок</td></tr>
               ) : (
-                trades.map((row) => (
+                sortedTrades.map((row) => (
                   <tr key={row.id} className="border-b" style={{ borderColor: 'var(--border)' }}>
                     <td className="py-2 px-2">{row.pair}</td>
                     <td className="py-2 px-2">{row.direction}</td>

@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useTableSort } from '../utils/useTableSort';
+import { SortableTh } from '../components/SortableTh';
 
 interface BacktestResult {
   symbol: string;
@@ -33,6 +35,19 @@ export default function BacktestPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BacktestResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const tradesCompare = useMemo(() => ({
+    direction: (a: { direction: string }, b: { direction: string }) => a.direction.localeCompare(b.direction),
+    entryPrice: (a: { entryPrice: number }, b: { entryPrice: number }) => a.entryPrice - b.entryPrice,
+    exitPrice: (a: { exitPrice: number }, b: { exitPrice: number }) => a.exitPrice - b.exitPrice,
+    pnl: (a: { pnl: number }, b: { pnl: number }) => a.pnl - b.pnl
+  }), []);
+  const { sortedItems: sortedTrades, sortKey, sortDir, toggleSort } = useTableSort(
+    result?.trades ?? [],
+    tradesCompare,
+    'pnl',
+    'desc'
+  );
 
   const run = () => {
     setLoading(true);
@@ -206,16 +221,16 @@ export default function BacktestPage() {
             <div className="overflow-x-auto rounded-xl border mt-4" style={{ borderColor: 'var(--border)' }}>
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ borderColor: 'var(--border)', color: 'var(--text-muted)', background: 'var(--bg-card-solid)' }}>
-                    <th className="text-left py-2 px-2">Направление</th>
-                    <th className="text-right py-2 px-2">Вход</th>
-                    <th className="text-right py-2 px-2">Выход</th>
-                    <th className="text-right py-2 px-2">PnL</th>
-                    <th className="text-center py-2 px-2">Результат</th>
+                  <tr style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+                    <SortableTh label="Направление" sortKey="direction" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label="Вход" sortKey="entryPrice" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                    <SortableTh label="Выход" sortKey="exitPrice" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                    <SortableTh label="PnL" sortKey="pnl" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                    <th className="text-center py-2 px-2 text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>Результат</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {result.trades.slice(0, 20).map((t, i) => (
+                  {sortedTrades.slice(0, 20).map((t, i) => (
                     <tr key={i} className="border-t" style={{ borderColor: 'var(--border)' }}>
                       <td className="py-2 px-2">{t.direction}</td>
                       <td className="text-right py-2 px-2 tabular-nums">{t.entryPrice.toLocaleString('ru-RU')}</td>

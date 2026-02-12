@@ -2,8 +2,10 @@
  * Scanner — топ монет по волатильности/объёму, уровни поддержки/сопротивления, пробои
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { api } from '../utils/api';
+import { useTableSort } from '../utils/useTableSort';
+import { SortableTh } from '../components/SortableTh';
 
 interface CoinScore {
   symbol: string;
@@ -165,6 +167,16 @@ export default function ScannerPage() {
     }
   };
 
+  const scannerCompare = useMemo(() => ({
+    symbol: (a: CoinScore, b: CoinScore) => (displaySymbol(a.symbol)).localeCompare(displaySymbol(b.symbol)),
+    price: (a: CoinScore, b: CoinScore) => (getPrice(a) ?? 0) - (getPrice(b) ?? 0),
+    score: (a: CoinScore, b: CoinScore) => (a.score ?? 0) - (b.score ?? 0),
+    volume: (a: CoinScore, b: CoinScore) => ((a.metrics?.volume24h ?? (a as any).volume24h) ?? 0) - ((b.metrics?.volume24h ?? (b as any).volume24h) ?? 0),
+    change: (a: CoinScore, b: CoinScore) => (getChange24h(a) ?? 0) - (getChange24h(b) ?? 0),
+    volatility: (a: CoinScore, b: CoinScore) => ((a.metrics?.volatility24h ?? (a as any).volatility24h) ?? 0) - ((b.metrics?.volatility24h ?? (b as any).volatility24h) ?? 0)
+  }), []);
+  const { sortedItems: sortedCoins, sortKey, sortDir, toggleSort } = useTableSort(topCoins, scannerCompare, 'score', 'desc');
+
   const openLevels = (symbol: string) => {
     const sym = symbolForChart(symbol);
     setLevelsLoading(true);
@@ -245,18 +257,18 @@ export default function ScannerPage() {
           <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-xs font-semibold uppercase tracking-wider" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>
-                  <th className="text-left py-3 px-4">Символ</th>
-                  <th className="text-right py-3 px-4">Цена</th>
-                  <th className="text-right py-3 px-4">Счёт</th>
-                  <th className="text-right py-3 px-4">Объём 24h</th>
-                  <th className="text-right py-3 px-4">Изм 24h</th>
-                  <th className="text-right py-3 px-4">Волатильность</th>
-                  <th className="text-left py-3 px-4">Действия</th>
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                  <SortableTh label="Символ" sortKey="symbol" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableTh label="Цена" sortKey="price" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                  <SortableTh label="Счёт" sortKey="score" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                  <SortableTh label="Объём 24h" sortKey="volume" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                  <SortableTh label="Изм 24h" sortKey="change" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                  <SortableTh label="Волатильность" sortKey="volatility" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />
+                  <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)', background: 'var(--bg-hover)' }}>Действия</th>
                 </tr>
               </thead>
               <tbody>
-                {topCoins.map((c) => {
+                {sortedCoins.map((c) => {
                   const price = getPrice(c);
                   const change = getChange24h(c);
                   return (

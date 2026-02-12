@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { TradingSignal } from '../types/signal';
 import { notifyTelegram } from '../utils/notifyTelegram';
 import { fetchPrice, normSymbol } from '../utils/fetchPrice';
 import { useAuth } from '../contexts/AuthContext';
+import { useTableSort } from '../utils/useTableSort';
+import { SortableTh } from '../components/SortableTh';
 
 const API = '/api';
 
@@ -131,6 +133,14 @@ export default function DemoPage() {
   const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? 999 : 0;
   const avgWin = winTrades > 0 ? grossProfit / winTrades : 0;
   const avgLoss = lossTrades > 0 ? grossLoss / lossTrades : 0;
+  const demoHistoryCompare = useMemo(() => ({
+    pair: (a: HistoryEntry, b: HistoryEntry) => (a.pair || '').localeCompare(b.pair || ''),
+    direction: (a: HistoryEntry, b: HistoryEntry) => (a.direction || '').localeCompare(b.direction || ''),
+    pnl: (a: HistoryEntry, b: HistoryEntry) => a.pnl - b.pnl,
+    closeTime: (a: HistoryEntry, b: HistoryEntry) => new Date(a.closeTime).getTime() - new Date(b.closeTime).getTime()
+  }), []);
+  const { sortedItems: sortedDemoHistory, sortKey: demoSortKey, sortDir: demoSortDir, toggleSort: demoToggleSort } = useTableSort(history, demoHistoryCompare, 'closeTime', 'desc');
+
   const bestTrade = history.length ? Math.max(...history.map((h) => h.pnl), 0) : 0;
   const worstTrade = history.length ? Math.min(...history.map((h) => h.pnl), 0) : 0;
   const longTrades = history.filter((h) => h.direction === 'LONG');
@@ -482,19 +492,19 @@ export default function DemoPage() {
           <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left border-b" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
-                  <th className="py-3 px-3">Пара</th>
-                  <th className="py-3 px-3">Направление</th>
-                  <th className="py-3 px-3">Плечо</th>
-                  <th className="py-3 px-3">Вход</th>
-                  <th className="py-3 px-3">Выход</th>
-                  <th className="py-3 px-3">P&L</th>
-                  <th className="py-3 px-3">Время</th>
-                  <th className="py-3 px-3">Авто</th>
+                <tr className="text-left border-b" style={{ borderColor: 'var(--border)' }}>
+                  <SortableTh label="Пара" sortKey="pair" currentKey={demoSortKey} sortDir={demoSortDir} onSort={demoToggleSort} />
+                  <SortableTh label="Направление" sortKey="direction" currentKey={demoSortKey} sortDir={demoSortDir} onSort={demoToggleSort} />
+                  <th className="py-3 px-3 text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>Плечо</th>
+                  <th className="py-3 px-3 text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>Вход</th>
+                  <th className="py-3 px-3 text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>Выход</th>
+                  <SortableTh label="P&L" sortKey="pnl" currentKey={demoSortKey} sortDir={demoSortDir} onSort={demoToggleSort} />
+                  <SortableTh label="Время" sortKey="closeTime" currentKey={demoSortKey} sortDir={demoSortDir} onSort={demoToggleSort} />
+                  <th className="py-3 px-3 text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>Авто</th>
                 </tr>
               </thead>
               <tbody>
-                {history.slice(0, 20).map((h) => (
+                {sortedDemoHistory.slice(0, 20).map((h) => (
                   <tr key={h.id} className="border-b" style={{ borderColor: 'var(--border)' }}>
                     <td className="py-3 px-3 font-medium">{h.pair}</td>
                     <td className={`py-3 px-3 ${h.direction === 'LONG' ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{h.direction}</td>

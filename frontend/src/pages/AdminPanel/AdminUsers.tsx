@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { adminApi, clearAdminToken } from '../../utils/adminApi';
 import { formatNum4, formatNum4Signed } from '../../utils/formatNum';
+import { useTableSort } from '../../utils/useTableSort';
+import { SortableTh } from '../../components/SortableTh';
 
 interface UserRow {
   id: string;
@@ -106,6 +108,13 @@ export default function AdminUsers() {
       setDetailLoading(false);
     }
   }, []);
+
+  const usersCompare = useMemo(() => ({
+    username: (a: UserRow, b: UserRow) => (a.username || '').localeCompare(b.username || ''),
+    groupId: (a: UserRow, b: UserRow) => a.groupId - b.groupId,
+    createdAt: (a: UserRow, b: UserRow) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  }), []);
+  const { sortedItems: sortedUsers, sortKey, sortDir, toggleSort } = useTableSort(users, usersCompare, 'createdAt', 'desc');
 
   const displayGroupName = (name: string | undefined) => {
     if (!name) return '';
@@ -499,15 +508,15 @@ export default function AdminUsers() {
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Логин</th>
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Группа</th>
+              <SortableTh label="Логин" sortKey="username" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="p-4" />
+              <SortableTh label="Группа" sortKey="groupId" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="p-4" />
               <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Статус</th>
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Дата</th>
+              <SortableTh label="Дата" sortKey="createdAt" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="p-4" />
               <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Действия</th>
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
+            {sortedUsers.map((u) => (
               <tr key={u.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
                 <td className="p-4">
                   <button

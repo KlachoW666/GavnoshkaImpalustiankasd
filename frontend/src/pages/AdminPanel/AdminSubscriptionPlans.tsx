@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { adminApi } from '../../utils/adminApi';
+import { useTableSort } from '../../utils/useTableSort';
+import { SortableTh } from '../../components/SortableTh';
 
 type PlanRow = {
   id: number;
@@ -65,6 +67,16 @@ export default function AdminSubscriptionPlans() {
 
   const apiBase = typeof window !== 'undefined' ? `${window.location.origin}/api` : '/api';
 
+  const plansCompare = useMemo(() => ({
+    id: (a: PlanRow, b: PlanRow) => a.id - b.id,
+    days: (a: PlanRow, b: PlanRow) => a.days - b.days,
+    priceUsd: (a: PlanRow, b: PlanRow) => a.priceUsd - b.priceUsd,
+    priceStars: (a: PlanRow, b: PlanRow) => a.priceStars - b.priceStars,
+    discountPercent: (a: PlanRow, b: PlanRow) => a.discountPercent - b.discountPercent,
+    sortOrder: (a: PlanRow, b: PlanRow) => a.sortOrder - b.sortOrder
+  }), []);
+  const { sortedItems: sortedPlans, sortKey, sortDir, toggleSort } = useTableSort(plans, plansCompare, 'sortOrder', 'asc');
+
   if (loading) {
     return <p style={{ color: 'var(--text-muted)' }}>Загрузка тарифов…</p>;
   }
@@ -125,18 +137,18 @@ export default function AdminSubscriptionPlans() {
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-hover)' }}>
-              <th className="text-left p-3">ID</th>
-              <th className="text-left p-3">Дней</th>
-              <th className="text-left p-3">USD</th>
-              <th className="text-left p-3">Stars</th>
-              <th className="text-left p-3">Скидка %</th>
-              <th className="text-left p-3">Вкл.</th>
-              <th className="text-left p-3">Порядок</th>
-              <th className="text-left p-3">Действия</th>
+              <SortableTh label="ID" sortKey="id" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="p-3" />
+              <SortableTh label="Дней" sortKey="days" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="p-3" />
+              <SortableTh label="USD" sortKey="priceUsd" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="p-3" />
+              <SortableTh label="Stars" sortKey="priceStars" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="p-3" />
+              <SortableTh label="Скидка %" sortKey="discountPercent" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="p-3" />
+              <th className="text-left p-3 text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>Вкл.</th>
+              <SortableTh label="Порядок" sortKey="sortOrder" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="p-3" />
+              <th className="text-left p-3 text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>Действия</th>
             </tr>
           </thead>
           <tbody>
-            {plans.map((p) => (
+            {sortedPlans.map((p) => (
               <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="p-3">{p.id}</td>
                 {editingId === p.id ? (

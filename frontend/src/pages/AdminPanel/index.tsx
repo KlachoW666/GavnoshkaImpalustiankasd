@@ -24,7 +24,7 @@ const TABS: { id: AdminTab; label: string; icon: string }[] = [
   { id: 'keys', label: 'Ключи', icon: '🔑' },
   { id: 'plans', label: 'Тарифы', icon: '📦' },
   { id: 'proxies', label: 'Прокси', icon: '🌐' },
-  { id: 'stats', label: 'Демо-статистика', icon: '📊' }
+  { id: 'stats', label: 'Демо-статистики', icon: '📊' }
 ];
 
 export default function AdminPanel() {
