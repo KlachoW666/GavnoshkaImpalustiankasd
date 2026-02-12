@@ -30,6 +30,8 @@ import authRouter from './routes/auth';
 import statsRouter from './routes/stats';
 import adminRouter from './routes/admin';
 import botRouter from './routes/bot';
+import copyTradingRouter from './routes/copyTrading';
+import socialRouter from './routes/social';
 import { createWebSocketServer, getBroadcastBreakout } from './websocket';
 import { initDb, isMemoryStore } from './db';
 import { seedDefaultAdmin } from './db/seed';
@@ -71,6 +73,8 @@ app.use('/api/auth', authRouter);
 app.use('/api/stats', statsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/bot', botRouter);
+app.use('/api/copy-trading', copyTradingRouter);
+app.use('/api/social', socialRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'CryptoSignal Pro API', exchange: 'OKX' });

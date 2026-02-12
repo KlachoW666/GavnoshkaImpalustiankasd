@@ -74,6 +74,11 @@ export default function AnalysisBreakdown({ data }: { data: AnalysisBreakdown })
       <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
         <span className="font-semibold text-sm">Прогноз анализа</span>
         <div className="flex items-center gap-2">
+          {(data as unknown as { aiWinProbability?: number }).aiWinProbability != null && (
+            <span className="text-xs px-2 py-0.5 rounded font-medium" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }} title="AI: вероятность выигрыша">
+              AI {((data as unknown as { aiWinProbability: number }).aiWinProbability * 100).toFixed(0)}%
+            </span>
+          )}
           <DirBadge dir={forecast.direction ?? 'NEUTRAL'} />
           <span className="text-sm font-mono" style={{ color: 'var(--accent)' }}>
             {(forecast.confidence * 100).toFixed(0)}%

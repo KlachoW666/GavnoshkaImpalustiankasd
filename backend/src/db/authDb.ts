@@ -133,6 +133,37 @@ export function updateUserActivationExpiresAt(userId: string, activationExpiresA
   if (db) db.prepare('UPDATE users SET activation_expires_at = ? WHERE id = ?').run(activationExpiresAt ?? null, userId);
 }
 
+export function updateUserPassword(userId: string, passwordHash: string): void {
+  ensureAuthTables();
+  if (!passwordHash || passwordHash.length < 10) throw new Error('Хеш пароля обязателен');
+  if (isMemoryStore()) {
+    const u = memoryUsers.find((x) => x.id === userId);
+    if (u) u.password_hash = passwordHash;
+    return;
+  }
+  const db = getDb();
+  if (!db) return;
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, userId);
+}
+
+export function updateUsername(userId: string, newUsername: string): void {
+  ensureAuthTables();
+  const name = (newUsername || '').trim();
+  if (name.length < 2) throw new Error('Логин от 2 символов');
+  if (isMemoryStore()) {
+    const other = memoryUsers.find((u) => u.id !== userId && u.username.toLowerCase() === name.toLowerCase());
+    if (other) throw new Error('Пользователь с таким логином уже есть');
+    const u = memoryUsers.find((x) => x.id === userId);
+    if (u) u.username = name;
+    return;
+  }
+  const db = getDb();
+  if (!db) return;
+  const existing = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?) AND id != ?').get(name, userId);
+  if (existing) throw new Error('Пользователь с таким логином уже есть');
+  db.prepare('UPDATE users SET username = ? WHERE id = ?').run(name, userId);
+}
+
 export function getGroupById(id: number): GroupRow | null {
   ensureAuthTables();
   if (isMemoryStore()) {

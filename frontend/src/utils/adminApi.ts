@@ -5,24 +5,28 @@
 const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || '/api';
 
 const STORAGE_KEY = 'admin_token';
+const PERSIST_KEY = 'admin_token_persist';
 
 export function getAdminToken(): string | null {
   try {
-    return sessionStorage.getItem(STORAGE_KEY);
+    return localStorage.getItem(PERSIST_KEY) || sessionStorage.getItem(STORAGE_KEY);
   } catch {
     return null;
   }
 }
 
-export function setAdminToken(token: string): void {
+export function setAdminToken(token: string, persist = false): void {
   try {
     sessionStorage.setItem(STORAGE_KEY, token);
+    if (persist) localStorage.setItem(PERSIST_KEY, token);
+    else localStorage.removeItem(PERSIST_KEY);
   } catch {}
 }
 
 export function clearAdminToken(): void {
   try {
     sessionStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(PERSIST_KEY);
   } catch {}
 }
 
@@ -62,6 +66,15 @@ export const adminApi = {
   async put<T>(path: string, body?: unknown): Promise<T> {
     const res = await fetch(`${API_BASE}${path}`, {
       method: 'PUT',
+      headers: headers(),
+      body: body != null ? JSON.stringify(body) : undefined
+    });
+    return handleResponse<T>(res);
+  },
+
+  async patch<T>(path: string, body?: unknown): Promise<T> {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: 'PATCH',
       headers: headers(),
       body: body != null ? JSON.stringify(body) : undefined
     });

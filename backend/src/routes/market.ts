@@ -19,7 +19,7 @@ import { normalizeSymbol } from '../lib/symbol';
 import { logger } from '../lib/logger';
 import { VOLUME_BREAKOUT_MULTIPLIER, volatilitySizeMultiplier, isPotentialFalseBreakout } from '../lib/tradingPrinciples';
 import { FundamentalFilter } from '../services/fundamentalFilter';
-import { adjustConfidence, update as mlUpdate } from '../services/onlineMLService';
+import { adjustConfidence, update as mlUpdate, predict as mlPredict } from '../services/onlineMLService';
 import { calcLiquidationPrice, calcLiquidationPriceSimple } from '../lib/liquidationPrice';
 import { executeSignal } from '../services/autoTrader';
 import { initDb, insertOrder } from '../db';
@@ -486,10 +486,13 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
     rsiBucket: rsi != null ? (rsi < 35 ? 1 : rsi > 65 ? -1 : 0) : undefined,
     volumeConfirm: candlesSignal.volumeConfirm ? 1 : 0
   };
+  const aiWinProbability = mlPredict(mlFeatures);
   signal = {
     ...signal,
-    confidence: Math.round(adjustConfidence(signal.confidence ?? 0, mlFeatures) * 100) / 100
+    confidence: Math.round(adjustConfidence(signal.confidence ?? 0, mlFeatures) * 100) / 100,
+    aiWinProbability: Math.round(aiWinProbability * 1000) / 1000
   };
+  (breakdown as any).aiWinProbability = aiWinProbability;
   if (!opts?.silent) {
     addSignal(signal);
     getBroadcastSignal()?.(signal, breakdown, opts?.userId);
@@ -677,6 +680,9 @@ async function runAutoTradingBestCycle(
         } catch (e) {
           logger.warn('runAutoTradingBestCycle', 'insertOrder failed', { error: (e as Error).message });
         }
+        import('../services/copyTradingService').then(({ copyOrderToSubscribers }) => {
+          copyOrderToSubscribers(userId, best.signal, { sizePercent, leverage, maxPositions, useTestnet, tpMultiplier });
+        }).catch((e) => logger.warn('runAutoTradingBestCycle', 'copyOrderToSubscribers failed', { error: (e as Error).message }));
       }
     } else {
       const err = result.error ?? 'Unknown error';

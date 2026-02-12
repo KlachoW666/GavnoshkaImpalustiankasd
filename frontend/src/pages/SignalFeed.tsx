@@ -271,6 +271,11 @@ export default function SignalFeed() {
                     <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
                       {s.exchange} • {s.timeframe}
                     </span>
+                    {s.aiWinProbability != null && (
+                      <span className="px-2 py-0.5 rounded text-xs font-medium" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }} title="AI: вероятность выигрыша">
+                        AI {(s.aiWinProbability * 100).toFixed(0)}%
+                      </span>
+                    )}
                   </div>
                   <button
                     type="button"

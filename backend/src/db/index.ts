@@ -143,6 +143,20 @@ export function initDb(): any {
         );
       `);
     } catch {}
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS copy_subscriptions (
+          provider_id TEXT NOT NULL,
+          subscriber_id TEXT NOT NULL,
+          size_percent REAL NOT NULL DEFAULT 25,
+          created_at TEXT DEFAULT (datetime('now')),
+          PRIMARY KEY (provider_id, subscriber_id),
+          CHECK (subscriber_id != provider_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_copy_subscriptions_provider ON copy_subscriptions(provider_id);
+        CREATE INDEX IF NOT EXISTS idx_copy_subscriptions_subscriber ON copy_subscriptions(subscriber_id);
+      `);
+    } catch {}
     return db;
   } catch {
     useMemoryStore = true;

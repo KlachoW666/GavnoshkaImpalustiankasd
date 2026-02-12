@@ -24,6 +24,8 @@ export interface TradingSignal {
   expires_at: string;
   /** Трейлинг-стоп: активация после TP1 или +1% прибыли */
   trailing_stop_config?: TrailingStopConfigSignal;
+  /** AI: оценка вероятности выигрыша (0–1) по онлайн-модели */
+  aiWinProbability?: number;
 }
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low';

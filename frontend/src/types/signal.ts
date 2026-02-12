@@ -12,6 +12,8 @@ export interface TradingSignal {
   timeframe: string;
   triggers: string[];
   expires_at: string;
+  /** AI: оценка вероятности выигрыша (0–1) */
+  aiWinProbability?: number;
 }
 
 export interface OHLCVCandle {

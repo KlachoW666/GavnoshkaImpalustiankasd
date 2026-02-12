@@ -61,6 +61,10 @@ export default function AdminUsers() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [extendDuration, setExtendDuration] = useState('');
   const [extendLoading, setExtendLoading] = useState(false);
+  const [editUsername, setEditUsername] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [patchLoading, setPatchLoading] = useState(false);
+  const [revokeLoading, setRevokeLoading] = useState(false);
 
   const [debouncedSearch, setDebouncedSearch] = useState('');
   useEffect(() => {
@@ -119,8 +123,11 @@ export default function AdminUsers() {
   }, [fetchData]);
 
   useEffect(() => {
-    if (selectedUserId) fetchUserDetail(selectedUserId);
-    else setUserDetail(null);
+    if (selectedUserId) {
+      fetchUserDetail(selectedUserId);
+      setEditUsername('');
+      setEditPassword('');
+    } else setUserDetail(null);
   }, [selectedUserId, fetchUserDetail]);
 
   useEffect(() => {
@@ -142,6 +149,50 @@ export default function AdminUsers() {
       setError(e instanceof Error ? e.message : 'Ошибка продления');
     } finally {
       setExtendLoading(false);
+    }
+  };
+
+  const revokeSubscription = async () => {
+    if (!selectedUserId || !window.confirm('Отменить подписку у этого пользователя?')) return;
+    setRevokeLoading(true);
+    setError('');
+    try {
+      await adminApi.post(`/admin/users/${selectedUserId}/revoke-subscription`, {});
+      await fetchUserDetail(selectedUserId);
+      await fetchData();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка отмены подписки');
+    } finally {
+      setRevokeLoading(false);
+    }
+  };
+
+  const patchUser = async () => {
+    if (!selectedUserId) return;
+    if (!editUsername.trim() && !editPassword.trim()) return;
+    if (editUsername.trim().length > 0 && editUsername.trim().length < 2) {
+      setError('Логин от 2 символов');
+      return;
+    }
+    if (editPassword.length > 0 && editPassword.length < 4) {
+      setError('Пароль от 4 символов');
+      return;
+    }
+    setPatchLoading(true);
+    setError('');
+    try {
+      await adminApi.patch(`/admin/users/${selectedUserId}`, {
+        ...(editUsername.trim().length >= 2 ? { username: editUsername.trim() } : {}),
+        ...(editPassword.length >= 4 ? { password: editPassword } : {})
+      });
+      setEditUsername('');
+      setEditPassword('');
+      await fetchUserDetail(selectedUserId);
+      await fetchData();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка сохранения');
+    } finally {
+      setPatchLoading(false);
     }
   };
 
@@ -420,6 +471,47 @@ export default function AdminUsers() {
                     style={{ background: 'var(--accent)', color: 'white' }}
                   >
                     {extendLoading ? '…' : 'Добавить'}
+                  </button>
+                  {userDetail.activationExpiresAt && (
+                    <button
+                      type="button"
+                      onClick={revokeSubscription}
+                      disabled={revokeLoading}
+                      className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-opacity hover:opacity-90"
+                      style={{ background: 'var(--danger)', color: 'white' }}
+                    >
+                      {revokeLoading ? '…' : 'Отменить подписку'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl p-4" style={miniCardStyle}>
+                <h4 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Изменить логин и пароль</h4>
+                <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Новый логин от 2 символов, пароль от 4. Оставьте пустым, чтобы не менять.</p>
+                <div className="flex flex-wrap gap-2 items-center">
+                  <input
+                    type="text"
+                    value={editUsername}
+                    onChange={(e) => setEditUsername(e.target.value)}
+                    placeholder="Новый логин"
+                    className="input-field w-40 rounded-lg"
+                  />
+                  <input
+                    type="password"
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    placeholder="Новый пароль"
+                    className="input-field w-40 rounded-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={patchUser}
+                    disabled={patchLoading || (!editUsername.trim() && !editPassword.trim())}
+                    className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-opacity hover:opacity-90"
+                    style={{ background: 'var(--accent)', color: 'white' }}
+                  >
+                    {patchLoading ? '…' : 'Сохранить'}
                   </button>
                 </div>
               </div>

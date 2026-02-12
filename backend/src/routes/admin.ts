@@ -3,6 +3,7 @@
  */
 
 import { Router, Request, Response } from 'express';
+import bcrypt from 'bcrypt';
 import ccxt from 'ccxt';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { config } from '../config';
@@ -25,7 +26,11 @@ import {
   deleteUser,
   getTelegramIdForUser,
   extendUserSubscription,
-  getOkxCredentials
+  getOkxCredentials,
+  findUserByUsername,
+  updateUserPassword,
+  updateUsername,
+  updateUserActivationExpiresAt
 } from '../db/authDb';
 import {
   listSubscriptionPlans,
@@ -48,12 +53,38 @@ function requireAdmin(req: Request, res: Response, next: () => void) {
   next();
 }
 
-/** POST /api/admin/login — вход по паролю, возвращает токен */
+const ADMIN_GROUP_ID = 3;
+
+/** POST /api/admin/login — вход по логину+паролю (админ из БД) или по общему паролю (ADMIN_PASSWORD) */
 router.post('/login', (req: Request, res: Response) => {
   try {
+    const username = (req.body?.username as string)?.trim();
     const password = (req.body?.password as string) || '';
+    if (!password) {
+      res.status(401).json({ error: 'Пароль обязателен' });
+      return;
+    }
+    if (username) {
+      const user = findUserByUsername(username);
+      if (!user) {
+        res.status(401).json({ error: 'Неверный логин или пароль' });
+        return;
+      }
+      if (user.group_id !== ADMIN_GROUP_ID) {
+        res.status(403).json({ error: 'Доступ только для администраторов' });
+        return;
+      }
+      const match = bcrypt.compareSync(password, user.password_hash);
+      if (!match) {
+        res.status(401).json({ error: 'Неверный логин или пароль' });
+        return;
+      }
+      const token = createAdminToken();
+      res.json({ ok: true, token });
+      return;
+    }
     if (!validateAdminPassword(password)) {
-      res.status(401).json({ error: 'Invalid password' });
+      res.status(401).json({ error: 'Неверный пароль' });
       return;
     }
     const token = createAdminToken();
@@ -380,6 +411,55 @@ router.post('/users/:id/extend-subscription', requireAdmin, (req: Request, res: 
     const msg = (e as Error).message;
     logger.error('Admin', msg);
     if (msg.includes('Пользователь') || msg.includes('Формат')) {
+      res.status(400).json({ error: msg });
+      return;
+    }
+    res.status(500).json({ error: msg });
+  }
+});
+
+/** POST /api/admin/users/:id/revoke-subscription — отменить подписку */
+router.post('/users/:id/revoke-subscription', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id;
+    if (!userId) {
+      res.status(400).json({ error: 'userId обязателен' });
+      return;
+    }
+    updateUserActivationExpiresAt(userId, null);
+    res.json({ ok: true, userId, activationExpiresAt: null });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** PATCH /api/admin/users/:id — изменить логин, пароль и/или группу пользователя */
+router.patch('/users/:id', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id;
+    if (!userId) {
+      res.status(400).json({ error: 'userId обязателен' });
+      return;
+    }
+    const username = (req.body?.username as string)?.trim();
+    const password = req.body?.password as string;
+    const groupId = req.body?.groupId != null ? parseInt(String(req.body.groupId), 10) : undefined;
+    if (username !== undefined && username.length > 0) {
+      updateUsername(userId, username);
+    }
+    if (password !== undefined && password.length >= 4) {
+      const hash = bcrypt.hashSync(password, 10);
+      updateUserPassword(userId, hash);
+    }
+    if (groupId !== undefined && Number.isInteger(groupId) && groupId >= 1) {
+      updateUserGroup(userId, groupId);
+    }
+    res.json({ ok: true, userId });
+  } catch (e) {
+    const msg = (e as Error).message;
+    logger.error('Admin', msg);
+    if (msg.includes('Логин') || msg.includes('логин') || msg.includes('уже есть')) {
       res.status(400).json({ error: msg });
       return;
     }

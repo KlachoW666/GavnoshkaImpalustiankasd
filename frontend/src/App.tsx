@@ -14,12 +14,15 @@ import PrivacyPage from './pages/PrivacyPage';
 import TermsPage from './pages/TermsPage';
 import ProfilePage from './pages/ProfilePage';
 import HelpPage from './pages/HelpPage';
+import BacktestPage from './pages/BacktestPage';
+import CopyTradingPage from './pages/CopyTradingPage';
+import SocialPage from './pages/SocialPage';
 import { getSavedPage, savePage } from './store/appStore';
 import { useNotifications } from './contexts/NotificationContext';
 import { useAuth } from './contexts/AuthContext';
 import { getSettings } from './store/settingsStore';
 
-type Page = 'dashboard' | 'signals' | 'chart' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms' | 'help';
+type Page = 'dashboard' | 'signals' | 'chart' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms' | 'help' | 'backtest' | 'copy' | 'social';
 
 const PAGE_PATHS: Record<Page, string> = {
   dashboard: '/',
@@ -35,7 +38,10 @@ const PAGE_PATHS: Record<Page, string> = {
   profile: '/profile',
   privacy: '/privacy',
   terms: '/terms',
-  help: '/help'
+  help: '/help',
+  backtest: '/backtest',
+  copy: '/copy',
+  social: '/social'
 };
 
 const PATH_TO_PAGE: Record<string, Page> = Object.entries(PAGE_PATHS).reduce(
@@ -65,6 +71,14 @@ function getPageFromLocation(allowed: Set<Page>): Page {
   return first;
 }
 
+/** Страница из URL без проверки прав (для сохранения при F5) */
+function getPageFromUrl(): Page {
+  if (typeof window === 'undefined') return 'dashboard';
+  const path = normalizePath(window.location.pathname);
+  const candidate = PATH_TO_PAGE[path];
+  return (candidate as Page) ?? 'dashboard';
+}
+
 const ALL_PAGES: { id: Page; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Главная', icon: '◉' },
   { id: 'signals', label: 'Сигналы', icon: '◈' },
@@ -73,6 +87,9 @@ const ALL_PAGES: { id: Page; label: string; icon: string }[] = [
   { id: 'autotrade', label: 'Авто', icon: '◇' },
   { id: 'scanner', label: 'Скринер', icon: '▤' },
   { id: 'pnl', label: 'PNL', icon: '💰' },
+  { id: 'backtest', label: 'Бэктест', icon: '📊' },
+  { id: 'copy', label: 'Копитрейдинг', icon: '📋' },
+  { id: 'social', label: 'Социальная', icon: '👥' },
   { id: 'settings', label: 'Настройки', icon: '⚙' },
   { id: 'activate', label: 'Активировать', icon: '🔑' },
   { id: 'admin', label: 'Админ', icon: '🎛' }
@@ -153,6 +170,11 @@ export default function App() {
     set.add('terms' as Page);
     set.add('profile' as Page);
     set.add('help' as Page);
+    if (set.has('autotrade')) {
+      set.add('backtest');
+      set.add('copy');
+      set.add('social');
+    }
     return set;
   }, [user?.allowedTabs]);
   const PAGES = useMemo(() => {
@@ -163,9 +185,8 @@ export default function App() {
 
   const [page, setPage] = useState<Page>(() => {
     if (typeof window === 'undefined') return 'dashboard';
-    const path = normalizePath(window.location.pathname);
-    const fromPath = PATH_TO_PAGE[path] as Page | undefined;
-    if (fromPath && fromPath !== 'admin') return fromPath;
+    const fromUrl = getPageFromUrl();
+    if (fromUrl !== 'dashboard') return fromUrl;
     const saved = getSavedPage() as Page | null;
     return saved ?? 'dashboard';
   });
@@ -198,7 +219,14 @@ export default function App() {
 
   useEffect(() => {
     if (user && !allowedSet.has(page)) {
-      setPage('dashboard');
+      const fallback = getPageFromLocation(allowedSet);
+      setPage(fallback);
+      if (typeof window !== 'undefined') {
+        const path = PAGE_PATHS[fallback];
+        if (path && normalizePath(window.location.pathname) !== path) {
+          window.history.replaceState({}, '', path);
+        }
+      }
     }
   }, [user, page, allowedSet]);
 
@@ -431,6 +459,15 @@ export default function App() {
         </div>
         <div className={safePage === 'pnl' ? 'block' : 'hidden'}>
           <PnlCalculatorPage />
+        </div>
+        <div className={safePage === 'backtest' ? 'block' : 'hidden'}>
+          <BacktestPage />
+        </div>
+        <div className={safePage === 'copy' ? 'block' : 'hidden'}>
+          <CopyTradingPage />
+        </div>
+        <div className={safePage === 'social' ? 'block' : 'hidden'}>
+          <SocialPage />
         </div>
         <div className={safePage === 'settings' ? 'block' : 'hidden'}>
           <SettingsPage />
