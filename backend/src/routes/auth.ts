@@ -28,7 +28,7 @@ import { getMaintenanceMode } from '../lib/maintenanceMode';
 import { rateLimit } from '../middleware/rateLimit';
 
 const router = Router();
-const authEndpointLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 15 });
+const authEndpointLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
 const SALT_ROUNDS = 10;
 const PRO_GROUP_ID = 4;
 const DEFAULT_GROUP_ID = 1;

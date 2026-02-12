@@ -213,9 +213,8 @@ export default function App() {
 
   useEffect(() => {
     if (user) {
-      const allowed = new Set((user.allowedTabs?.length ? user.allowedTabs : FALLBACK_TABS) as Page[]);
       try {
-        if (sessionStorage.getItem('post_register_go_profile') === '1' && allowed.has('profile')) {
+        if (sessionStorage.getItem('post_register_go_profile') === '1' && allowedSet.has('profile')) {
           sessionStorage.removeItem('post_register_go_profile');
           setPage('profile');
           if (typeof window !== 'undefined') {
@@ -225,12 +224,12 @@ export default function App() {
         }
       } catch {}
       setPage((prev) => {
-        const fromLoc = getPageFromLocation(allowed);
-        const candidate = allowed.has(prev) ? prev : fromLoc;
+        const fromLoc = getPageFromLocation(allowedSet);
+        const candidate = allowedSet.has(prev) ? prev : fromLoc;
         return candidate as Page;
       });
     }
-  }, [user?.id]);
+  }, [user?.id, allowedSet]);
 
   useEffect(() => {
     if (user && !allowedSet.has(page)) {

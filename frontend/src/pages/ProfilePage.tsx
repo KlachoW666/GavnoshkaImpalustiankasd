@@ -56,7 +56,7 @@ export default function ProfilePage() {
       api.get<{ orders: { total: number; wins: number; losses: number }; volumeEarned?: number }>('/auth/me/stats', { headers })
         .then(setStats)
         .catch(() => {});
-    }, 20000);
+    }, 60000);
     return () => clearInterval(id);
   }, [token]);
 
@@ -88,7 +88,7 @@ export default function ProfilePage() {
           demo: typeof (demoRes as any).balance === 'number' ? (demoRes as any).balance : prev.demo
         }));
       });
-    }, 30000);
+    }, 60000);
     return () => clearInterval(id);
   }, [token]);
 
