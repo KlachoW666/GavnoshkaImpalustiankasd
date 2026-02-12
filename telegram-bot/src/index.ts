@@ -67,11 +67,95 @@ function generateKey(): string {
 
 const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
 
+// Состояние ожидания ввода (по chat.id) — без session middleware
+const chatState = new Map<number, 'register_username' | 'reset_username'>();
+
+const MAIN_MENU = Markup.keyboard([
+  ['Получить PREMIUM-подписку'],
+  ['Зарегистрироваться на сайте', 'Восстановить пароль']
+]).resize();
+
 bot.start(async (ctx) => {
   await ctx.reply(
-    'Добро пожаловать в CLABX 🚀\n\nЗдесь вы можете оформить PREMIUM-подписку на сайт clabx.ru.',
-    Markup.keyboard([['Получить PREMIUM-подписку']]).resize()
+    'Добро пожаловать в CLABX 🚀\n\n' +
+    '• Оформите PREMIUM-подписку на сайт clabx.ru\n' +
+    '• Зарегистрируйтесь на сайте через бота (безопасно, синхронизация с ключами)\n' +
+    '• Восстановите пароль, если аккаунт привязан к этому Telegram',
+    MAIN_MENU
   );
+});
+
+bot.hears('Зарегистрироваться на сайте', async (ctx) => {
+  const chatId = ctx.chat?.id;
+  if (chatId) chatState.set(chatId, 'register_username');
+  await ctx.reply('Введите желаемый логин для сайта clabx.ru (от 2 символов):');
+});
+
+bot.on('text', async (ctx, next) => {
+  const chatId = ctx.chat?.id;
+  if (chatId === undefined) return next();
+  const state = chatState.get(chatId);
+  if (state === 'register_username') {
+    chatState.delete(chatId);
+    const username = (ctx.message as any).text?.trim() || '';
+    if (username.length < 2) {
+      await ctx.reply('Логин должен быть от 2 символов. Попробуйте снова или нажмите «Получить PREMIUM-подписку».', MAIN_MENU);
+      return;
+    }
+    try {
+      const telegramUserId = String(ctx.from?.id ?? '');
+      const data = await apiPost<{ ok: boolean; registerUrl?: string; error?: string }>('/api/bot/create-register-token', {
+        telegramUserId,
+        usernameSuggestion: username
+      });
+      if (data.ok && data.registerUrl) {
+        await ctx.reply(
+          `Ссылка для регистрации (действует 15 минут):\n\n${data.registerUrl}\n\nОткройте ссылку, придумайте пароль и примите правила. Аккаунт будет привязан к этому Telegram.`,
+          MAIN_MENU
+        );
+      } else {
+        await ctx.reply((data as any).error || 'Не удалось создать ссылку. Попробуйте позже.', MAIN_MENU);
+      }
+    } catch (e) {
+      console.error('Create register token error:', e);
+      await ctx.reply('Ошибка сервера. Убедитесь, что сайт запущен, и попробуйте позже.', MAIN_MENU);
+    }
+    return;
+  }
+  if (state === 'reset_username') {
+    chatState.delete(chatId);
+    const username = (ctx.message as any).text?.trim() || '';
+    if (!username) {
+      await ctx.reply('Введите логин от аккаунта на clabx.ru:', MAIN_MENU);
+      return;
+    }
+    try {
+      const telegramUserId = String(ctx.from?.id ?? '');
+      const data = await apiPost<{ ok: boolean; resetUrl?: string; error?: string }>('/api/bot/request-password-reset', {
+        telegramUserId,
+        username
+      });
+      if (data.ok && data.resetUrl) {
+        await ctx.reply(
+          `Ссылка для сброса пароля (действует 15 минут):\n\n${data.resetUrl}\n\nОткройте ссылку и задайте новый пароль.`,
+          MAIN_MENU
+        );
+      } else {
+        await ctx.reply((data as any).error || 'Не удалось выдать ссылку.', MAIN_MENU);
+      }
+    } catch (e) {
+      console.error('Request password reset error:', e);
+      await ctx.reply('Ошибка сервера. Попробуйте позже.', MAIN_MENU);
+    }
+    return;
+  }
+  return next();
+});
+
+bot.hears('Восстановить пароль', async (ctx) => {
+  const chatId = ctx.chat?.id;
+  if (chatId) chatState.set(chatId, 'reset_username');
+  await ctx.reply('Введите логин от вашего аккаунта на clabx.ru (аккаунт должен быть привязан к этому Telegram):');
 });
 
 bot.hears('Получить PREMIUM-подписку', async (ctx) => {

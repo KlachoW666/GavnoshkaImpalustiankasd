@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import { RiskDisclaimer } from '../components/RiskDisclaimer';
 
 const cardStyle = { background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' };
 
@@ -64,6 +65,7 @@ export default function CopyTradingPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
+      <RiskDisclaimer storageKey="trading" />
       <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Копитрейдинг</h1>
       <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
         Подпишитесь на трейдера — его сделки будут копироваться на ваш счёт (доля от вашего баланса). Нужны API ключи OKX в профиле.

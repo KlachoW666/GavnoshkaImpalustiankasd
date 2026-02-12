@@ -3,6 +3,7 @@ import { TradingSignal } from '../types/signal';
 import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import { formatNum4, formatNum4Signed } from '../utils/formatNum';
+import { SkeletonCard } from '../components/Skeleton';
 
 export interface AppStats {
   orders: {
@@ -25,6 +26,7 @@ export interface AppStats {
 export default function Dashboard() {
   const [signals, setSignals] = useState<TradingSignal[]>([]);
   const [stats, setStats] = useState<AppStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const { token, user } = useAuth();
 
   useEffect(() => {
@@ -32,7 +34,8 @@ export default function Dashboard() {
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
       api.get<AppStats>('/stats', { headers })
         .then(setStats)
-        .catch(() => setStats(null));
+        .catch(() => setStats(null))
+        .finally(() => setStatsLoading(false));
     };
     fetchStats();
     const id = setInterval(fetchStats, 10000);
@@ -128,6 +131,16 @@ export default function Dashboard() {
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Статистика приложения — ордера, пользователи, объём, статус */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {statsLoading ? (
+          <>
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="card p-5 md:p-6">
+                <SkeletonCard lines={2} />
+              </div>
+            ))}
+          </>
+        ) : (
+          <>
         <div className="card p-5 md:p-6">
           <p className="text-sm mb-1 tracking-wide" style={{ color: 'var(--text-muted)' }}>Ордера (всего)</p>
           <p className="text-2xl md:text-3xl font-bold tracking-tight">
@@ -178,6 +191,8 @@ export default function Dashboard() {
             </span>
           </p>
         </div>
+          </>
+        )}
       </section>
 
       {/* Info / onboarding block */}

@@ -262,133 +262,39 @@ export default function AdminUsers() {
   };
   const miniCardStyle = { background: 'var(--bg-hover)' };
 
-  return (
-    <div className="space-y-6 max-w-5xl">
-      <div className="flex items-center gap-3">
-        <span className="text-2xl">👥</span>
-        <div>
-          <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Пользователи и группы</h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Поиск, карточки, подписки и ордера</p>
-        </div>
-      </div>
+  const openProfile = (userId: string) => setSelectedUserId(userId);
+  const closeProfile = () => {
+    setSelectedUserId(null);
+    setUserDetail(null);
+    setDetailError(null);
+    setExtendDuration('');
+  };
 
-      <div className="flex flex-wrap gap-4 items-center">
-        <div className="relative">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Поиск: user_id, ник, Telegram ID..."
-            className="input-field w-72 pl-10 rounded-xl border"
-            style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}
-          />
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--text-muted)' }}>🔍</span>
-        </div>
-      </div>
+  // Режим просмотра профиля: при выборе пользователя показываем только страницу профиля
+  if (selectedUserId) {
+    return (
+      <div className="space-y-6 max-w-5xl">
+        <button
+          type="button"
+          onClick={closeProfile}
+          className="flex items-center gap-2 text-sm font-medium rounded-xl px-4 py-2 transition-opacity hover:opacity-90"
+          style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
+        >
+          ← К списку пользователей
+        </button>
 
-      {error && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
-          <span>⚠</span>
-          <span>{error}</span>
-        </div>
-      )}
-
-      <div className="rounded-2xl overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Логин</th>
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Группа</th>
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Статус</th>
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Дата</th>
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr
-                key={u.id}
-                className="border-t cursor-pointer transition-colors hover:opacity-90"
-                style={{ borderColor: 'var(--border)' }}
-                onClick={() => setSelectedUserId(u.id)}
-              >
-                <td className="p-4 font-medium" style={{ color: 'var(--accent)' }}>{u.username}</td>
-                <td className="p-3">
-                  <select
-                    value={u.groupId}
-                    onChange={(e) => changeGroup(u.id, Number(e.target.value))}
-                    disabled={updating === u.id}
-                    className="input-field py-1.5 text-sm"
-                  >
-                    {groups.map((g) => (
-                      <option key={g.id} value={g.id}>{displayGroupName(g.name)}</option>
-                    ))}
-                  </select>
-                </td>
-                <td className="p-3">
-                  {(u.banned ?? 0) === 1 ? (
-                    <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--danger-dim)', color: 'var(--danger)' }}>
-                      Заблокирован
-                    </span>
-                  ) : u.online ? (
-                    <span className="px-2 py-1 rounded text-xs font-medium flex items-center gap-1" style={{ background: 'var(--success-dim)', color: 'var(--success)' }}>
-                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)] animate-pulse" />
-                      Онлайн
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
-                      Офлайн
-                    </span>
-                  )}
-                </td>
-                <td className="p-3" style={{ color: 'var(--text-muted)' }}>{new Date(u.createdAt).toLocaleString('ru-RU')}</td>
-                <td className="p-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    onClick={() => toggleBan(u.id, (u.banned ?? 0) === 1)}
-                    disabled={updating === u.id}
-                    className={`px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50 ${
-                      (u.banned ?? 0) === 1
-                        ? 'hover:brightness-110'
-                        : ''
-                    }`}
-                    style={(u.banned ?? 0) === 1 ? { background: 'var(--success-dim)', color: 'var(--success)' } : { background: 'var(--danger-dim)', color: 'var(--danger)' }}
-                  >
-                    {(u.banned ?? 0) === 1 ? 'Разблокировать' : 'Заблокировать'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => deleteUser(u.id)}
-                    disabled={updating === u.id}
-                    className="px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
-                    style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
-                  >
-                    Удалить
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {users.length === 0 && (
-          <p className="p-6 text-center" style={{ color: 'var(--text-muted)' }}>Нет пользователей</p>
-        )}
-      </div>
-
-      {/* Карточка пользователя */}
-      {selectedUserId && (
         <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3">
               <span className="text-2xl">👤</span>
               <div>
-                <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Карточка пользователя</h3>
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Подписка, PnL и ордера</p>
+                <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Профиль пользователя</h3>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Редактирование логина, пароля, подписки и ордера</p>
               </div>
             </div>
             <button
               type="button"
-              onClick={() => { setSelectedUserId(null); setUserDetail(null); setDetailError(null); setExtendDuration(''); }}
+              onClick={closeProfile}
               className="px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
               style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
             >
@@ -554,7 +460,127 @@ export default function AdminUsers() {
             </div>
           ) : null}
         </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 max-w-5xl">
+      <div className="flex items-center gap-3">
+        <span className="text-2xl">👥</span>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Пользователи и группы</h2>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Поиск, карточки, подписки и ордера</p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-4 items-center">
+        <div className="relative">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Поиск: user_id, ник, Telegram ID..."
+            className="input-field w-72 pl-10 rounded-xl border"
+            style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}
+          />
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--text-muted)' }}>🔍</span>
+        </div>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
+          <span>⚠</span>
+          <span>{error}</span>
+        </div>
       )}
+
+      <div className="rounded-2xl overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+        <table className="w-full text-sm">
+          <thead>
+            <tr style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
+              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Логин</th>
+              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Группа</th>
+              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Статус</th>
+              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Дата</th>
+              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <tr key={u.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
+                <td className="p-4">
+                  <button
+                    type="button"
+                    onClick={() => openProfile(u.id)}
+                    className="text-left font-medium cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-inset rounded px-1 -ml-1"
+                    style={{ color: 'var(--accent)' }}
+                  >
+                    {u.username}
+                  </button>
+                </td>
+                <td className="p-3">
+                  <select
+                    value={u.groupId}
+                    onChange={(e) => changeGroup(u.id, Number(e.target.value))}
+                    disabled={updating === u.id}
+                    className="input-field py-1.5 text-sm"
+                  >
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>{displayGroupName(g.name)}</option>
+                    ))}
+                  </select>
+                </td>
+                <td className="p-3">
+                  {(u.banned ?? 0) === 1 ? (
+                    <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--danger-dim)', color: 'var(--danger)' }}>
+                      Заблокирован
+                    </span>
+                  ) : u.online ? (
+                    <span className="px-2 py-1 rounded text-xs font-medium flex items-center gap-1" style={{ background: 'var(--success-dim)', color: 'var(--success)' }}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)] animate-pulse" />
+                      Онлайн
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
+                      Офлайн
+                    </span>
+                  )}
+                </td>
+                <td className="p-3" style={{ color: 'var(--text-muted)' }}>{new Date(u.createdAt).toLocaleString('ru-RU')}</td>
+                <td className="p-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={() => toggleBan(u.id, (u.banned ?? 0) === 1)}
+                    disabled={updating === u.id}
+                    className={`px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50 ${
+                      (u.banned ?? 0) === 1
+                        ? 'hover:brightness-110'
+                        : ''
+                    }`}
+                    style={(u.banned ?? 0) === 1 ? { background: 'var(--success-dim)', color: 'var(--success)' } : { background: 'var(--danger-dim)', color: 'var(--danger)' }}
+                  >
+                    {(u.banned ?? 0) === 1 ? 'Разблокировать' : 'Заблокировать'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteUser(u.id)}
+                    disabled={updating === u.id}
+                    className="px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
+                    style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
+                  >
+                    Удалить
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {users.length === 0 && (
+          <p className="p-6 text-center" style={{ color: 'var(--text-muted)' }}>Нет пользователей</p>
+        )}
+      </div>
+      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Нажмите на логин, чтобы открыть профиль и редактировать пользователя.</p>
     </div>
   );
 }

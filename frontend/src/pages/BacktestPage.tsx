@@ -154,7 +154,31 @@ export default function BacktestPage() {
 
       {result && (
         <section className="rounded-2xl p-6" style={cardStyle}>
-          <h2 className="text-lg font-semibold mb-4">Результаты: {result.symbol} {result.timeframe}</h2>
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <h2 className="text-lg font-semibold">Результаты: {result.symbol} {result.timeframe}</h2>
+            <button
+              type="button"
+              onClick={() => {
+                const headers = ['Пара', 'Таймфрейм', 'Свечей', 'Нач. баланс', 'Итог. баланс', 'PnL $', 'PnL %', 'Сделок', 'Плюс', 'Минус', 'Winrate %', 'Profit Factor', 'Max DD %'];
+                const row1 = [result.symbol, result.timeframe, result.bars, result.initialBalance, result.finalBalance, result.totalPnl.toFixed(2), result.totalPnlPct.toFixed(1), result.totalTrades, result.wins, result.losses, result.winrate.toFixed(1), result.profitFactor.toFixed(2), result.maxDrawdownPct.toFixed(1)];
+                const tradeHeaders = ['Направление', 'Вход', 'Выход', 'PnL', 'Результат'];
+                const rows = [headers.join(','), row1.join(','), '', tradeHeaders.join(',')];
+                result.trades.forEach((t) => rows.push([t.direction, t.entryPrice, t.exitPrice, t.pnl.toFixed(2), t.win ? 'win' : 'loss'].join(',')));
+                const csv = rows.map((r) => r).join('\r\n');
+                const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `backtest_${result.symbol}_${result.timeframe}_${Date.now()}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="px-4 py-2 rounded-xl text-sm font-medium"
+              style={{ background: 'var(--accent)', color: 'white' }}
+            >
+              Экспорт CSV
+            </button>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             <div className="p-3 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Итог PnL</p>

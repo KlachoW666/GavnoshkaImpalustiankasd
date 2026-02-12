@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import { SkeletonTable } from '../components/Skeleton';
 
 const cardStyle = { background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' };
 
@@ -20,14 +21,16 @@ export default function SocialPage() {
   const navigateToCopy = () => (window as any).__navigateTo?.('copy');
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('all');
 
   useEffect(() => {
+    setLoading(true);
     api
-      .get<{ leaderboard: LeaderboardEntry[] }>('/social/leaderboard?limit=30')
+      .get<{ leaderboard: LeaderboardEntry[] }>(`/social/leaderboard?limit=30&period=${period}`)
       .then((r) => setLeaderboard(r.leaderboard ?? []))
       .catch(() => setLeaderboard([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [period]);
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
@@ -37,9 +40,27 @@ export default function SocialPage() {
       </p>
 
       <section className="rounded-2xl p-6" style={cardStyle}>
-        <h2 className="text-lg font-semibold mb-4">Лидерборд</h2>
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <h2 className="text-lg font-semibold">Лидерборд</h2>
+          <div className="flex gap-1 rounded-lg p-0.5" style={{ background: 'var(--bg-hover)' }}>
+            {(['7d', '30d', 'all'] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPeriod(p)}
+                className="px-3 py-1.5 rounded-md text-sm font-medium transition"
+                style={{
+                  background: period === p ? 'var(--accent)' : 'transparent',
+                  color: period === p ? 'white' : 'var(--text-muted)'
+                }}
+              >
+                {p === '7d' ? '7 дней' : p === '30d' ? '30 дней' : 'Всё время'}
+              </button>
+            ))}
+          </div>
+        </div>
         {loading ? (
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Загрузка…</p>
+          <SkeletonTable rows={5} cols={6} />
         ) : leaderboard.length === 0 ? (
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Пока нет данных. Закройте сделки — появятся в рейтинге.</p>
         ) : (

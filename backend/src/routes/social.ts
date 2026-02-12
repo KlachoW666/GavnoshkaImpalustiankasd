@@ -10,12 +10,14 @@ import { logger } from '../lib/logger';
 
 const router = Router();
 
-/** GET /api/social/leaderboard — топ пользователей по суммарному PnL (закрытые сделки) */
+/** GET /api/social/leaderboard — топ пользователей по суммарному PnL (закрытые сделки). period: 7d | 30d | all */
 router.get('/leaderboard', (req: Request, res: Response) => {
   try {
     initDb();
     const limit = Math.min(50, Math.max(10, Number(req.query?.limit) || 20));
-    const closed = listOrders({ status: 'closed', limit: 10000 });
+    const period = (req.query?.period as string) || 'all';
+    const sinceMs = period === '7d' ? 7 * 24 * 60 * 60 * 1000 : period === '30d' ? 30 * 24 * 60 * 60 * 1000 : undefined;
+    const closed = listOrders({ status: 'closed', limit: 10000, sinceMs });
     const byClient = new Map<string, { pnl: number; wins: number; losses: number; trades: number }>();
     for (const o of closed) {
       const cur = byClient.get(o.client_id) ?? { pnl: 0, wins: 0, losses: 0, trades: 0 };

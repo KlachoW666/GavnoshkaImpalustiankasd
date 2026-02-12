@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { TradingSignal } from '../types/signal';
 import { useAuth } from '../contexts/AuthContext';
-
-const API = '/api';
+import { api } from '../utils/api';
+import { SkeletonCard } from '../components/Skeleton';
 
 type DirectionFilter = 'all' | 'LONG' | 'SHORT';
 type SortBy = 'time' | 'confidence' | 'rr';
@@ -42,9 +42,9 @@ export default function SignalFeed() {
 
   const fetchSignals = () => {
     setLoading(true);
-    fetch(`${API}/signals?limit=100`)
-      .then((r) => r.json())
-      .then((arr: TradingSignal[]) => setSignals(Array.isArray(arr) ? arr : []))
+    api
+      .get<TradingSignal[]>('/signals?limit=100')
+      .then((arr) => setSignals(Array.isArray(arr) ? arr : []))
       .catch(() => setSignals([]))
       .finally(() => setLoading(false));
   };
@@ -211,9 +211,11 @@ export default function SignalFeed() {
 
       {/* List */}
       {loading && signals.length === 0 ? (
-        <p className="py-8 text-center" style={{ color: 'var(--text-muted)' }}>
-          Загрузка сигналов…
-        </p>
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <SkeletonCard key={i} lines={4} />
+          ))}
+        </div>
       ) : filteredAndSorted.length === 0 ? (
         <div
           className="rounded-2xl p-8 text-center"

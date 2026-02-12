@@ -9,6 +9,7 @@ import { getSettings } from '../store/settingsStore';
 import AnalysisBreakdown, { AnalysisBreakdown as BreakdownType } from '../components/AnalysisBreakdown';
 import PositionChart from '../components/PositionChart';
 import TradingAnalytics from '../components/TradingAnalytics';
+import { RiskDisclaimer } from '../components/RiskDisclaimer';
 
 const API = '/api';
 /** Партнёрская ссылка на регистрацию OKX (можно заменить в одном месте) */
@@ -983,6 +984,7 @@ export default function AutoTradingPage() {
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto px-4 sm:px-6 pb-12">
+      <RiskDisclaimer storageKey="trading" />
       {/* Заголовок страницы */}
       <div className="flex items-center gap-4 pt-2">
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0" style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)' }}>

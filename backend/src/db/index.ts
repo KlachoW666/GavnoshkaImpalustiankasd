@@ -157,6 +157,24 @@ export function initDb(): any {
         CREATE INDEX IF NOT EXISTS idx_copy_subscriptions_subscriber ON copy_subscriptions(subscriber_id);
       `);
     } catch {}
+    try {
+      db.prepare('ALTER TABLE users ADD COLUMN telegram_id TEXT').run();
+    } catch {}
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS telegram_register_tokens (
+          token TEXT PRIMARY KEY,
+          telegram_user_id TEXT NOT NULL,
+          username_suggestion TEXT,
+          expires_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS telegram_reset_tokens (
+          token TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          expires_at TEXT NOT NULL
+        );
+      `);
+    } catch {}
     return db;
   } catch {
     useMemoryStore = true;
@@ -176,6 +194,24 @@ export function runUserMigrations(database: any): void {
   } catch {}
   try {
     database.prepare('ALTER TABLE users ADD COLUMN ban_reason TEXT').run();
+  } catch {}
+  try {
+    database.prepare('ALTER TABLE users ADD COLUMN telegram_id TEXT').run();
+  } catch {}
+  try {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS telegram_register_tokens (
+        token TEXT PRIMARY KEY,
+        telegram_user_id TEXT NOT NULL,
+        username_suggestion TEXT,
+        expires_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS telegram_reset_tokens (
+        token TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+      );
+    `);
   } catch {}
 }
 
@@ -313,12 +349,14 @@ export function updateOrderClose(order: {
   });
 }
 
-export function listOrders(opts?: { clientId?: string; status?: 'open' | 'closed'; limit?: number }): OrderRow[] {
+export function listOrders(opts?: { clientId?: string; status?: 'open' | 'closed'; limit?: number; sinceMs?: number }): OrderRow[] {
   if (!initAttempted) initDb();
+  const sinceIso = opts?.sinceMs != null ? new Date(Date.now() - opts.sinceMs).toISOString() : null;
   if (useMemoryStore) {
     let list = [...memoryOrders];
     if (opts?.clientId) list = list.filter((o) => o.client_id === opts.clientId);
     if (opts?.status) list = list.filter((o) => o.status === opts.status);
+    if (sinceIso) list = list.filter((o) => (o.close_time || '') >= sinceIso);
     list.sort((a, b) => (b.open_time || '').localeCompare(a.open_time || ''));
     const limit = opts?.limit ?? 100;
     return list.slice(0, limit) as OrderRow[];
@@ -334,6 +372,10 @@ export function listOrders(opts?: { clientId?: string; status?: 'open' | 'closed
   if (opts?.status) {
     sql += ' AND status = @status';
     params.status = opts.status;
+  }
+  if (sinceIso) {
+    sql += ' AND close_time >= @since';
+    params.since = sinceIso;
   }
   sql += ' ORDER BY open_time DESC';
   if (opts?.limit) {

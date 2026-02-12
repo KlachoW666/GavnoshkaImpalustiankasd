@@ -206,6 +206,7 @@ export default function App() {
   });
   const [notifOpen, setNotifOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { toasts, clearAll } = useNotifications();
 
   useSignalToasts();
@@ -328,16 +329,26 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
-      {/* Top bar — Cryptory style */}
+      {/* Top bar — компактный брендинг и навигация с переносом */}
       <header
-        className="shrink-0 h-14 px-6 md:px-8 lg:px-10 flex items-center justify-between border-b"
+        className="shrink-0 min-h-14 px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-y-2 py-2 border-b"
         style={{ background: 'var(--bg-topbar)', borderColor: 'var(--border)' }}
       >
-        <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="CLABX" className="h-8 w-auto object-contain" />
-          <h1 className="text-lg font-semibold tracking-tight">CLABX 🚀 Crypto Trading Soft</h1>
+        <div className="flex items-center gap-2 min-w-0 shrink-0">
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            className="lg:hidden p-2 rounded-lg hover:bg-[var(--bg-hover)]"
+            style={{ color: 'var(--text-secondary)' }}
+            aria-label="Меню"
+          >
+            <span className="text-xl">☰</span>
+          </button>
+          <img src="/logo.png" alt="CLABX" className="h-7 w-auto object-contain shrink-0" />
+          <h1 className="text-base font-semibold tracking-tight truncate shrink-0">CLABX</h1>
+          <span className="hidden xl:inline text-sm truncate" style={{ color: 'var(--text-muted)' }}>Crypto Trading</span>
         </div>
-        <nav className="flex items-center gap-1">
+        <nav className="hidden lg:flex flex-wrap items-center justify-center gap-x-0.5 gap-y-1 flex-1 min-w-0 max-w-3xl">
           {PAGES.filter((p) => p.id !== 'settings').map((p) => {
             const path = PAGE_PATHS[p.id];
             return (
@@ -350,25 +361,55 @@ export default function App() {
                     setPageSafe(p.id);
                   }
                 }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all relative inline-block ${
+                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all relative inline-block whitespace-nowrap ${
                   safePage === p.id ? 'text-[var(--accent)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
                 }`}
               >
                 {p.label}
                 {safePage === p.id && (
-                  <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full" style={{ background: 'var(--accent)' }} />
+                  <span className="absolute bottom-0 left-1.5 right-1.5 h-0.5 rounded-full" style={{ background: 'var(--accent)' }} />
                 )}
               </a>
             );
           })}
         </nav>
-        <div className="flex items-center gap-2">
+        {mobileNavOpen && (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setMobileNavOpen(false)} aria-hidden />
+            <div
+              className="fixed top-0 left-0 z-50 w-72 max-w-[85vw] h-full overflow-y-auto lg:hidden"
+              style={{ background: 'var(--bg-card-solid)', borderRight: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}
+            >
+              <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)' }}>
+                <span className="font-semibold">Меню</span>
+                <button type="button" onClick={() => setMobileNavOpen(false)} className="p-2 rounded-lg hover:bg-[var(--bg-hover)]">✕</button>
+              </div>
+              <nav className="p-2 flex flex-col gap-1">
+                {PAGES.filter((p) => p.id !== 'settings').map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => { setPageSafe(p.id); setMobileNavOpen(false); }}
+                    className={`px-4 py-3 rounded-lg text-left text-sm font-medium w-full ${
+                      safePage === p.id ? 'bg-[var(--accent-dim)]' : 'hover:bg-[var(--bg-hover)]'
+                    }`}
+                    style={{ color: safePage === p.id ? 'var(--accent)' : 'var(--text-primary)' }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          </>
+        )}
+        <div className="flex items-center gap-1.5 shrink-0">
           <div className="relative">
             <button
               type="button"
               onClick={() => { setUserMenuOpen(!userMenuOpen); setNotifOpen(false); }}
-              className="px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-[var(--bg-hover)]"
+              className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--bg-hover)] max-w-[120px] sm:max-w-[160px] truncate"
               style={{ color: 'var(--text-secondary)' }}
+              title={user.username}
             >
               {user.username}
             </button>
@@ -381,7 +422,10 @@ export default function App() {
                 >
                   <button
                     type="button"
-                    onClick={() => { setPageSafe('profile'); setUserMenuOpen(false); }}
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      window.open('/profile', '_blank', 'noopener,noreferrer');
+                    }}
                     className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors"
                   >
                     Профиль
@@ -415,10 +459,11 @@ export default function App() {
           <button
             type="button"
             onClick={() => { setNotifOpen(!notifOpen); setUserMenuOpen(false); }}
-            className="relative p-2 rounded-full transition-colors hover:bg-[var(--bg-hover)]"
+            className="relative p-1.5 rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
             style={{ background: toasts.length > 0 ? 'var(--accent-dim)' : 'transparent' }}
+            aria-label="Уведомления"
           >
-            <span className="text-lg">🔔</span>
+            <span className="text-base">🔔</span>
             {toasts.length > 0 && (
               <span
                 className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold"

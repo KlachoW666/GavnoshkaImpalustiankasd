@@ -3,6 +3,13 @@ import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 import { formatNum4, formatNum4Signed } from '../utils/formatNum';
 
+interface OkxBalanceState {
+  real: number | null;
+  realError: string | null;
+  demo: number | null;
+  demoError: string | null;
+}
+
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -29,6 +36,7 @@ const hasWelcomeParam = () => {
 export default function ProfilePage() {
   const { user, token, fetchMe } = useAuth();
   const [stats, setStats] = useState<{ orders: { total: number; wins: number; losses: number }; volumeEarned?: number } | null>(null);
+  const [okxBalance, setOkxBalance] = useState<OkxBalanceState>({ real: null, realError: null, demo: null, demoError: null });
   const [activationKey, setActivationKey] = useState('');
   const [keyLoading, setKeyLoading] = useState(false);
   const [keyError, setKeyError] = useState('');
@@ -49,6 +57,38 @@ export default function ProfilePage() {
         .then(setStats)
         .catch(() => {});
     }, 20000);
+    return () => clearInterval(id);
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) {
+      setOkxBalance({ real: null, realError: null, demo: null, demoError: null });
+      return;
+    }
+    const headers = { Authorization: `Bearer ${token}` };
+    Promise.all([
+      api.get<{ balance: number; balanceError?: string; useTestnet?: boolean }>('/trading/positions', { headers, params: { useTestnet: 'false' } }).catch((e) => ({ balance: 0, balanceError: (e as Error).message })),
+      api.get<{ balance: number; balanceError?: string; useTestnet?: boolean }>('/trading/positions', { headers, params: { useTestnet: 'true' } }).catch((e) => ({ balance: 0, balanceError: (e as Error).message }))
+    ]).then(([realRes, demoRes]) => {
+      setOkxBalance({
+        real: typeof (realRes as any).balance === 'number' ? (realRes as any).balance : null,
+        realError: (realRes as any).balanceError || null,
+        demo: typeof (demoRes as any).balance === 'number' ? (demoRes as any).balance : null,
+        demoError: (demoRes as any).balanceError || null
+      });
+    });
+    const id = setInterval(() => {
+      Promise.all([
+        api.get<{ balance: number; balanceError?: string }>('/trading/positions', { headers, params: { useTestnet: 'false' } }).catch(() => ({ balance: 0 })),
+        api.get<{ balance: number; balanceError?: string }>('/trading/positions', { headers, params: { useTestnet: 'true' } }).catch(() => ({ balance: 0 }))
+      ]).then(([realRes, demoRes]) => {
+        setOkxBalance((prev) => ({
+          ...prev,
+          real: typeof (realRes as any).balance === 'number' ? (realRes as any).balance : prev.real,
+          demo: typeof (demoRes as any).balance === 'number' ? (demoRes as any).balance : prev.demo
+        }));
+      });
+    }, 30000);
     return () => clearInterval(id);
   }, [token]);
 
@@ -145,6 +185,44 @@ export default function ProfilePage() {
             </div>
           )}
         </dl>
+      </div>
+
+      <div className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid #2E7CF6' }}>
+        <div className="flex items-center gap-3 mb-5">
+          <span className="text-2xl">💵</span>
+          <div>
+            <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Баланс OKX</h2>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>USDT по ключам из настроек (реальный счёт и демо)</p>
+          </div>
+        </div>
+        {!token ? (
+          <p className="text-sm py-4 rounded-xl text-center" style={{ ...miniCardStyle, color: 'var(--text-muted)' }}>Войдите в аккаунт.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div className="rounded-xl p-4" style={miniCardStyle}>
+              <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Реальный счёт</p>
+              {okxBalance.realError && okxBalance.real === null ? (
+                <p className="text-xs" style={{ color: 'var(--danger)' }}>{okxBalance.realError}</p>
+              ) : okxBalance.real !== null ? (
+                <p className="text-xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{formatNum4(okxBalance.real)} USDT</p>
+              ) : (
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Загрузка…</p>
+              )}
+              <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Ключи API в Настройках</p>
+            </div>
+            <div className="rounded-xl p-4" style={miniCardStyle}>
+              <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Демо (Testnet)</p>
+              {okxBalance.demoError && okxBalance.demo === null ? (
+                <p className="text-xs" style={{ color: 'var(--danger)' }}>{okxBalance.demoError}</p>
+              ) : okxBalance.demo !== null ? (
+                <p className="text-xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{formatNum4(okxBalance.demo)} USDT</p>
+              ) : (
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Загрузка…</p>
+              )}
+              <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Тестовый счёт OKX</p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>

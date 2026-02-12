@@ -24,6 +24,8 @@ interface AuthContextValue {
   maintenanceMode: boolean;
   login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   register: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  registerByTelegram: (token: string, username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  resetPassword: (token: string, newPassword: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
   fetchMe: () => Promise<void>;
   updateProxy: (proxyUrl: string | null) => Promise<void>;
@@ -172,6 +174,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const registerByTelegram = useCallback(async (regToken: string, username: string, password: string) => {
+    try {
+      const res = await fetch(`${API}/auth/register-by-telegram`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: regToken.trim(), username: username.trim(), password })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 503 && data.maintenance) {
+        setMaintenanceMode(true);
+        return { ok: false, error: data.message || data.error || 'Сайт на техническом обслуживании' };
+      }
+      if (data.ok && data.token && data.user) {
+        setMaintenanceMode(false);
+        localStorage.setItem(TOKEN_KEY, data.token);
+        setToken(data.token);
+        setUser({
+          id: data.user.id,
+          username: data.user.username,
+          groupId: data.user.groupId,
+          groupName: data.user.groupName,
+          allowedTabs: Array.isArray(data.user.allowedTabs) && data.user.allowedTabs.length > 0 ? data.user.allowedTabs : DEFAULT_ALLOWED_TABS,
+          proxyUrl: data.user.proxyUrl,
+          activationExpiresAt: data.user.activationExpiresAt ?? null,
+          activationActive: !!data.user.activationActive
+        });
+        try {
+          sessionStorage.setItem('post_register_go_profile', '1');
+        } catch {}
+        return { ok: true };
+      }
+      return { ok: false, error: data.error || 'Ошибка регистрации' };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message || 'Ошибка сети' };
+    }
+  }, []);
+
+  const resetPassword = useCallback(async (resetToken: string, newPassword: string) => {
+    try {
+      const res = await fetch(`${API}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: resetToken.trim(), newPassword })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.ok) return { ok: true };
+      return { ok: false, error: data.error || 'Ошибка сброса пароля' };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message || 'Ошибка сети' };
+    }
+  }, []);
+
   const logout = useCallback(() => {
     const t = localStorage.getItem(TOKEN_KEY);
     if (t) {
@@ -199,7 +253,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ token, user, loading, maintenanceMode, login, register, logout, fetchMe, updateProxy }}>
+    <AuthContext.Provider value={{ token, user, loading, maintenanceMode, login, register, registerByTelegram, resetPassword, logout, fetchMe, updateProxy }}>
       {children}
     </AuthContext.Provider>
   );

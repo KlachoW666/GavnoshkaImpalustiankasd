@@ -16,13 +16,19 @@ import {
   updateUserProxy,
   updateUserGroup,
   redeemActivationKeyForUser,
-  setOkxCredentials
+  setOkxCredentials,
+  consumeTelegramRegisterToken,
+  consumeTelegramResetToken,
+  setUserTelegramId,
+  updateUserPassword
 } from '../db/authDb';
 import { initDb, listOrders } from '../db';
 import { logger } from '../lib/logger';
 import { getMaintenanceMode } from '../lib/maintenanceMode';
+import { rateLimit } from '../middleware/rateLimit';
 
 const router = Router();
+const authEndpointLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 15 });
 const SALT_ROUNDS = 10;
 const PRO_GROUP_ID = 4;
 const DEFAULT_GROUP_ID = 1;
@@ -76,7 +82,7 @@ export function optionalAuth(req: Request, _res: Response, next: () => void): vo
 }
 
 /** POST /api/auth/register — регистрация (без подтверждения почты) */
-router.post('/register', (req: Request, res: Response) => {
+router.post('/register', authEndpointLimit, (req: Request, res: Response) => {
   try {
     if (getMaintenanceMode()) {
       res.status(503).json({
@@ -125,7 +131,7 @@ router.post('/register', (req: Request, res: Response) => {
 });
 
 /** POST /api/auth/login — вход */
-router.post('/login', (req: Request, res: Response) => {
+router.post('/login', authEndpointLimit, (req: Request, res: Response) => {
   try {
     const username = (req.body?.username as string)?.trim();
     const password = req.body?.password as string;
@@ -291,6 +297,93 @@ router.patch('/me', requireAuth, (req: Request, res: Response) => {
       activationExpiresAt: (user as any).activation_expires_at ?? null,
       activationActive: isActivationActive((user as any).activation_expires_at ?? null)
     });
+  } catch (e) {
+    logger.error('Auth', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/auth/register-by-telegram — регистрация по одноразовому токену из Telegram-бота */
+router.post('/register-by-telegram', authEndpointLimit, (req: Request, res: Response) => {
+  try {
+    if (getMaintenanceMode()) {
+      res.status(503).json({
+        maintenance: true,
+        error: 'Регистрация временно недоступна.'
+      });
+      return;
+    }
+    const token = (req.body?.token as string)?.trim();
+    const username = (req.body?.username as string)?.trim();
+    const password = req.body?.password as string;
+    if (!token) {
+      res.status(400).json({ error: 'Токен регистрации обязателен. Получите ссылку в боте @clabx_bot.' });
+      return;
+    }
+    const payload = consumeTelegramRegisterToken(token);
+    if (!payload) {
+      res.status(400).json({ error: 'Ссылка недействительна или истекла. Запросите новую в боте @clabx_bot.' });
+      return;
+    }
+    if (!username || username.length < 2) {
+      res.status(400).json({ error: 'Логин от 2 символов' });
+      return;
+    }
+    if (!password || password.length < 4) {
+      res.status(400).json({ error: 'Пароль от 4 символов' });
+      return;
+    }
+    if (findUserByUsername(username)) {
+      res.status(400).json({ error: 'Пользователь с таким логином уже есть' });
+      return;
+    }
+    const passwordHash = bcrypt.hashSync(password, SALT_ROUNDS);
+    const user = createUser(username, passwordHash, DEFAULT_GROUP_ID);
+    setUserTelegramId(user.id, payload.telegramUserId);
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+    createSession(sessionToken, user.id);
+    const group = getGroupById(user.group_id);
+    const allowedTabs: string[] = normalizeAllowedTabs(group ? (JSON.parse(group.allowed_tabs) as string[]) : []);
+    res.status(201).json({
+      ok: true,
+      token: sessionToken,
+      user: {
+        id: user.id,
+        username: user.username,
+        groupId: user.group_id,
+        groupName: group?.name,
+        allowedTabs,
+        activationExpiresAt: (user as any).activation_expires_at ?? null,
+        activationActive: isActivationActive((user as any).activation_expires_at ?? null)
+      }
+    });
+  } catch (e) {
+    logger.error('Auth', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/auth/reset-password — сброс пароля по одноразовому токену из Telegram-бота */
+router.post('/reset-password', authEndpointLimit, (req: Request, res: Response) => {
+  try {
+    const token = (req.body?.token as string)?.trim();
+    const newPassword = req.body?.newPassword as string;
+    if (!token) {
+      res.status(400).json({ error: 'Токен сброса обязателен. Получите ссылку в боте @clabx_bot.' });
+      return;
+    }
+    const userId = consumeTelegramResetToken(token);
+    if (!userId) {
+      res.status(400).json({ error: 'Ссылка недействительна или истекла. Запросите новую в боте @clabx_bot.' });
+      return;
+    }
+    if (!newPassword || newPassword.length < 4) {
+      res.status(400).json({ error: 'Пароль от 4 символов' });
+      return;
+    }
+    const passwordHash = bcrypt.hashSync(newPassword, SALT_ROUNDS);
+    updateUserPassword(userId, passwordHash);
+    res.json({ ok: true, message: 'Пароль изменён. Войдите с новым паролем.' });
   } catch (e) {
     logger.error('Auth', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });

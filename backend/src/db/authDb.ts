@@ -3,6 +3,7 @@
  * При in-memory режиме БД использует память (данные теряются при перезапуске).
  */
 
+import crypto from 'crypto';
 import { getDb, initDb, isMemoryStore, runUserMigrations } from './index';
 
 export interface UserRow {
@@ -15,6 +16,7 @@ export interface UserRow {
   banned?: number;
   ban_reason?: string | null;
   created_at: string;
+  telegram_id?: string | null;
 }
 
 export interface GroupRow {
@@ -41,6 +43,8 @@ const memoryGroups: GroupRow[] = [
 ];
 const memorySessions: Map<string, string> = new Map(); // token -> userId
 const memoryActivationKeys: ActivationKeyRow[] = [];
+const memoryRegisterTokens: Map<string, { telegram_user_id: string; username_suggestion: string | null; expires_at: string }> = new Map();
+const memoryResetTokens: Map<string, { user_id: string; expires_at: string }> = new Map();
 
 function ensureAuthTables(): void {
   initDb();
@@ -77,7 +81,7 @@ export function createUser(username: string, passwordHash: string, groupId = 1):
   const id = 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 11);
   const created_at = new Date().toISOString();
   if (isMemoryStore()) {
-    const row: UserRow = { id, username: username.trim(), password_hash: passwordHash, group_id: groupId, proxy_url: null, activation_expires_at: null, banned: 0, ban_reason: null, created_at };
+    const row: UserRow = { id, username: username.trim(), password_hash: passwordHash, group_id: groupId, proxy_url: null, activation_expires_at: null, banned: 0, ban_reason: null, created_at, telegram_id: null };
     memoryUsers.push(row);
     return row;
   }
@@ -86,7 +90,37 @@ export function createUser(username: string, passwordHash: string, groupId = 1):
   db.prepare(
     'INSERT INTO users (id, username, password_hash, group_id, activation_expires_at, banned, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)'
   ).run(id, username.trim(), passwordHash, groupId, null, created_at);
-  return { id, username: username.trim(), password_hash: passwordHash, group_id: groupId, proxy_url: null, activation_expires_at: null, banned: 0, ban_reason: null, created_at };
+  return { id, username: username.trim(), password_hash: passwordHash, group_id: groupId, proxy_url: null, activation_expires_at: null, banned: 0, ban_reason: null, created_at, telegram_id: null };
+}
+
+export function findUserByTelegramId(telegramId: string): UserRow | null {
+  ensureAuthTables();
+  const tid = (telegramId || '').trim();
+  if (!tid) return null;
+  if (isMemoryStore()) {
+    return memoryUsers.find((x) => (x as UserRow).telegram_id === tid) ?? null;
+  }
+  const db = getDb();
+  if (!db) return null;
+  try {
+    const row = db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(tid);
+    return (row as UserRow) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function setUserTelegramId(userId: string, telegramId: string): void {
+  ensureAuthTables();
+  const tid = (telegramId || '').trim();
+  if (!tid) return;
+  if (isMemoryStore()) {
+    const u = memoryUsers.find((x) => x.id === userId);
+    if (u) (u as UserRow).telegram_id = tid;
+    return;
+  }
+  const db = getDb();
+  if (db) db.prepare('UPDATE users SET telegram_id = ? WHERE id = ?').run(tid, userId);
 }
 
 export function getUserById(id: string): UserRow | null {
@@ -438,17 +472,104 @@ export function revokeActivationKeyByKey(key: string): { revoked: boolean; banne
   return { revoked: true, bannedUserId };
 }
 
-/** Telegram ID пользователя из note ключа активации (бот сохраняет при регистрации ключа). */
+/** Telegram ID пользователя: сначала из users.telegram_id, иначе из note ключа активации. */
 export function getTelegramIdForUser(userId: string): string | null {
   ensureAuthTables();
   if (isMemoryStore()) {
+    const u = memoryUsers.find((x) => x.id === userId) as UserRow | undefined;
+    if (u?.telegram_id) return u.telegram_id;
     const key = memoryActivationKeys.filter((k) => k.used_by_user_id === userId && k.note).sort((a, b) => (b.used_at || '').localeCompare(a.used_at || ''))[0];
     return key?.note ?? null;
   }
   const db = getDb();
   if (!db) return null;
+  try {
+    const u = db.prepare('SELECT telegram_id FROM users WHERE id = ?').get(userId) as { telegram_id: string | null } | undefined;
+    if (u?.telegram_id) return u.telegram_id;
+  } catch {}
   const row = db.prepare("SELECT note FROM activation_keys WHERE used_by_user_id = ? AND note IS NOT NULL AND TRIM(note) != '' ORDER BY used_at DESC LIMIT 1").get(userId) as { note: string } | undefined;
   return row?.note ?? null;
+}
+
+const REGISTER_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 min
+const RESET_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 min
+
+function randomHex(bytes: number): string {
+  return crypto.randomBytes(bytes).toString('hex');
+}
+
+/** Создать одноразовый токен регистрации через Telegram. Возвращает токен и время истечения. */
+export function createTelegramRegisterToken(telegramUserId: string, usernameSuggestion?: string | null): { token: string; expiresAt: string } {
+  ensureAuthTables();
+  const token = randomHex(24);
+  const expiresAt = new Date(Date.now() + REGISTER_TOKEN_TTL_MS).toISOString();
+  const tid = String(telegramUserId || '').trim();
+  const uname = usernameSuggestion != null ? String(usernameSuggestion).trim() || null : null;
+  if (isMemoryStore()) {
+    memoryRegisterTokens.set(token, { telegram_user_id: tid, username_suggestion: uname, expires_at: expiresAt });
+    return { token, expiresAt };
+  }
+  const db = getDb();
+  if (!db) throw new Error('DB unavailable');
+  db.prepare('INSERT INTO telegram_register_tokens (token, telegram_user_id, username_suggestion, expires_at) VALUES (?, ?, ?, ?)').run(token, tid, uname, expiresAt);
+  return { token, expiresAt };
+}
+
+/** Потребить токен регистрации (одноразовый). Возвращает данные или null если невалидный/истёкший. */
+export function consumeTelegramRegisterToken(token: string): { telegramUserId: string; usernameSuggestion: string | null } | null {
+  ensureAuthTables();
+  const t = (token || '').trim();
+  if (!t) return null;
+  const now = new Date().toISOString();
+  if (isMemoryStore()) {
+    const row = memoryRegisterTokens.get(t);
+    if (!row || row.expires_at < now) return null;
+    memoryRegisterTokens.delete(t);
+    return { telegramUserId: row.telegram_user_id, usernameSuggestion: row.username_suggestion };
+  }
+  const db = getDb();
+  if (!db) return null;
+  const row = db.prepare('SELECT telegram_user_id, username_suggestion, expires_at FROM telegram_register_tokens WHERE token = ?').get(t) as
+    | { telegram_user_id: string; username_suggestion: string | null; expires_at: string }
+    | undefined;
+  if (!row || row.expires_at < now) return null;
+  db.prepare('DELETE FROM telegram_register_tokens WHERE token = ?').run(t);
+  return { telegramUserId: row.telegram_user_id, usernameSuggestion: row.username_suggestion };
+}
+
+/** Создать одноразовый токен сброса пароля. */
+export function createTelegramResetToken(userId: string): { token: string; expiresAt: string } {
+  ensureAuthTables();
+  const token = randomHex(24);
+  const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS).toISOString();
+  if (isMemoryStore()) {
+    memoryResetTokens.set(token, { user_id: userId, expires_at: expiresAt });
+    return { token, expiresAt };
+  }
+  const db = getDb();
+  if (!db) throw new Error('DB unavailable');
+  db.prepare('INSERT INTO telegram_reset_tokens (token, user_id, expires_at) VALUES (?, ?, ?)').run(token, userId, expiresAt);
+  return { token, expiresAt };
+}
+
+/** Потребить токен сброса пароля (одноразовый). Возвращает user_id или null. */
+export function consumeTelegramResetToken(token: string): string | null {
+  ensureAuthTables();
+  const t = (token || '').trim();
+  if (!t) return null;
+  const now = new Date().toISOString();
+  if (isMemoryStore()) {
+    const row = memoryResetTokens.get(t);
+    if (!row || row.expires_at < now) return null;
+    memoryResetTokens.delete(t);
+    return row.user_id;
+  }
+  const db = getDb();
+  if (!db) return null;
+  const row = db.prepare('SELECT user_id, expires_at FROM telegram_reset_tokens WHERE token = ?').get(t) as { user_id: string; expires_at: string } | undefined;
+  if (!row || row.expires_at < now) return null;
+  db.prepare('DELETE FROM telegram_reset_tokens WHERE token = ?').run(t);
+  return row.user_id;
 }
 
 /** Продление подписки на время (1h, 99d, 30m и т.д.). Базовое время — текущий срок или сейчас. */
@@ -519,6 +640,7 @@ export function redeemActivationKeyForUser(opts: { userId: string; key: string; 
     const activationExpiresAt = getNextExpiry(u.activation_expires_at ?? null, k.duration_days);
     u.activation_expires_at = activationExpiresAt;
     u.group_id = proGroupId;
+    if (k.note && k.note.trim()) setUserTelegramId(opts.userId, k.note.trim());
     return { activationExpiresAt, groupId: proGroupId };
   }
 
@@ -538,6 +660,11 @@ export function redeemActivationKeyForUser(opts: { userId: string; key: string; 
 
     const activationExpiresAt = getNextExpiry((u as any).activation_expires_at ?? null, k.duration_days);
     db.prepare('UPDATE users SET activation_expires_at = ?, group_id = ? WHERE id = ?').run(activationExpiresAt, proGroupId, opts.userId);
+    if (k.note && String(k.note).trim()) {
+      try {
+        db.prepare('UPDATE users SET telegram_id = ? WHERE id = ?').run(String(k.note).trim(), opts.userId);
+      } catch {}
+    }
     return { activationExpiresAt, groupId: proGroupId };
   });
 

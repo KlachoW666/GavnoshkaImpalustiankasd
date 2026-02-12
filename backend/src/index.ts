@@ -37,6 +37,7 @@ import { initDb, isMemoryStore } from './db';
 import { seedDefaultAdmin } from './db/seed';
 import { notifyBreakoutAlert } from './services/notificationService';
 import { startBreakoutMonitor } from './services/breakoutMonitor';
+import { rateLimit } from './middleware/rateLimit';
 
 const app = express();
 const server = createServer(app);
@@ -60,7 +61,10 @@ startBreakoutMonitor({
 app.use(cors());
 app.use(express.json({ limit: '64kb' }));
 
-app.use('/api/signals', signalsRouter);
+const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
+const signalsRateLimit = rateLimit({ windowMs: 60 * 1000, max: 120 });
+
+app.use('/api/signals', signalsRateLimit, signalsRouter);
 app.use('/api/market', marketRouter);
 app.use('/api/ml', mlRouter);
 app.use('/api/connections', connectionsRouter);
@@ -77,7 +81,26 @@ app.use('/api/copy-trading', copyTradingRouter);
 app.use('/api/social', socialRouter);
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'CryptoSignal Pro API', exchange: 'OKX' });
+  try {
+    const dbMode = isMemoryStore() ? 'memory' : 'sqlite';
+    let databaseOk = true;
+    try {
+      const db = getDb();
+      if (db && typeof db.prepare === 'function') db.prepare('SELECT 1').get();
+    } catch {
+      databaseOk = false;
+    }
+    res.json({
+      status: 'ok',
+      service: 'CryptoSignal Pro API',
+      exchange: 'OKX',
+      database: dbMode,
+      databaseOk,
+      okxConfigured: config.okx.hasCredentials
+    });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: (e as Error).message });
+  }
 });
 
 app.use(errorHandler);
