@@ -49,4 +49,43 @@ router.get('/leaderboard', (req: Request, res: Response) => {
   }
 });
 
+/** GET /api/social/user/:userId — публичный профиль трейдера (для отдельной страницы) */
+router.get('/user/:userId', (req: Request, res: Response) => {
+  try {
+    initDb();
+    const userId = req.params.userId?.trim();
+    if (!userId) {
+      res.status(400).json({ error: 'userId обязателен' });
+      return;
+    }
+    const user = getUserById(userId);
+    const closed = listOrders({ clientId: userId, status: 'closed', limit: 10000 });
+    let pnl = 0;
+    let wins = 0;
+    let losses = 0;
+    for (const o of closed) {
+      if (o.pnl != null) {
+        pnl += o.pnl;
+        if (o.pnl > 0) wins++;
+        else losses++;
+      }
+    }
+    const trades = closed.length;
+    const providerIds = new Set(getProviderIdsWithSubscribers());
+    res.json({
+      userId,
+      username: user?.username ?? userId.slice(0, 12),
+      totalPnl: Math.round(pnl * 100) / 100,
+      wins,
+      losses,
+      trades,
+      winRate: trades > 0 ? Math.round((wins / trades) * 1000) / 10 : 0,
+      isProvider: providerIds.has(userId)
+    });
+  } catch (e) {
+    logger.error('Social', 'user profile error', { error: (e as Error).message });
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
 export default router;

@@ -98,6 +98,28 @@ export default function AdminActivationKeys() {
     } catch {}
   };
 
+  const exportCsv = () => {
+    const headers = ['id', 'key', 'durationDays', 'note', 'createdAt', 'usedByUserId', 'usedAt', 'revokedAt'];
+    const rows = keys.map((k) => [
+      k.id,
+      k.key,
+      k.durationDays,
+      k.note ?? '',
+      k.createdAt,
+      k.usedByUserId ?? '',
+      k.usedAt ?? '',
+      k.revokedAt ?? ''
+    ]);
+    const csv = [headers.join(','), ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `activation-keys-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const cardStyle = {
     background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
     border: '1px solid var(--border)',
@@ -187,6 +209,15 @@ export default function AdminActivationKeys() {
               </p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={exportCsv}
+            disabled={keys.length === 0}
+            className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+            style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
+          >
+            Экспорт CSV
+          </button>
         </div>
 
         {loading ? (

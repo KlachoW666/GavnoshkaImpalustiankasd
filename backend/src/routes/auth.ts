@@ -20,11 +20,13 @@ import {
 } from '../db/authDb';
 import { initDb, listOrders } from '../db';
 import { logger } from '../lib/logger';
+import { getMaintenanceMode } from '../lib/maintenanceMode';
 
 const router = Router();
 const SALT_ROUNDS = 10;
 const PRO_GROUP_ID = 4;
 const DEFAULT_GROUP_ID = 1;
+const ADMIN_GROUP_ID = 3;
 
 function isActivationActive(expiresAt: string | null | undefined): boolean {
   if (!expiresAt) return false;
@@ -76,6 +78,13 @@ export function optionalAuth(req: Request, _res: Response, next: () => void): vo
 /** POST /api/auth/register — регистрация (без подтверждения почты) */
 router.post('/register', (req: Request, res: Response) => {
   try {
+    if (getMaintenanceMode()) {
+      res.status(503).json({
+        maintenance: true,
+        error: 'Регистрация временно недоступна. Сайт на техническом обслуживании.'
+      });
+      return;
+    }
     const username = (req.body?.username as string)?.trim();
     const password = req.body?.password as string;
     if (!username || username.length < 2) {
@@ -129,6 +138,13 @@ router.post('/login', (req: Request, res: Response) => {
       res.status(401).json({ error: 'Неверный логин или пароль' });
       return;
     }
+    if (getMaintenanceMode() && user.group_id !== ADMIN_GROUP_ID) {
+      res.status(503).json({
+        maintenance: true,
+        message: 'Сайт на техническом обслуживании. Новости и обновления — в нашем Telegram.'
+      });
+      return;
+    }
     const token = crypto.randomBytes(32).toString('hex');
     createSession(token, user.id);
     // auto-downgrade expired pro users
@@ -173,6 +189,13 @@ router.get('/me', requireAuth, (req: Request, res: Response) => {
     const user = getUserById(userId);
     if (!user) {
       res.status(401).json({ error: 'Пользователь не найден' });
+      return;
+    }
+    if (getMaintenanceMode() && user.group_id !== ADMIN_GROUP_ID) {
+      res.status(503).json({
+        maintenance: true,
+        message: 'Сайт на техническом обслуживании. Новости и обновления — в нашем Telegram.'
+      });
       return;
     }
     const active = isActivationActive((user as any).activation_expires_at ?? null);

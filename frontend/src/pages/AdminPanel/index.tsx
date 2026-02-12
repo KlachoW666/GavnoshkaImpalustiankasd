@@ -9,18 +9,20 @@ import AdminGroups from './AdminGroups';
 import AdminActivationKeys from './AdminActivationKeys';
 import AdminSubscriptionPlans from './AdminSubscriptionPlans';
 import AdminProxies from './AdminProxies';
+import AdminTrading from './AdminTrading';
 
-type AdminTab = 'dashboard' | 'analytics' | 'logs' | 'users' | 'groups' | 'keys' | 'plans' | 'proxies';
+type AdminTab = 'dashboard' | 'trading' | 'analytics' | 'logs' | 'users' | 'groups' | 'keys' | 'plans' | 'proxies';
 
-const TABS: { id: AdminTab; label: string }[] = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'analytics', label: 'Аналитика' },
-  { id: 'logs', label: 'Логи' },
-  { id: 'users', label: 'Пользователи' },
-  { id: 'groups', label: 'Группы' },
-  { id: 'keys', label: 'Ключи' },
-  { id: 'plans', label: 'Тарифы бота' },
-  { id: 'proxies', label: 'Прокси' }
+const TABS: { id: AdminTab; label: string; icon: string }[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: '📋' },
+  { id: 'trading', label: 'Торговля', icon: '📈' },
+  { id: 'analytics', label: 'Аналитика', icon: '📊' },
+  { id: 'logs', label: 'Логи', icon: '🖥️' },
+  { id: 'users', label: 'Пользователи', icon: '👥' },
+  { id: 'groups', label: 'Группы', icon: '🔐' },
+  { id: 'keys', label: 'Ключи', icon: '🔑' },
+  { id: 'plans', label: 'Тарифы', icon: '📦' },
+  { id: 'proxies', label: 'Прокси', icon: '🌐' }
 ];
 
 export default function AdminPanel() {
@@ -38,6 +40,11 @@ export default function AdminPanel() {
     return () => setAdminUnauthorizedCallback(() => {});
   }, []);
 
+  useEffect(() => {
+    (window as any).__adminSetTab = setTab;
+    return () => { delete (window as any).__adminSetTab; };
+  }, []);
+
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
@@ -51,39 +58,62 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="min-h-screen py-8 px-6 md:px-8" style={{ background: 'var(--bg-base)' }}>
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-        <div className="flex items-center gap-2">
+    <div className="min-h-screen" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+      {/* Header */}
+      <header
+        className="sticky top-0 z-10 border-b px-4 py-3 md:px-6"
+        style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}
+      >
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="" className="h-8 w-auto object-contain opacity-90" />
+            <div>
+              <h1 className="text-lg font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>CLABX Admin</h1>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Панель управления</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { clearAdminToken(); window.location.reload(); }}
+            className="self-start sm:self-center text-sm px-4 py-2 rounded-lg transition-opacity hover:opacity-90"
+            style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
+          >
+            Выйти
+          </button>
+        </div>
+        {/* Tabs — scrollable on small screens */}
+        <div className="max-w-7xl mx-auto mt-4 -mb-px overflow-x-auto scrollbar-thin flex gap-1 pb-px" style={{ scrollbarWidth: 'thin' }}>
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                tab === t.id ? 'text-white' : 'hover:opacity-80'
+              data-admin-tab={t.id}
+              className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-sm font-medium transition-all ${
+                tab === t.id ? 'text-white shadow' : 'hover:bg-[var(--bg-hover)]'
               }`}
-              style={{ background: tab === t.id ? 'var(--accent)' : 'var(--bg-hover)', color: tab === t.id ? 'white' : 'var(--text-secondary)' }}
+              style={{
+                background: tab === t.id ? 'var(--accent)' : 'transparent',
+                color: tab === t.id ? 'white' : 'var(--text-secondary)'
+              }}
             >
+              <span aria-hidden>{t.icon}</span>
               {t.label}
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={() => { clearAdminToken(); window.location.reload(); }}
-          className="text-sm px-3 py-1.5 rounded-lg hover:opacity-80"
-          style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
-        >
-          Выйти
-        </button>
-      </div>
-      {tab === 'dashboard' && <AdminDashboard />}
-      {tab === 'analytics' && <AdminAnalytics />}
-      {tab === 'logs' && <AdminLogs />}
-      {tab === 'users' && <AdminUsers />}
-      {tab === 'groups' && <AdminGroups />}
-      {tab === 'keys' && <AdminActivationKeys />}
-      {tab === 'plans' && <AdminSubscriptionPlans />}
-      {tab === 'proxies' && <AdminProxies />}
+      </header>
+
+      <main className="max-w-7xl mx-auto py-6 px-4 md:px-6">
+        {tab === 'dashboard' && <AdminDashboard />}
+        {tab === 'trading' && <AdminTrading />}
+        {tab === 'analytics' && <AdminAnalytics />}
+        {tab === 'logs' && <AdminLogs />}
+        {tab === 'users' && <AdminUsers />}
+        {tab === 'groups' && <AdminGroups />}
+        {tab === 'keys' && <AdminActivationKeys />}
+        {tab === 'plans' && <AdminSubscriptionPlans />}
+        {tab === 'proxies' && <AdminProxies />}
+      </main>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { setApiUnauthorizedCallback } from '../utils/api';
 
 const API = '/api';
 const TOKEN_KEY = 'cryptosignal-auth-token';
@@ -20,6 +21,7 @@ interface AuthContextValue {
   token: string | null;
   user: AuthUser | null;
   loading: boolean;
+  maintenanceMode: boolean;
   login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   register: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
@@ -33,18 +35,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
 
   const fetchMe = useCallback(async () => {
     const t = localStorage.getItem(TOKEN_KEY);
     if (!t) {
       setUser(null);
+      setMaintenanceMode(false);
       setLoading(false);
       return;
     }
     try {
       const res = await fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${t}` } });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        const data = await res.json();
+        setMaintenanceMode(false);
         setUser({
           id: data.id,
           username: data.username,
@@ -57,13 +62,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         setToken(t);
       } else {
-        setToken(null);
-        setUser(null);
-        localStorage.removeItem(TOKEN_KEY);
+        if (res.status === 503 && data.maintenance) {
+          setMaintenanceMode(true);
+          setToken(null);
+          setUser(null);
+          localStorage.removeItem(TOKEN_KEY);
+        } else {
+          setMaintenanceMode(false);
+          setToken(null);
+          setUser(null);
+          localStorage.removeItem(TOKEN_KEY);
+        }
       }
     } catch {
       setToken(null);
       setUser(null);
+      setMaintenanceMode(false);
       localStorage.removeItem(TOKEN_KEY);
     } finally {
       setLoading(false);
@@ -74,6 +88,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fetchMe();
   }, [fetchMe]);
 
+  useEffect(() => {
+    const logoutFn = () => {
+      localStorage.removeItem(TOKEN_KEY);
+      setToken(null);
+      setUser(null);
+    };
+    setApiUnauthorizedCallback(logoutFn);
+    return () => setApiUnauthorizedCallback(() => {});
+  }, []);
+
   const login = useCallback(async (username: string, password: string) => {
     try {
       const res = await fetch(`${API}/auth/login`, {
@@ -82,7 +106,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ username: username.trim(), password })
       });
       const data = await res.json().catch(() => ({}));
+      if (res.status === 503 && data.maintenance) {
+        setMaintenanceMode(true);
+        setToken(null);
+        setUser(null);
+        localStorage.removeItem(TOKEN_KEY);
+        return { ok: false, error: data.message || 'Сайт на техническом обслуживании' };
+      }
       if (data.ok && data.token && data.user) {
+        setMaintenanceMode(false);
         localStorage.setItem(TOKEN_KEY, data.token);
         setToken(data.token);
         setUser({
@@ -111,7 +143,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ username: username.trim(), password })
       });
       const data = await res.json().catch(() => ({}));
+      if (res.status === 503 && data.maintenance) {
+        setMaintenanceMode(true);
+        return { ok: false, error: data.message || data.error || 'Сайт на техническом обслуживании' };
+      }
       if (data.ok && data.token && data.user) {
+        setMaintenanceMode(false);
         localStorage.setItem(TOKEN_KEY, data.token);
         setToken(data.token);
         setUser({
@@ -162,7 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ token, user, loading, login, register, logout, fetchMe, updateProxy }}>
+    <AuthContext.Provider value={{ token, user, loading, maintenanceMode, login, register, logout, fetchMe, updateProxy }}>
       {children}
     </AuthContext.Provider>
   );

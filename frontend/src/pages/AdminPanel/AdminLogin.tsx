@@ -66,23 +66,29 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--bg-base)' }}>
       <div
-        className="w-full max-w-md rounded-2xl border p-8"
-        style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}
+        className="w-full max-w-md rounded-2xl border-2 p-8 shadow-xl"
+        style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}
       >
-        <h1 className="text-2xl font-bold tracking-tight mb-2">Админ-панель</h1>
+        <div className="flex items-center gap-3 mb-6">
+          <img src="/logo.png" alt="" className="h-10 w-auto object-contain opacity-90" />
+          <div>
+            <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>CLABX Admin</h1>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Вход в панель управления</p>
+          </div>
+        </div>
         <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-          Вход по логину и паролю администратора или по общему паролю
+          Логин и пароль администратора или общий пароль из настроек сервера
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-              Логин (необязательно — для входа по общему паролю оставьте пустым)
+              Логин (необязательно)
             </label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
+              className="w-full px-4 py-3 rounded-xl border transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-0 focus:ring-offset-[var(--bg-card-solid)]"
               style={{
                 background: 'var(--bg-base)',
                 borderColor: 'var(--border)',
@@ -101,7 +107,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
+              className="w-full px-4 py-3 rounded-xl border transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-0 focus:ring-offset-[var(--bg-card-solid)]"
               style={{
                 background: 'var(--bg-base)',
                 borderColor: 'var(--border)',
@@ -123,14 +129,14 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Сохранить данные входа</span>
           </label>
           {error && (
-            <p className="text-sm" style={{ color: 'var(--danger)' }}>
+            <p className="text-sm px-3 py-2 rounded-lg" style={{ background: 'var(--danger-dim)', color: 'var(--danger)' }}>
               {error}
             </p>
           )}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl font-semibold text-white transition-opacity disabled:opacity-50"
+            className="w-full py-3 rounded-xl font-semibold text-white transition-opacity hover:opacity-95 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--accent)]"
             style={{ background: 'var(--accent)' }}
           >
             {loading ? 'Вход…' : 'Войти'}

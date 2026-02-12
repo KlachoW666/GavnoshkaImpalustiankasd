@@ -65,53 +65,73 @@ export default function AdminTrading() {
     }
   };
 
+  const cardStyle = {
+  background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
+  border: '1px solid var(--border)',
+  boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+};
+
   return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-bold tracking-tight">Управление торговлей</h2>
-      {status != null && (
-        <div className="p-4 rounded-xl border text-sm" style={{ background: 'var(--bg-hover)', borderColor: 'var(--border)' }}>
-          Статус: <strong>{status.running ? 'Активно (у одного или нескольких пользователей)' : 'Остановлено'}</strong>
+    <div className="space-y-6 max-w-4xl">
+      <div className="flex items-center gap-3">
+        <span className="text-2xl">📈</span>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Управление торговлей</h2>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Запуск, пауза и экстренная остановка авто-торговли</p>
         </div>
+      </div>
+
+      {status != null && (
+        <section className="rounded-2xl p-4 shadow-lg border-l-4" style={{ ...cardStyle, borderLeftColor: status.running ? 'var(--success)' : 'var(--text-muted)' }}>
+          <p className="text-sm">
+            Статус: <strong style={{ color: status.running ? 'var(--success)' : 'var(--text-secondary)' }}>
+              {status.running ? 'Активно (у одного или нескольких пользователей)' : 'Остановлено'}
+            </strong>
+          </p>
+        </section>
       )}
       {message && (
-        <div className="p-4 rounded-xl border text-sm" style={{ background: 'var(--accent-dim)', borderColor: 'var(--accent)' }}>
+        <div className="p-4 rounded-xl border text-sm" style={{ background: 'var(--accent-dim)', borderColor: 'var(--accent)', color: 'var(--text-primary)' }}>
           {message}
         </div>
       )}
-      <section className="rounded-xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-        <h3 className="text-lg font-semibold mb-4">Быстрые действия</h3>
-        <div className="flex flex-wrap gap-4">
+      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+        <div className="flex items-center gap-3 mb-5">
+          <span className="text-2xl">⚡</span>
+          <div>
+            <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Быстрые действия</h3>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Полные настройки — в разделе «Авто» главного приложения</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3">
           <button
             type="button"
             onClick={startTrading}
             disabled={!!loading}
-            className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+            className="px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 transition-opacity"
             style={{ background: 'var(--success-dim)', color: 'var(--success)' }}
           >
-            {loading === 'start' ? '…' : '▶️ START Auto-Trading'}
+            {loading === 'start' ? '…' : '▶ Запуск'}
           </button>
           <button
             type="button"
             onClick={stopTrading}
             disabled={!!loading}
-            className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-            style={{ background: 'var(--warning-dim)', color: 'var(--warning)' }}
+            className="px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 transition-opacity"
+            style={{ background: 'var(--warning)', color: 'white' }}
           >
-            {loading === 'stop' ? '…' : '⏸️ PAUSE Trading'}
+            {loading === 'stop' ? '…' : '⏸ Пауза'}
           </button>
           <button
             type="button"
             onClick={emergencyStop}
             disabled={!!loading}
-            className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-            style={{ background: 'var(--danger-dim)', color: 'var(--danger)' }}
+            className="px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 transition-opacity"
+            style={{ background: 'var(--danger)', color: 'white' }}
           >
-            {loading === 'emergency' ? '…' : '🛑 EMERGENCY STOP'}
+            {loading === 'emergency' ? '…' : '🛑 Стоп'}
           </button>
         </div>
-        <p className="text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
-          Полные настройки авто-торговли (символы, плечо, TP/SL) — в разделе «Авто» главного приложения.
-        </p>
       </section>
     </div>
   );

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { adminApi, clearAdminToken } from '../../utils/adminApi';
 
-const TAB_IDS = ['dashboard', 'signals', 'chart', 'demo', 'autotrade', 'scanner', 'pnl', 'settings', 'admin'] as const;
+const TAB_IDS = ['dashboard', 'signals', 'chart', 'demo', 'autotrade', 'scanner', 'pnl', 'backtest', 'copy', 'social', 'settings', 'activate', 'admin'] as const;
 const TAB_LABELS: Record<string, string> = {
   dashboard: 'Главная',
   signals: 'Сигналы',
@@ -10,7 +10,11 @@ const TAB_LABELS: Record<string, string> = {
   autotrade: 'Авто',
   scanner: 'Скринер',
   pnl: 'PNL',
+  backtest: 'Бэктест',
+  copy: 'Копитрейдинг',
+  social: 'Соц. торговля',
   settings: 'Настройки',
+  activate: 'Активировать',
   admin: 'Админ'
 };
 
@@ -79,7 +83,7 @@ export default function AdminGroups() {
       const allowedTabs: string[] = ['dashboard', 'settings'];
       const created = await adminApi.post<GroupRow>('/admin/groups', { name, allowedTabs });
       setGroups((prev) => [...prev, created]);
-      setDraft((prev) => ({ ...prev, [created.id]: created.allowedTabs }));
+      setDraft((prev) => ({ ...prev, [created.id]: created.allowedTabs ?? ['dashboard', 'settings'] }));
       setNewName('');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ошибка создания группы');
@@ -135,7 +139,7 @@ export default function AdminGroups() {
         <span className="text-2xl">👥</span>
         <div>
           <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Группы и вкладки</h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Доступ по вкладкам для каждой группы. Группу назначайте в «Пользователи».</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Доступ по вкладкам для каждой группы. Группу назначайте в «Пользователи». При включённом «Авто» пользователь также получает Бэктест, Копитрейдинг и Соц. торговля.</p>
         </div>
       </div>
       <div className="rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row gap-3 items-center" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
@@ -192,14 +196,14 @@ export default function AdminGroups() {
                 )}
               </div>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
               {TAB_IDS.map((tabId) => (
                 <label
                   key={tabId}
-                  className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border transition"
+                  className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg border transition-colors"
                   style={{
                     borderColor: (draft[g.id] ?? g.allowedTabs).includes(tabId) ? 'var(--accent)' : 'var(--border)',
-                    background: (draft[g.id] ?? g.allowedTabs).includes(tabId) ? 'var(--accent-dim)' : 'transparent'
+                    background: (draft[g.id] ?? g.allowedTabs).includes(tabId) ? 'var(--accent-dim)' : 'var(--bg-hover)'
                   }}
                 >
                   <input

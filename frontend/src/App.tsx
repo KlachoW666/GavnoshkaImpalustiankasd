@@ -10,6 +10,7 @@ import ScannerPage from './pages/ScannerPage';
 import ActivatePage from './pages/ActivatePage';
 import AdminPanel from './pages/AdminPanel';
 import AuthPage from './pages/AuthPage';
+import MaintenancePage from './pages/MaintenancePage';
 import PrivacyPage from './pages/PrivacyPage';
 import TermsPage from './pages/TermsPage';
 import ProfilePage from './pages/ProfilePage';
@@ -17,12 +18,13 @@ import HelpPage from './pages/HelpPage';
 import BacktestPage from './pages/BacktestPage';
 import CopyTradingPage from './pages/CopyTradingPage';
 import SocialPage from './pages/SocialPage';
+import TraderProfilePage from './pages/TraderProfilePage';
 import { getSavedPage, savePage } from './store/appStore';
 import { useNotifications } from './contexts/NotificationContext';
 import { useAuth } from './contexts/AuthContext';
 import { getSettings } from './store/settingsStore';
 
-type Page = 'dashboard' | 'signals' | 'chart' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms' | 'help' | 'backtest' | 'copy' | 'social';
+type Page = 'dashboard' | 'signals' | 'chart' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms' | 'help' | 'backtest' | 'copy' | 'social' | 'trader';
 
 const PAGE_PATHS: Record<Page, string> = {
   dashboard: '/',
@@ -41,7 +43,8 @@ const PAGE_PATHS: Record<Page, string> = {
   help: '/help',
   backtest: '/backtest',
   copy: '/copy',
-  social: '/social'
+  social: '/social',
+  trader: '/trader'
 };
 
 const PATH_TO_PAGE: Record<string, Page> = Object.entries(PAGE_PATHS).reduce(
@@ -61,9 +64,17 @@ function normalizePath(pathname: string): string {
   return p;
 }
 
+function getTraderIdFromPath(): string | null {
+  if (typeof window === 'undefined') return null;
+  const path = (window.location.pathname || '').trim();
+  const match = path.match(/^\/trader\/([^/]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 function getPageFromLocation(allowed: Set<Page>): Page {
   if (typeof window === 'undefined') return 'dashboard';
   const path = normalizePath(window.location.pathname);
+  if (path.startsWith('/trader/') && allowed.has('trader')) return 'trader';
   const candidate = PATH_TO_PAGE[path];
   if (candidate && allowed.has(candidate)) return candidate;
   if (allowed.has('dashboard')) return 'dashboard';
@@ -75,6 +86,7 @@ function getPageFromLocation(allowed: Set<Page>): Page {
 function getPageFromUrl(): Page {
   if (typeof window === 'undefined') return 'dashboard';
   const path = normalizePath(window.location.pathname);
+  if (path.startsWith('/trader/')) return 'trader';
   const candidate = PATH_TO_PAGE[path];
   return (candidate as Page) ?? 'dashboard';
 }
@@ -162,7 +174,7 @@ const FALLBACK_TABS: Page[] = ['dashboard', 'settings'];
 
 export default function App() {
   const year = new Date().getFullYear();
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, maintenanceMode } = useAuth();
   const allowedSet = useMemo(() => {
     const tabs = user?.allowedTabs ?? [];
     const set = new Set<Page>(tabs.length > 0 ? (tabs as Page[]) : FALLBACK_TABS);
@@ -175,6 +187,8 @@ export default function App() {
       set.add('copy');
       set.add('social');
     }
+    if (set.has('social') || set.has('copy')) set.add('trader');
+    if (set.has('admin')) set.add('trader');
     return set;
   }, [user?.allowedTabs]);
   const PAGES = useMemo(() => {
@@ -253,9 +267,22 @@ export default function App() {
     setPage(p);
   };
 
+  const navigateToTrader = (userId: string) => {
+    if (!allowedSet.has('trader')) return;
+    if (typeof window !== 'undefined') {
+      const path = `/trader/${encodeURIComponent(userId)}`;
+      window.history.pushState({}, '', path);
+    }
+    setPage('trader');
+  };
+
   useEffect(() => {
     (window as any).__navigateTo = setPageSafe;
-    return () => { delete (window as any).__navigateTo; };
+    (window as any).__navigateToTrader = navigateToTrader;
+    return () => {
+      delete (window as any).__navigateTo;
+      delete (window as any).__navigateToTrader;
+    };
   }, [allowedSet]);
 
   useEffect(() => {
@@ -295,6 +322,7 @@ export default function App() {
     );
   }
   if (!user) {
+    if (maintenanceMode) return <MaintenancePage />;
     return <AuthPage />;
   }
 
@@ -468,6 +496,14 @@ export default function App() {
         </div>
         <div className={safePage === 'social' ? 'block' : 'hidden'}>
           <SocialPage />
+        </div>
+        <div className={safePage === 'trader' ? 'block' : 'hidden'}>
+          {safePage === 'trader' && (
+            <TraderProfilePage
+              traderId={getTraderIdFromPath()}
+              onBackToSocial={() => setPageSafe('social')}
+            />
+          )}
         </div>
         <div className={safePage === 'settings' ? 'block' : 'hidden'}>
           <SettingsPage />

@@ -41,6 +41,7 @@ import {
 import { getSignals } from './signals';
 import { logger, getRecentLogs } from '../lib/logger';
 import { listProxiesForAdmin, addProxy, deleteProxy, getProxy } from '../db/proxies';
+import { getMaintenanceMode, setMaintenanceMode } from '../lib/maintenanceMode';
 
 const router = Router();
 
@@ -860,6 +861,29 @@ router.post('/proxies/check', requireAdmin, async (req: Request, res: Response) 
       results.push({ url: p.url, ok: r.ok, error: r.error });
     }
     res.json({ results });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** GET /api/admin/maintenance — статус режима технического обслуживания */
+router.get('/maintenance', requireAdmin, (_req: Request, res: Response) => {
+  try {
+    res.json({ enabled: getMaintenanceMode() });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/admin/maintenance — включить/выключить техническое обслуживание (только admin имеет доступ к сайту) */
+router.post('/maintenance', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const enabled = req.body?.enabled === true || req.body?.enabled === 'true';
+    setMaintenanceMode(enabled);
+    logger.info('Admin', `Maintenance mode ${enabled ? 'enabled' : 'disabled'}`);
+    res.json({ enabled: getMaintenanceMode() });
   } catch (e) {
     logger.error('Admin', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });

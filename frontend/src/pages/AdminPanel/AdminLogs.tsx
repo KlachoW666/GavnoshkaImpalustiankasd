@@ -9,10 +9,24 @@ interface LogEntry {
   meta?: string;
 }
 
+const LOG_LEVELS = ['ALL', 'ERROR', 'WARN', 'INFO', 'DEBUG'] as const;
+
 export default function AdminLogs() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [levelFilter, setLevelFilter] = useState<string>('ALL');
+  const [searchText, setSearchText] = useState('');
+
+  const filteredLogs = logs.filter((entry) => {
+    if (levelFilter !== 'ALL' && entry.level !== levelFilter) return false;
+    if (searchText.trim()) {
+      const q = searchText.trim().toLowerCase();
+      const line = `${entry.message} ${entry.meta || ''}`.toLowerCase();
+      return line.includes(q);
+    }
+    return true;
+  });
 
   const fetchLogs = () => {
     setError('');
@@ -81,11 +95,31 @@ export default function AdminLogs() {
         </div>
       )}
       <section className="rounded-2xl overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
-        <div className="flex items-center gap-3 p-4 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex flex-wrap items-center gap-4 p-4 border-b" style={{ borderColor: 'var(--border)' }}>
           <span className="text-2xl">🖥️</span>
-          <div>
+          <div className="flex-1 min-w-0">
             <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Системные логи</h3>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Обновление каждые 5 сек</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Обновление каждые 5 сек • показано {filteredLogs.length} из {logs.length}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={levelFilter}
+              onChange={(e) => setLevelFilter(e.target.value)}
+              className="px-3 py-2 rounded-lg text-sm border"
+              style={{ background: 'var(--bg-hover)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+            >
+              {LOG_LEVELS.map((l) => (
+                <option key={l} value={l}>{l === 'ALL' ? 'Все уровни' : l}</option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Поиск по тексту…"
+              className="px-3 py-2 rounded-lg text-sm w-48 border"
+              style={{ background: 'var(--bg-hover)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+            />
           </div>
         </div>
         <div
@@ -94,9 +128,11 @@ export default function AdminLogs() {
         >
           {logs.length === 0 ? (
             <p style={{ color: 'var(--text-muted)' }}>Пока нет записей. Логи появляются при работе сервера.</p>
+          ) : filteredLogs.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)' }}>Нет записей по выбранным фильтрам.</p>
           ) : (
-            logs.map((entry, i) => (
-              <div key={i} className="py-1 border-b border-[var(--border)] last:border-0">
+            filteredLogs.map((entry, i) => (
+              <div key={`${entry.ts}-${i}`} className="py-1 border-b border-[var(--border)] last:border-0">
                 <span className="text-[var(--text-muted)] shrink-0">{entry.ts}</span>
                 {' '}
                 <span style={{ color: levelColor(entry.level), fontWeight: 600 }}>[{entry.level}]</span>

@@ -1,5 +1,6 @@
 /**
  * Centralized API client — consistent fetch, error handling, base URL.
+ * On 401, optional onUnauthorized callback is invoked (e.g. logout).
  */
 
 const API_BASE = '/api';
@@ -9,8 +10,17 @@ export interface ApiError {
   stack?: string;
 }
 
+let onUnauthorized: (() => void) | null = null;
+
+export function setApiUnauthorizedCallback(cb: () => void): void {
+  onUnauthorized = cb;
+}
+
 async function handleResponse<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({})) as T & ApiError;
+  if (res.status === 401) {
+    onUnauthorized?.();
+  }
   if (!res.ok) {
     const msg = (data as ApiError).error || res.statusText || `HTTP ${res.status}`;
     throw new Error(msg);

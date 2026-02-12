@@ -55,6 +55,29 @@ export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState<boolean | null>(null);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
+
+  const fetchMaintenance = async () => {
+    try {
+      const res = await adminApi.get<{ enabled: boolean }>('/admin/maintenance');
+      setMaintenanceEnabled(res.enabled);
+    } catch {
+      setMaintenanceEnabled(null);
+    }
+  };
+
+  const setMaintenance = async (enabled: boolean) => {
+    setMaintenanceLoading(true);
+    try {
+      const res = await adminApi.post<{ enabled: boolean }>('/admin/maintenance', { enabled });
+      setMaintenanceEnabled(res.enabled);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка изменения режима ТО');
+    } finally {
+      setMaintenanceLoading(false);
+    }
+  };
 
   const fetchDashboard = async () => {
     try {
@@ -71,6 +94,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchDashboard();
+    fetchMaintenance();
     const id = setInterval(fetchDashboard, 10000);
     return () => clearInterval(id);
   }, []);
@@ -124,6 +148,35 @@ export default function AdminDashboard() {
           <span>{error}</span>
         </div>
       )}
+
+      <div className="flex flex-wrap gap-2 items-center">
+        <button
+          type="button"
+          onClick={() => (window as any).__adminSetTab?.('trading')}
+          className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-90"
+          style={{ background: 'var(--accent)', color: 'white' }}
+        >
+          📈 Управление торговлей
+        </button>
+        {/* Техническое обслуживание */}
+        <div className="flex items-center gap-3 px-4 py-2 rounded-xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
+          <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+            {maintenanceEnabled === null ? '…' : maintenanceEnabled ? '🔧 Сайт закрыт на ТО' : '✅ Сайт открыт'}
+          </span>
+          <button
+            type="button"
+            onClick={() => maintenanceEnabled !== null && setMaintenance(!maintenanceEnabled)}
+            disabled={maintenanceLoading || maintenanceEnabled === null}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50 transition-opacity"
+            style={{
+              background: maintenanceEnabled ? 'var(--success)' : 'var(--warning)',
+              color: 'white'
+            }}
+          >
+            {maintenanceLoading ? '…' : maintenanceEnabled ? 'Открыть сайт' : 'Закрыть на ТО'}
+          </button>
+        </div>
+      </div>
 
       {/* Верхний ряд: System, Trading, Risk */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -306,7 +359,14 @@ export default function AdminDashboard() {
                 <li key={u.userId} className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-xl text-sm" style={miniCardStyle}>
                   <span className="flex items-center gap-2 min-w-0">
                     <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--accent)', color: 'white' }}>{i + 1}</span>
-                    <span className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>{u.username}</span>
+                    <button
+                      type="button"
+                      onClick={() => (window as any).__navigateToTrader?.(u.userId)}
+                      className="font-medium truncate text-left hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset rounded"
+                      style={{ color: 'var(--accent)' }}
+                    >
+                      {u.username}
+                    </button>
                   </span>
                   <span className="flex-shrink-0 font-semibold tabular-nums" style={{ color: u.totalPnl >= 0 ? 'var(--success)' : 'var(--danger)' }}>
                     {formatNum4Signed(u.totalPnl)} $

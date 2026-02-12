@@ -60,7 +60,14 @@ export default function SocialPage() {
                   <tr key={e.userId} className="border-b" style={{ borderColor: 'var(--border)' }}>
                     <td className="py-3 px-2 font-medium">{i + 1}</td>
                     <td className="py-3 px-2">
-                      {e.username}
+                      <button
+                        type="button"
+                        onClick={() => (window as any).__navigateToTrader?.(e.userId)}
+                        className="font-medium text-left hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset rounded"
+                        style={{ color: 'var(--accent)' }}
+                      >
+                        {e.username}
+                      </button>
                       {e.isProvider && <span className="ml-1 text-xs" style={{ color: 'var(--accent)' }}>• провайдер</span>}
                     </td>
                     <td className={`text-right py-3 px-2 tabular-nums ${e.totalPnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
