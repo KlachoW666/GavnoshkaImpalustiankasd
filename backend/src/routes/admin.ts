@@ -343,7 +343,10 @@ async function fetchOkxBalanceForUser(userId: string): Promise<{ okxBalance: num
       logger.warn('Admin', 'OKX balance fetch failed', { userId, sandboxMode, error: lastError });
     }
   }
-  return { okxBalance: null, okxBalanceError: lastError };
+  const okxBalanceError = lastError && /50102|Timestamp request expired/i.test(lastError)
+    ? `${lastError} Синхронизируйте время на сервере (NTP).`
+    : lastError;
+  return { okxBalance: null, okxBalanceError };
 }
 
 /** GET /api/admin/users/:id — детали пользователя: ордера, PnL, telegram_id, подписка, OKX баланс */

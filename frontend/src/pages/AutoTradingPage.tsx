@@ -860,15 +860,37 @@ export default function AutoTradingPage() {
     return () => clearInterval(id);
   }, [positions.length, settings.autoClose, settings.autoCloseTp, settings.autoCloseSl, settings.useSignalSLTP, settings.trailingStopPercent, settings.fullAuto, settings.maxPositionDurationHours]);
 
-  const totalPnl = balance - initialBalance;
-  const totalPnlPercent = initialBalance > 0 ? (totalPnl / initialBalance) * 100 : 0;
+  /** При авторизации — метрики из закрытых сделок с сервера (OKX), иначе — локальный баланс и история */
+  const statsFromServer = Boolean(token);
+  const validHistory = useMemo(
+    () => (statsFromServer ? displayHistory : history).filter(validClosePrice),
+    [statsFromServer, displayHistory, history]
+  );
+  const winTrades = validHistory.filter((h) => h.pnl > 0).length;
+  const lossTrades = validHistory.filter((h) => h.pnl < 0).length;
+  const totalTrades = validHistory.length;
+  const grossProfit = validHistory.filter((h) => h.pnl > 0).reduce((s, h) => s + h.pnl, 0);
+  const grossLoss = Math.abs(validHistory.filter((h) => h.pnl < 0).reduce((s, h) => s + h.pnl, 0));
+  const sumSizes = validHistory.reduce((s, h) => s + (h.size ?? 0), 0);
+  const totalPnl = statsFromServer
+    ? validHistory.reduce((s, h) => s + (h.pnl ?? 0), 0)
+    : balance - initialBalance;
+  const totalPnlPercent = statsFromServer
+    ? (sumSizes > 0 ? (totalPnl / sumSizes) * 100 : 0)
+    : (initialBalance > 0 ? (totalPnl / initialBalance) * 100 : 0);
+  const winRate = totalTrades > 0 ? (winTrades / totalTrades) * 100 : 0;
+  const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? 999 : 0;
+  const avgWin = winTrades > 0 ? grossProfit / winTrades : 0;
+  const avgLoss = lossTrades > 0 ? grossLoss / lossTrades : 0;
+  const bestTrade = validHistory.length ? Math.max(...validHistory.map((h) => h.pnl), 0) : 0;
+  const worstTrade = validHistory.length ? Math.min(...validHistory.map((h) => h.pnl), 0) : 0;
 
   const hardStopTriggeredRef = useRef(false);
-
-  // Hard Stop (generate-pdf.js): при критической просадке закрыть все позиции, затем остановить
+  // Hard Stop: при критической просадке закрыть все позиции (только в локальном режиме)
   useEffect(() => {
-    if (!enabled || settings.maxDailyLossPercent <= 0) return;
-    if (totalPnlPercent > -settings.maxDailyLossPercent) {
+    if (!enabled || settings.maxDailyLossPercent <= 0 || statsFromServer) return;
+    const localPnlPercent = initialBalance > 0 ? ((balance - initialBalance) / initialBalance) * 100 : 0;
+    if (localPnlPercent > -settings.maxDailyLossPercent) {
       hardStopTriggeredRef.current = false;
       return;
     }
@@ -876,24 +898,12 @@ export default function AutoTradingPage() {
     hardStopTriggeredRef.current = true;
     const toClose = [...positionsRef.current];
     if (toClose.length > 0) {
-      notifyTelegram(`🛑 <b>Hard Stop</b>\nПросадка ${totalPnlPercent.toFixed(2)}% — закрытие ${toClose.length} позиций`);
+      notifyTelegram(`🛑 <b>Hard Stop</b>\nПросадка ${localPnlPercent.toFixed(2)}% — закрытие ${toClose.length} позиций`);
       toClose.forEach((pos) => setTimeout(() => closePositionRef.current(pos), 0));
     }
     setEnabled(false);
     setStatus('stopped_daily_loss');
-  }, [enabled, totalPnlPercent, settings.maxDailyLossPercent]);
-  const validHistory = history.filter(validClosePrice);
-  const winTrades = validHistory.filter((h) => h.pnl > 0).length;
-  const lossTrades = validHistory.filter((h) => h.pnl < 0).length;
-  const totalTrades = validHistory.length;
-  const winRate = totalTrades > 0 ? (winTrades / totalTrades) * 100 : 0;
-  const grossProfit = validHistory.filter((h) => h.pnl > 0).reduce((s, h) => s + h.pnl, 0);
-  const grossLoss = Math.abs(validHistory.filter((h) => h.pnl < 0).reduce((s, h) => s + h.pnl, 0));
-  const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? 999 : 0;
-  const avgWin = winTrades > 0 ? grossProfit / winTrades : 0;
-  const avgLoss = lossTrades > 0 ? grossLoss / lossTrades : 0;
-  const bestTrade = validHistory.length ? Math.max(...validHistory.map((h) => h.pnl), 0) : 0;
-  const worstTrade = validHistory.length ? Math.min(...validHistory.map((h) => h.pnl), 0) : 0;
+  }, [enabled, balance, initialBalance, settings.maxDailyLossPercent, statsFromServer]);
 
   const okxConn = getSettings().connections.okx;
   const hasApiKeys = !!(okxConn?.apiKey?.trim() && okxConn?.apiSecret?.trim());
@@ -1481,12 +1491,24 @@ export default function AutoTradingPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
           <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Баланс и статистика</h3>
-          <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>P&L, win rate и метрики по сделкам (реальный счёт)</p>
+          <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
+            {settings.fullAuto && settings.executeOrders
+              ? 'P&L, win rate и метрики по сделкам (реальный счёт OKX)'
+              : token
+                ? 'P&L и метрики по закрытым сделкам с сервера (OKX)'
+                : 'P&L, win rate (локальная демо-статистика)'}
+          </p>
           <div className="grid grid-cols-2 gap-3">
             {settings.fullAuto && settings.executeOrders && okxData && !okxData.balanceError && (
               <div className="p-4 rounded-xl" style={{ background: 'var(--accent-dim)', borderLeft: '3px solid var(--accent)' }}>
                 <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Баланс OKX (реальный счёт)</p>
                 <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>${(okxData.balance ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</p>
+              </div>
+            )}
+            {!settings.fullAuto && !token && (
+              <div className="p-4 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Локальный баланс (демо)</p>
+                <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>${balance.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</p>
               </div>
             )}
             <div className="p-4 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
@@ -1513,7 +1535,11 @@ export default function AutoTradingPage() {
             </div>
             <div className="col-span-2 p-3 rounded-xl flex justify-between items-center" style={{ background: 'var(--bg-hover)' }}>
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Лучшая / Худшая</span>
-              <span className="text-sm font-medium"><span className="text-[var(--success)]">+${bestTrade.toFixed(2)}</span> / <span className="text-[var(--danger)]">${worstTrade.toFixed(2)}</span></span>
+              <span className="text-sm font-medium">
+                <span className="text-[var(--success)]">+${bestTrade.toFixed(2)}</span>
+                {' / '}
+                <span className="text-[var(--danger)]">{worstTrade <= 0 ? '-' : ''}${Math.abs(worstTrade).toFixed(2)}</span>
+              </span>
             </div>
           </div>
         </section>
@@ -1573,22 +1599,19 @@ export default function AutoTradingPage() {
       <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Открытые позиции</h3>
         <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
-          {settings.fullAuto && settings.executeOrders ? `OKX (реальный счёт) · ${okxData?.positions?.length ?? 0} позиций` : 'При полном автомате с исполнением — позиции с OKX'}
+          {settings.fullAuto && settings.executeOrders
+            ? `OKX (реальный счёт) · ${okxData?.positions?.length ?? 0} позиций`
+            : settings.fullAuto && !settings.executeOrders
+              ? 'Включите «Исполнение через OKX», чтобы видеть позиции с биржи'
+              : 'Локальные позиции (демо) — открыты вручную по сигналам'}
         </p>
-        {(!okxData?.positions?.length || !settings.fullAuto || !settings.executeOrders) ? (
-          <div className="py-10 px-4 rounded-xl text-center" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px dashed var(--border)' }}>
-            <p className="text-sm font-medium">Нет открытых позиций</p>
-            <p className="text-xs mt-1">Позиции по реальному счёту OKX появятся здесь после исполнения ордеров</p>
-          </div>
-        ) : (
+        {settings.fullAuto && settings.executeOrders && (okxData?.positions?.length ?? 0) > 0 ? (
           <div className="space-y-4">
-            {okxData && (okxData.positions?.length ?? 0) > 0 && settings.fullAuto && settings.executeOrders && (
-              <>
-                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
-                  OKX (реальный счёт) — ордера бота
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {(okxData.positions ?? []).map((p: any, i: number) => {
+            <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+              OKX (реальный счёт) — ордера бота
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(okxData!.positions ?? []).map((p: any, i: number) => {
                     const symNorm = normSymbol((p.symbol || '').replace(/:.*$/, ''));
                     const base = symNorm ? symNorm.split('-')[0] : (p.symbol || '').split(/[/:-]/)[0] || '';
                     const amountStr = p.contracts != null ? `${Math.abs(Number(p.contracts)).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${base}` : '—';
@@ -1624,16 +1647,60 @@ export default function AutoTradingPage() {
                       </div>
                     );
                   })}
-                </div>
-              </>
-            )}
+            </div>
+          </div>
+        ) : !settings.fullAuto && positions.length > 0 ? (
+          <div className="space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+              Локальные позиции (демо) · {positions.length}
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {positions.map((pos) => {
+                const dir = (pos.signal?.direction ?? 'LONG').toUpperCase();
+                const pair = pos.signal?.symbol ?? (pos.signal as any)?.pair ?? '—';
+                const pnl = pos.pnl ?? (pos.currentPrice - pos.openPrice) * (dir === 'SHORT' ? -1 : 1) * (pos.size / pos.openPrice);
+                return (
+                  <div
+                    key={pos.id}
+                    className="rounded-xl border p-4 flex flex-col gap-1"
+                    style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold">{pair} {dir}</span>
+                      <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'var(--bg-card-solid)', color: 'var(--text-muted)' }}>
+                        Демо
+                      </span>
+                    </div>
+                    <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Вход: </span>{pos.openPrice?.toLocaleString('ru-RU') ?? '—'}</p>
+                    <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Текущая: </span>{pos.currentPrice?.toLocaleString('ru-RU') ?? '—'}</p>
+                    <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Ставка: </span>${(pos.size ?? 0).toFixed(2)}</p>
+                    <p className={`text-sm font-medium ${pnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                      P&L: {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="py-10 px-4 rounded-xl text-center" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px dashed var(--border)' }}>
+            <p className="text-sm font-medium">Нет открытых позиций</p>
+            <p className="text-xs mt-1">
+              {settings.fullAuto && settings.executeOrders
+                ? 'Позиции по реальному счёту OKX появятся здесь после исполнения ордеров'
+                : !settings.fullAuto
+                  ? 'В ручном режиме позиции по сигналам отображаются выше (локальное демо)'
+                  : 'Включите полный автомат и исполнение через OKX'}
+            </p>
           </div>
         )}
       </section>
 
       <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>История сделок</h3>
-        <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>{displayHistory.length} записей · реальный счёт OKX</p>
+        <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
+          {displayHistory.length} записей · {token ? 'закрытые сделки с сервера (OKX)' : 'локальная демо-история'}
+        </p>
         {displayHistory.length === 0 ? (
           <div className="py-10 px-4 rounded-xl text-center" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px dashed var(--border)' }}>
             <p className="text-sm font-medium">История пуста</p>

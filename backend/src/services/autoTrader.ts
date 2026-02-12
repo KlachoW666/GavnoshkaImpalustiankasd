@@ -486,7 +486,14 @@ async function fetchBalanceAndPositions(exchange: Exchange): Promise<{ balance: 
   return { balance, positions };
 }
 
-/** Позиции и баланс OKX: при передаче userCreds — ключи пользователя (как в админке), иначе ключи из .env. При таймауте — один повтор с новым прокси. */
+const OKX_TIMESTAMP_EXPIRED = /50102|Timestamp request expired/i;
+
+/** Сообщение для пользователя при ошибке времени OKX: ордера могут исполняться, баланс не показывается. */
+function formatTimestampExpiredMessage(raw: string): string {
+  return `${raw} Исполнение ордеров при этом может работать. Синхронизируйте время на сервере с интернетом (NTP).`;
+}
+
+/** Позиции и баланс OKX: при передаче userCreds — ключи пользователя (как в админке), иначе ключи из .env. При таймауте — один повтор с новым прокси. При 50102 — один повтор через 2 с и понятное сообщение. */
 export async function getPositionsAndBalanceForApi(
   useTestnet: boolean,
   userCreds?: UserOkxCreds | null
@@ -496,21 +503,36 @@ export async function getPositionsAndBalanceForApi(
     return { positions: [], balance: 0, openCount: 0 };
   }
   let exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
-  for (let attempt = 0; attempt < 2; attempt++) {
+  let lastError: string | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
+      if (attempt > 0) {
+        const isTimestampRetry = OKX_TIMESTAMP_EXPIRED.test(lastError || '');
+        if (isTimestampRetry) await new Promise((r) => setTimeout(r, 2000));
+        exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
+      }
       const { balance, positions } = await fetchBalanceAndPositions(exchange);
       return { positions, balance, openCount: positions.length };
     } catch (e) {
       const msg = (e as Error).message || String(e);
+      lastError = msg;
       const isTimeout = /timed out|timeout|ETIMEDOUT/i.test(msg);
-      if (isTimeout && attempt === 0) {
+      const isTimestampExpired = OKX_TIMESTAMP_EXPIRED.test(msg);
+      if (isTimeout && attempt < 1) {
         logger.warn('AutoTrader', 'getPositionsAndBalance timeout, retrying with new proxy', { useUserCreds: !!useUserCreds });
-        exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
+        continue;
+      }
+      if (isTimestampExpired && attempt < 2) {
+        logger.warn('AutoTrader', 'getPositionsAndBalance 50102 Timestamp expired, retrying after 2s', { useUserCreds: !!useUserCreds });
         continue;
       }
       logger.warn('AutoTrader', 'getPositionsAndBalance failed', { error: msg, useUserCreds: !!useUserCreds });
-      return { positions: [], balance: 0, openCount: 0, balanceError: msg };
+      const balanceError = isTimestampExpired ? formatTimestampExpiredMessage(msg) : msg;
+      return { positions: [], balance: 0, openCount: 0, balanceError };
     }
   }
-  return { positions: [], balance: 0, openCount: 0, balanceError: 'Request failed after retry' };
+  const balanceError = lastError && OKX_TIMESTAMP_EXPIRED.test(lastError)
+    ? formatTimestampExpiredMessage(lastError)
+    : (lastError || 'Request failed after retry');
+  return { positions: [], balance: 0, openCount: 0, balanceError };
 }
