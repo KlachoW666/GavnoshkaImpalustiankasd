@@ -68,7 +68,7 @@ export default function AdminPanel() {
       >
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="" className="h-8 w-auto object-contain opacity-90" />
+            <img src="/logo.svg" alt="" className="h-8 w-auto object-contain opacity-90" />
             <div>
               <h1 className="text-lg font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>CLABX Admin</h1>
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Панель управления</p>

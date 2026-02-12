@@ -70,7 +70,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
         style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}
       >
         <div className="flex items-center gap-3 mb-6">
-          <img src="/logo.png" alt="" className="h-10 w-auto object-contain opacity-90" />
+          <img src="/logo.svg" alt="" className="h-10 w-auto object-contain opacity-90" />
           <div>
             <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>CLABX Admin</h1>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Вход в панель управления</p>

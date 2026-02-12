@@ -160,7 +160,7 @@ function useSignalToasts() {
           if (cfg?.desktop && 'Notification' in window && Notification.permission === 'granted') {
             new Notification(`${s.symbol ?? '?'} ${s.direction ?? '?'}`, {
               body: `Вход: ${(s.entry_price ?? 0).toLocaleString('ru-RU')} • ${conf.toFixed(0)}%`,
-              icon: '/favicon.ico'
+              icon: '/logo.png'
             });
           }
         }
@@ -343,7 +343,7 @@ export default function App() {
           >
             <span className="text-xl">☰</span>
           </button>
-          <img src="/logo.png" alt="CLABX" className="h-7 w-auto object-contain shrink-0" />
+          <img src="/logo.svg" alt="CLABX" className="h-7 w-auto object-contain shrink-0" />
           <h1 className="text-base font-semibold tracking-tight truncate shrink-0">CLABX</h1>
           <span className="hidden xl:inline text-sm truncate" style={{ color: 'var(--text-muted)' }}>Crypto Trading</span>
         </div>
