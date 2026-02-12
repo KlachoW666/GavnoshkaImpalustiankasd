@@ -92,10 +92,8 @@ interface AutoTradingSettings {
   fullAuto: boolean;
   /** Полный автомат: брать топ монет из скринера (волатильность, объём, BB squeeze) вместо выбранных пар */
   useScanner: boolean;
-  /** Полный автомат: исполнение ордеров через OKX (нужен AUTO_TRADING_EXECUTION_ENABLED на сервере) */
+  /** Полный автомат: исполнение ордеров через OKX (нужен AUTO_TRADING_EXECUTION_ENABLED на сервере). Только реальный счёт. */
   executeOrders: boolean;
-  /** Демо режим: ордера на тестовом счёте OKX (вкл. = testnet, выкл. = только реальный счёт) */
-  useTestnet: boolean;
   /** Быстрый выход: множитель TP 0.5–1 (0.85 = уже TP, меньше время в позиции) */
   tpMultiplier: number;
 }
@@ -122,7 +120,6 @@ const DEFAULT_SETTINGS: AutoTradingSettings = {
   fullAuto: false,
   useScanner: true,
   executeOrders: false,
-  useTestnet: false,
   tpMultiplier: 0.85
 };
 
@@ -169,7 +166,6 @@ function loadSettings(): AutoTradingSettings {
       s.fullAuto = Boolean(s.fullAuto);
       s.useScanner = s.useScanner !== false;
       s.executeOrders = Boolean(s.executeOrders);
-      s.useTestnet = s.useTestnet === true;
       s.tpMultiplier = Math.max(0.5, Math.min(1, Number(s.tpMultiplier) || 0.85));
       if ((s.minConfidence ?? 80) > 90) s.minConfidence = 90;
       return s;
@@ -377,8 +373,8 @@ export default function AutoTradingPage() {
   const [lastSignal, setLastSignal] = useState<TradingSignal | null>(null);
   const [lastBreakdown, setLastBreakdown] = useState<BreakdownType | null>(null);
   const [status, setStatus] = useState<'idle' | 'running' | 'error' | 'stopped_daily_loss'>('idle');
-  const [okxData, setOkxData] = useState<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number }>; balance: number; openCount: number; useTestnet: boolean; balanceError?: string; executionAvailable?: boolean } | null>(null);
-  const [lastExecution, setLastExecution] = useState<{ lastError?: string; lastSkipReason?: string; lastOrderId?: string; useTestnet?: boolean; at?: number } | null>(null);
+  const [okxData, setOkxData] = useState<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number }>; balance: number; openCount: number; balanceError?: string; executionAvailable?: boolean } | null>(null);
+  const [lastExecution, setLastExecution] = useState<{ lastError?: string; lastSkipReason?: string; lastOrderId?: string; at?: number } | null>(null);
   const [cycleTimer, setCycleTimer] = useState<{ lastCycleAt: number; intervalMs: number } | null>(null);
   const [, setTick] = useState(0);
   const [serverHistory, setServerHistory] = useState<HistoryEntry[]>([]);
@@ -414,28 +410,14 @@ export default function AutoTradingPage() {
     saveTradingState(tradingState);
   }, [tradingState.balance, tradingState.initialBalance, tradingState.positions, tradingState.history]);
 
-  useEffect(() => {
-    api.get<{ defaultTestnet?: boolean }>('/trading/execution-config').then((data) => {
-      const hadSaved = !!localStorage.getItem(STORAGE_KEY);
-      if (!hadSaved && data.defaultTestnet === false) {
-        setSettings((prev) => {
-          const next = { ...prev, useTestnet: false };
-          saveSettings(next);
-          return next;
-        });
-      }
-    }).catch(() => {});
-  }, []);
-
-  const fetchServerHistory = (useTestnetForSync = false) => {
+  const fetchServerHistory = () => {
     if (!token) return;
-    const testnetParam = useTestnetForSync ? '&useTestnet=true' : '';
     api.get<Array<{
       id: string; pair: string; direction: string; size: number; leverage: number;
       openPrice: number; closePrice: number | null; stopLoss: number | null; takeProfit: number[] | null;
       pnl: number | null; pnlPercent: number | null; openTime: string; closeTime: string | null;
       status: string; autoOpened?: boolean; confidenceAtOpen?: number | null;
-    }>>(`/orders?status=closed&limit=100${testnetParam}`, { headers: { Authorization: `Bearer ${token}` } })
+    }>>(`/orders?status=closed&limit=100`, { headers: { Authorization: `Bearer ${token}` } })
       .then((orders) => {
         const list: HistoryEntry[] = (orders ?? []).map((r) => ({
           id: r.id,
@@ -464,11 +446,10 @@ export default function AutoTradingPage() {
       setServerHistory([]);
       return;
     }
-    const useTestnet = settings.useTestnet === true;
-    fetchServerHistory(useTestnet);
-    const id = setInterval(() => fetchServerHistory(useTestnet), 10000);
+    fetchServerHistory();
+    const id = setInterval(fetchServerHistory, 10000);
     return () => clearInterval(id);
-  }, [token, settings.useTestnet]);
+  }, [token]);
 
   const fetchOkxPositionsRef = useRef<() => void>(() => {});
   useEffect(() => {
@@ -476,19 +457,18 @@ export default function AutoTradingPage() {
       setOkxData(null);
       return;
     }
-    const useTestnet = settings.useTestnet === true;
     const fetchOkx = () => {
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
-      api.get<{ positions: any[]; balance: number; openCount: number; useTestnet: boolean; balanceError?: string; executionAvailable?: boolean }>(`/trading/positions?useTestnet=${useTestnet}`, { headers })
+      api.get<{ positions: any[]; balance: number; openCount: number; balanceError?: string; executionAvailable?: boolean }>(`/trading/positions?useTestnet=false`, { headers })
         .then((data) => setOkxData(data))
-        .catch(() => setOkxData({ positions: [], balance: 0, openCount: 0, useTestnet, balanceError: 'Не удалось загрузить баланс. Проверьте ключи OKX и сеть.' }));
+        .catch(() => setOkxData({ positions: [], balance: 0, openCount: 0, balanceError: 'Не удалось загрузить баланс. Проверьте ключи OKX и сеть.' }));
     };
     fetchOkxPositionsRef.current = fetchOkx;
     fetchOkx();
     const id = setInterval(fetchOkx, 15000);
     return () => clearInterval(id);
-  }, [enabled, settings.fullAuto, settings.executeOrders, settings.useTestnet === true, token]);
+  }, [enabled, settings.fullAuto, settings.executeOrders, token]);
 
   useEffect(() => {
     if (!enabled || !settings.fullAuto || !settings.executeOrders || !token) {
@@ -496,7 +476,7 @@ export default function AutoTradingPage() {
       return;
     }
     const fetchLast = () => {
-      api.get<{ lastError?: string; lastSkipReason?: string; lastOrderId?: string; useTestnet?: boolean; at?: number }>('/market/auto-analyze/last-execution', { headers: { Authorization: `Bearer ${token}` } })
+      api.get<{ lastError?: string; lastSkipReason?: string; lastOrderId?: string; at?: number }>('/market/auto-analyze/last-execution', { headers: { Authorization: `Bearer ${token}` } })
         .then((data) => setLastExecution(data?.lastError !== undefined || data?.lastSkipReason !== undefined || data?.lastOrderId !== undefined ? data : null))
         .catch(() => setLastExecution(null));
     };
@@ -521,7 +501,7 @@ export default function AutoTradingPage() {
           intervalMs: FULL_AUTO_DEFAULTS.intervalMs,
           useScanner: settings.useScanner !== false,
           executeOrders: settings.executeOrders === true,
-          useTestnet: settings.useTestnet === true,
+          useTestnet: false,
           maxPositions: FULL_AUTO_DEFAULTS.maxPositions,
           sizePercent: FULL_AUTO_DEFAULTS.sizePercent,
           leverage: FULL_AUTO_DEFAULTS.leverage,
@@ -547,7 +527,7 @@ export default function AutoTradingPage() {
       fetch(`${API}/market/auto-analyze/stop`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } }).catch(() => {});
       setStatus('idle');
     };
-  }, [enabled, symbols, settings.intervalMs, settings.scalpingMode, settings.strategy, settings.fullAuto, settings.useScanner, settings.executeOrders, settings.tpMultiplier, settings.useTestnet, token]);
+  }, [enabled, symbols, settings.intervalMs, settings.scalpingMode, settings.strategy, settings.fullAuto, settings.useScanner, settings.executeOrders, settings.tpMultiplier, token]);
 
   useEffect(() => {
     if (!enabled || status !== 'running' || !token) {
@@ -634,7 +614,7 @@ export default function AutoTradingPage() {
           if (!isTestSignal && now - lastOpen < cooldown * 1000) return;
 
           lastOpenTimeRef.current[sigNorm] = now;
-          // Ордера выставляет только бэкенд (реал или демо-режим). Локальные демо-позиции отключены.
+          // Ордера выставляет только бэкенд на реальном счёте OKX.
           return;
         }
       } catch {}
@@ -925,7 +905,7 @@ export default function AutoTradingPage() {
               <div>
                 <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Нужны API ключи OKX</h2>
                 <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                  Авто-торговля доступна после подключения к бирже в Настройках
+                  Авто-торговля доступна только на реальном счёте — подключите биржу в Настройках
                 </p>
               </div>
             </div>
@@ -967,20 +947,27 @@ export default function AutoTradingPage() {
   return (
     <div className="space-y-8 max-w-6xl mx-auto px-4 sm:px-6 pb-12">
       <RiskDisclaimer storageKey="trading" />
-      {/* Hero */}
+      {/* Hero — только реальный счёт */}
       <header className="rounded-2xl overflow-hidden" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
-        <div className="p-6 md:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)' }}>
-              📈
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Авто-торговля</h1>
-              <p className="text-sm mt-0.5 max-w-lg" style={{ color: 'var(--text-muted)' }}>
-                {settings.fullAuto
-                  ? 'Полный автомат: система выбирает лучший сигнал и исполняет на OKX (реал или демо)'
-                  : 'Анализ выбранных пар по сигналам. Настройте пары, плечо и порог уверенности ниже.'}
-              </p>
+        <div className="p-6 md:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)' }}>
+                📈
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Авто-торговля</h1>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold" style={{ background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid var(--accent)' }}>
+                    Только реальный счёт OKX
+                  </span>
+                </div>
+                <p className="text-sm mt-0.5 max-w-xl" style={{ color: 'var(--text-muted)' }}>
+                  {settings.fullAuto
+                    ? 'Полный автомат: система выбирает лучший сигнал и исполняет ордера на бирже по вашим API-ключам.'
+                    : 'Анализ выбранных пар по сигналам. Настройте пары, плечо и порог уверенности ниже.'}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -988,8 +975,8 @@ export default function AutoTradingPage() {
 
       {/* Управление: Запуск и статус */}
       <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
-        <h2 className="text-lg font-bold mb-0.5" style={{ color: 'var(--text-primary)' }}>Запуск</h2>
-        <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Включите авто-торговлю — анализ пойдёт по выбранному интервалу</p>
+        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Запуск</h2>
+        <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Включите авто-торговлю — анализ и исполнение идут только на реальном счёте OKX</p>
         <div className="flex flex-wrap items-center gap-4 sm:gap-6">
           <button
             type="button"
@@ -1039,7 +1026,7 @@ export default function AutoTradingPage() {
           <div className="mt-4 pt-4 border-t text-sm" style={{ borderColor: 'var(--border)' }}>
             {lastExecution.lastOrderId ? (
               <p className="font-medium" style={{ color: 'var(--success)' }}>
-                Последнее исполнение: ордер #{lastExecution.lastOrderId} {lastExecution.useTestnet === true ? '(демо)' : '(реальный счёт)'}
+                Последнее исполнение: ордер #{lastExecution.lastOrderId} (реальный счёт OKX)
               </p>
             ) : lastExecution.lastError ? (
               <p className="font-medium" style={{ color: 'var(--danger)' }} title={lastExecution.lastError}>
@@ -1051,7 +1038,7 @@ export default function AutoTradingPage() {
               </p>
             ) : null}
             <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-              При нехватке баланса исполнение пропустится, анализ продолжается — откроемся, когда хватит средств (или включите Демо режим).
+              При нехватке баланса исполнение пропустится, анализ продолжается — откроемся, когда хватит средств.
             </p>
           </div>
         )}
@@ -1060,8 +1047,8 @@ export default function AutoTradingPage() {
 
       {/* Режим и настройки */}
       <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
-        <h2 className="text-lg font-bold mb-0.5" style={{ color: 'var(--text-primary)' }}>Режим и настройки</h2>
-        <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Полный автомат (скринер + OKX) или ручной режим: пары, плечо, порог уверенности</p>
+        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Режим и настройки</h2>
+        <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Полный автомат (скринер + исполнение на OKX) или ручной режим: пары, плечо, порог уверенности. Торговля только на реальном счёте.</p>
         <div className="flex flex-wrap items-center gap-4 sm:gap-6 mb-6">
           <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition hover:border-[var(--accent)]/50 shrink-0" style={{ borderColor: settings.fullAuto ? 'var(--accent)' : 'var(--border)', background: settings.fullAuto ? 'var(--accent-dim)' : 'var(--bg-hover)' }}>
             <input
@@ -1103,25 +1090,12 @@ export default function AutoTradingPage() {
                   onChange={(e) => updateSetting('executeOrders', e.target.checked)}
                   className="rounded w-5 h-5 accent-[var(--accent)]"
                 />
-                <span className="font-medium">Исполнение через OKX (реальные ордера)</span>
+                <span className="font-medium">Исполнение через OKX (только реальный счёт)</span>
               </label>
               {settings.executeOrders && (
-                <div className="shrink-0">
-                  <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
-                    <input
-                      type="checkbox"
-                      checked={settings.useTestnet === true}
-                      onChange={(e) => updateSetting('useTestnet', e.target.checked)}
-                      className="rounded w-5 h-5 accent-[var(--accent)]"
-                    />
-                    <span className="font-medium">Демо режим (ордера на тестовом счёте OKX)</span>
-                  </label>
-                  <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
-                    {settings.useTestnet === true
-                      ? 'Ордера выставляются по вашим API ключам из профиля на тестовом счёте OKX (Testnet) — реальные сделки в демо-среде.'
-                      : 'Ордера на реальном счёте OKX по ключам из профиля. Пополните торговый счёт USDT на okx.com.'}
-                  </p>
-                </div>
+                <p className="text-xs mt-1.5 max-w-md" style={{ color: 'var(--text-muted)' }}>
+                  Ордера выставляются на реальном счёте OKX по ключам из профиля. Пополните торговый счёт USDT на okx.com.
+                </p>
               )}
               {settings.fullAuto && settings.executeOrders && (
                 <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
@@ -1286,7 +1260,7 @@ export default function AutoTradingPage() {
             <p className={sectionTitleClass} style={sectionTitleStyle}>Позиции и баланс OKX</p>
             <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
               <p className="text-sm font-medium">
-                Позиции OKX {okxData?.useTestnet ? '(Демо)' : '(Реальный счёт)'}
+                Позиции OKX (реальный счёт)
               </p>
               <button
                 type="button"
@@ -1316,9 +1290,7 @@ export default function AutoTradingPage() {
                 )}
                 {!okxData.balanceError && (okxData.balance ?? 0) === 0 && (
                   <p className="text-xs mb-2" style={{ color: 'var(--warning)' }}>
-                    {okxData.useTestnet
-                      ? 'Для исполнения в Демо режиме пополните тестовый счёт на okx.com (Testnet).'
-                      : 'Для исполнения ордеров пополните реальный счёт OKX: Finance → Transfer → USDT на Trading Account.'}
+                    Для исполнения ордеров пополните реальный счёт OKX: Finance → Transfer → USDT на Trading Account.
                   </p>
                 )}
                 {okxData.positions && okxData.positions.length > 0 && (
@@ -1497,12 +1469,12 @@ export default function AutoTradingPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
-          <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Баланс и статистика</h3>
-          <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>P&L, win rate и метрики по сделкам</p>
+          <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Баланс и статистика</h3>
+          <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>P&L, win rate и метрики по сделкам (реальный счёт)</p>
           <div className="grid grid-cols-2 gap-3">
             {settings.fullAuto && settings.executeOrders && okxData && !okxData.balanceError && (
               <div className="p-4 rounded-xl" style={{ background: 'var(--accent-dim)', borderLeft: '3px solid var(--accent)' }}>
-                <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Баланс OKX {okxData.useTestnet ? '(Демо)' : '(Реальный счёт)'}</p>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Баланс OKX (реальный счёт)</p>
                 <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>${(okxData.balance ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</p>
               </div>
             )}
@@ -1512,23 +1484,23 @@ export default function AutoTradingPage() {
                 {totalPnl >= 0 ? '+' : ''}${totalPnl.toLocaleString('ru-RU', { minimumFractionDigits: 2 })} <span className="text-base">({totalPnlPercent >= 0 ? '+' : ''}{totalPnlPercent.toFixed(2)}%)</span>
               </p>
             </div>
-            <div className="p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <div className="p-3 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
               <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Сделок / Win Rate</p>
-              <p className="font-semibold">{totalTrades} / {winRate.toFixed(0)}%</p>
+              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{totalTrades} / {winRate.toFixed(0)}%</p>
             </div>
-            <div className="p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <div className="p-3 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
               <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Profit Factor</p>
-              <p className="font-semibold">{profitFactor.toFixed(2)}</p>
+              <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{profitFactor.toFixed(2)}</p>
             </div>
-            <div className="p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <div className="p-3 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
               <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Средний доход</p>
               <p className="font-semibold text-[var(--success)]">+${avgWin.toFixed(2)}</p>
             </div>
-            <div className="p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <div className="p-3 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
               <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Средний убыток</p>
               <p className="font-semibold text-[var(--danger)]">-${avgLoss.toFixed(2)}</p>
             </div>
-            <div className="col-span-2 p-3 rounded-lg flex justify-between items-center" style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <div className="col-span-2 p-3 rounded-xl flex justify-between items-center" style={{ background: 'var(--bg-hover)' }}>
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Лучшая / Худшая</span>
               <span className="text-sm font-medium"><span className="text-[var(--success)]">+${bestTrade.toFixed(2)}</span> / <span className="text-[var(--danger)]">${worstTrade.toFixed(2)}</span></span>
             </div>
@@ -1536,7 +1508,7 @@ export default function AutoTradingPage() {
         </section>
 
         <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
-          <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Последний сигнал</h3>
+          <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Последний сигнал</h3>
           <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>Последний пришедший сигнал по выбранным парам или из скринера</p>
           {lastSignal ? (
             <div className="space-y-4">
@@ -1588,18 +1560,21 @@ export default function AutoTradingPage() {
       <TradingAnalytics history={history} minConfidence={settings.minConfidence} hideSuggestions={settings.fullAuto} />
 
       <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
-        <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Открытые позиции</h3>
+        <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Открытые позиции</h3>
         <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
-          {settings.fullAuto && settings.executeOrders ? `OKX ${okxData?.useTestnet ? '(Демо)' : '(Реальный счёт)'} · ${okxData?.positions?.length ?? 0} позиций` : 'При полном автомате с исполнением — позиции с OKX'}
+          {settings.fullAuto && settings.executeOrders ? `OKX (реальный счёт) · ${okxData?.positions?.length ?? 0} позиций` : 'При полном автомате с исполнением — позиции с OKX'}
         </p>
         {(!okxData?.positions?.length || !settings.fullAuto || !settings.executeOrders) ? (
-          <p className="text-sm py-6 rounded-xl text-center" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>Нет открытых позиций</p>
+          <div className="py-10 px-4 rounded-xl text-center" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px dashed var(--border)' }}>
+            <p className="text-sm font-medium">Нет открытых позиций</p>
+            <p className="text-xs mt-1">Позиции по реальному счёту OKX появятся здесь после исполнения ордеров</p>
+          </div>
         ) : (
           <div className="space-y-4">
             {okxData && (okxData.positions?.length ?? 0) > 0 && settings.fullAuto && settings.executeOrders && (
               <>
                 <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
-                  OKX {okxData.useTestnet ? '(Демо)' : '(Реальный счёт)'} — ордера бота
+                  OKX (реальный счёт) — ордера бота
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {(okxData.positions ?? []).map((p: any, i: number) => {
@@ -1615,7 +1590,7 @@ export default function AutoTradingPage() {
                         <div className="flex items-center justify-between">
                           <span className="font-bold">{(symNorm || p.symbol) || '—'} {p.side === 'long' ? 'LONG' : 'SHORT'}</span>
                           <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'var(--accent)', color: 'white' }}>
-                            OKX {okxData.useTestnet ? 'Демо' : 'Реал'}
+                            OKX Реал
                           </span>
                         </div>
                         <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Количество: </span>{amountStr}</p>
@@ -1646,10 +1621,13 @@ export default function AutoTradingPage() {
       </section>
 
       <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
-        <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>История сделок</h3>
-        <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>{displayHistory.length} записей · при авторизации — с сервера (OKX)</p>
+        <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>История сделок</h3>
+        <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>{displayHistory.length} записей · реальный счёт OKX</p>
         {displayHistory.length === 0 ? (
-          <p className="text-sm py-6 rounded-xl text-center" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>История пуста</p>
+          <div className="py-10 px-4 rounded-xl text-center" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px dashed var(--border)' }}>
+            <p className="text-sm font-medium">История пуста</p>
+            <p className="text-xs mt-1">Закрытые сделки по реальному счёту OKX появятся здесь</p>
+          </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
             <table className="w-full text-sm">
