@@ -83,8 +83,8 @@ export default function AdminPanel() {
             Выйти
           </button>
         </div>
-        {/* Tabs — scrollable on small screens */}
-        <div className="max-w-7xl mx-auto mt-4 -mb-px overflow-x-auto scrollbar-thin flex gap-1 pb-px" style={{ scrollbarWidth: 'thin' }}>
+        {/* Tabs — scrollable on small screens, scrollbar hidden */}
+        <div className="hide-scrollbar max-w-7xl mx-auto mt-4 -mb-px overflow-x-auto flex gap-1 pb-px">
           {TABS.map((t) => (
             <button
               key={t.id}
