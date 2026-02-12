@@ -327,88 +327,77 @@ export default function AuthPage() {
             Регистрация
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Логин</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Логин"
-              className="input-field w-full"
-              autoComplete="username"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Пароль</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Пароль"
-              className="input-field w-full"
-              autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
-            />
-            {tab === 'login' && (
+        {tab === 'login' ? (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Логин</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Логин"
+                className="input-field w-full"
+                autoComplete="username"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Пароль</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Пароль"
+                className="input-field w-full"
+                autoComplete="current-password"
+              />
               <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
                 <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" className="underline hover:no-underline" style={{ color: 'var(--accent)' }}>
                   Забыли пароль?
                 </a>{' '}
                 Восстановление через Telegram-бот @clabx_bot.
               </p>
+            </div>
+            {error && (
+              <p className="text-sm" style={{ color: 'var(--danger)' }}>{error}</p>
             )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 rounded-lg font-medium text-white disabled:opacity-50"
+              style={{ background: 'var(--accent)' }}
+            >
+              {loading ? '…' : 'Войти'}
+            </button>
+          </form>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-xl p-5 border" style={{ background: 'var(--bg-hover)', borderColor: 'var(--border)' }}>
+              <p className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                Регистрация только через Telegram-бота
+              </p>
+              <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+                Чтобы создать аккаунт на clabx.ru, откройте бота @clabx_bot в Telegram. В боте нажмите «Зарегистрироваться на сайте», введите желаемый логин — бот пришлёт ссылку. По ссылке задайте пароль и примите правила. Аккаунт будет привязан к вашему Telegram (синхронизация с покупкой ключей).
+              </p>
+              <a
+                href="https://t.me/clabx_bot"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-2 w-full py-3 rounded-lg font-medium text-white"
+                style={{ background: 'var(--accent)' }}
+              >
+                Перейти в бот @clabx_bot
+              </a>
+            </div>
+            <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
+              Восстановление пароля — тоже через бота @clabx_bot.
+            </p>
           </div>
-          {tab === 'register' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Повторите пароль</label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Повторите пароль"
-                  className="input-field w-full"
-                  autoComplete="new-password"
-                />
-              </div>
-              <div className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  id="terms"
-                  checked={agreedToTerms}
-                  onChange={(e) => setAgreedToTerms(e.target.checked)}
-                  className="rounded mt-1 accent-[var(--accent)]"
-                />
-                <label htmlFor="terms" className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                  Я ознакомлен(а) с{' '}
-                  <button
-                    type="button"
-                    onClick={() => setShowTerms(true)}
-                    className="underline hover:no-underline"
-                    style={{ color: 'var(--accent)' }}
-                  >
-                    правилами использования и политикой конфиденциальности
-                  </button>
-                  , соглашаюсь с условиями и принимаю отсутствие ответственности сервиса за мои средства и решения.
-                </label>
-              </div>
-            </>
-          )}
-          {error && (
-            <p className="text-sm" style={{ color: 'var(--danger)' }}>{error}</p>
-          )}
-          <button
-            type="submit"
-            disabled={loading || (tab === 'register' && !agreedToTerms)}
-            className="w-full py-2.5 rounded-lg font-medium text-white disabled:opacity-50"
-            style={{ background: 'var(--accent)' }}
-          >
-            {loading ? '…' : tab === 'login' ? 'Войти' : 'Зарегистрироваться'}
-          </button>
-        </form>
-        <p className="text-xs mt-4 text-center" style={{ color: 'var(--text-muted)' }}>
-          Регистрация и восстановление пароля — через бота <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>@clabx_bot</a> (синхронизация с ключами).
-        </p>
+        )}
+        {tab === 'login' && (
+          <p className="text-xs mt-4 text-center" style={{ color: 'var(--text-muted)' }}>
+            Данные для входа сохраняются (логин).
+          </p>
+        )}
       </div>
 
       {showTerms && (
