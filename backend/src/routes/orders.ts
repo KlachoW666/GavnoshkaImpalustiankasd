@@ -89,7 +89,8 @@ router.get('/', optionalAuth, async (req: Request, res: Response) => {
     const userId = (req as any).userId as string | undefined;
     let clientId = req.query.clientId as string | undefined;
     if (!clientId && userId) clientId = userId;
-    const useTestnet = req.query.useTestnet !== 'false';
+    /** Демо режим только при явном useTestnet=true */
+    const useTestnet = req.query.useTestnet === 'true';
     if (userId && clientId) {
       try {
         const userCreds = getOkxCredentials(userId);

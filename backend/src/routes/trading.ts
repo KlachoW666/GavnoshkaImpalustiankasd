@@ -103,7 +103,8 @@ router.get('/notifications', (_req: Request, res: Response) => {
  */
 router.get('/positions', async (req: Request, res: Response) => {
   try {
-    const useTestnet = req.query.useTestnet !== 'false';
+    /** Демо режим только при явном useTestnet=true; иначе — реальный счёт */
+    const useTestnet = req.query.useTestnet === 'true';
     const token = getBearerToken(req);
     let userId: string | null = null;
     let userCreds: { apiKey: string; secret: string; passphrase?: string } | null = null;

@@ -713,7 +713,8 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   const fullAuto = Boolean(body?.fullAuto);
   const useScanner = Boolean(body?.useScanner);
   const executeOrders = Boolean(body?.executeOrders);
-  const useTestnet = typeof body?.useTestnet === 'boolean' ? body.useTestnet : true;
+  /** По умолчанию авто только на реальном счёте; демо — только при явном useTestnet: true (Демо режим) */
+  const useTestnet = body?.useTestnet === true;
   const maxPositions = Math.max(1, Math.min(10, parseInt(String(body?.maxPositions)) || 2));
   const sizePercent = Math.max(1, Math.min(50, parseInt(String(body?.sizePercent)) || 25));
   const leverage = Math.max(1, Math.min(125, parseInt(String(body?.leverage)) || 25));
