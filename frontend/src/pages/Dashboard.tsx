@@ -5,6 +5,17 @@ import { useAuth } from '../contexts/AuthContext';
 import { formatNum4, formatNum4Signed } from '../utils/formatNum';
 import { SkeletonCard } from '../components/Skeleton';
 
+export interface DisplayStats {
+  volumeEarned: number;
+  ordersTotal: number;
+  ordersWins: number;
+  ordersLosses: number;
+  ordersWinRate: number;
+  usersCount: number;
+  onlineUsersCount: number;
+  signalsCount: number;
+}
+
 export interface AppStats {
   orders: {
     total: number;
@@ -21,6 +32,8 @@ export interface AppStats {
   status: 'ok' | 'degraded';
   databaseMode: 'sqlite' | 'memory';
   okxConnected: boolean;
+  displayEnabled?: boolean;
+  display?: DisplayStats;
 }
 
 export default function Dashboard() {
@@ -28,6 +41,22 @@ export default function Dashboard() {
   const [stats, setStats] = useState<AppStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const { token, user } = useAuth();
+
+  // Отображаемая статистика: с сервера (демо-слой растёт автоматически от даты запуска) или реальная
+  const display = stats?.displayEnabled && stats?.display
+    ? { ...stats.display, signalsCount: stats.display.signalsCount + signals.length }
+    : stats
+      ? {
+          volumeEarned: stats.volumeEarned,
+          ordersTotal: stats.orders.total,
+          ordersWins: stats.orders.wins,
+          ordersLosses: stats.orders.losses,
+          ordersWinRate: stats.orders.winRate,
+          usersCount: stats.usersCount,
+          onlineUsersCount: stats.onlineUsersCount,
+          signalsCount: signals.length
+        }
+      : null;
 
   useEffect(() => {
     const fetchStats = () => {
@@ -142,13 +171,13 @@ export default function Dashboard() {
               Сводка по платформе, ваша статистика и быстрые шаги для старта
             </p>
           </div>
-          {!statsLoading && stats && (
+          {!statsLoading && stats != null && display && (
             <div className="shrink-0 rounded-xl px-6 py-4 text-center md:text-right" style={{ background: 'var(--bg-hover)' }}>
               <p className="text-xs font-medium uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>
                 Объём заработанных (все пользователи)
               </p>
-              <p className={`text-2xl md:text-3xl font-bold tabular-nums ${(stats.volumeEarned ?? 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                {formatNum4Signed(stats.volumeEarned ?? 0)} $
+              <p className={`text-2xl md:text-3xl font-bold tabular-nums ${display.volumeEarned >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                {formatNum4Signed(display.volumeEarned)} $
               </p>
             </div>
           )}
@@ -167,29 +196,29 @@ export default function Dashboard() {
           <>
             <div className="rounded-xl p-4 md:p-5 transition-colors hover:bg-[var(--bg-hover)]" style={cardBase}>
               <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Ордера</p>
-              <p className="text-xl md:text-2xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{stats?.orders.total ?? '—'}</p>
-              {stats && (
+              <p className="text-xl md:text-2xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{display ? display.ordersTotal : '—'}</p>
+              {display && (
                 <p className="text-xs mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5">
-                  <span style={{ color: 'var(--success)' }}>+{stats.orders.wins}</span>
+                  <span style={{ color: 'var(--success)' }}>+{display.ordersWins}</span>
                   <span style={{ color: 'var(--text-muted)' }}>/</span>
-                  <span style={{ color: 'var(--danger)' }}>-{stats.orders.losses}</span>
-                  <span style={{ color: 'var(--text-muted)' }}>· Win rate {formatNum4(stats.orders.winRate)}%</span>
+                  <span style={{ color: 'var(--danger)' }}>-{display.ordersLosses}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>· Win rate {formatNum4(display.ordersWinRate)}%</span>
                 </p>
               )}
             </div>
             <div className="rounded-xl p-4 md:p-5 transition-colors hover:bg-[var(--bg-hover)]" style={cardBase}>
               <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Пользователи</p>
-              <p className="text-xl md:text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{stats?.usersCount ?? '—'}</p>
-              {stats != null && stats.onlineUsersCount != null && (
+              <p className="text-xl md:text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{display ? display.usersCount : '—'}</p>
+              {display && (
                 <p className="text-xs mt-1.5 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)] animate-pulse" />
-                  <span style={{ color: 'var(--success)' }}>онлайн {stats.onlineUsersCount}</span>
+                  <span style={{ color: 'var(--success)' }}>онлайн {display.onlineUsersCount}</span>
                 </p>
               )}
             </div>
             <div className="rounded-xl p-4 md:p-5 transition-colors hover:bg-[var(--bg-hover)]" style={cardBase}>
               <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Сигналов за сессию</p>
-              <p className="text-xl md:text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{signals.length}</p>
+              <p className="text-xl md:text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{display ? display.signalsCount : signals.length}</p>
               <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>вкладка «Сигналы»</p>
             </div>
             <div className="rounded-xl p-4 md:p-5 transition-colors hover:bg-[var(--bg-hover)]" style={cardBase}>

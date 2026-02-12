@@ -1,7 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { api } from '../utils/api';
+import { formatNum4, formatNum4Signed } from '../utils/formatNum';
 
 const USERNAME_KEY = 'clabx-username';
+
+interface DisplayStats {
+  volumeEarned: number;
+  ordersTotal: number;
+  ordersWins: number;
+  ordersLosses: number;
+  ordersWinRate: number;
+  usersCount: number;
+  onlineUsersCount: number;
+  signalsCount: number;
+}
 
 type Tab = 'login' | 'register';
 type AuthMode = 'default' | 'register-telegram' | 'reset-password';
@@ -53,6 +66,16 @@ export default function AuthPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [displayStats, setDisplayStats] = useState<DisplayStats | null>(null);
+
+  // Демо-статистика с сервера (растёт автоматически от даты запуска, не зависит от визитов)
+  useEffect(() => {
+    api.get<{ displayEnabled?: boolean; display?: DisplayStats }>('/stats')
+      .then((data) => {
+        if (data.displayEnabled && data.display) setDisplayStats(data.display);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (urlMode.mode === 'default') {
@@ -327,6 +350,30 @@ export default function AuthPage() {
             Регистрация
           </button>
         </div>
+        {/* Статистика платформы для новых пользователей (с сервера, растёт автоматически) */}
+        {displayStats && (
+          <div className="mb-6 rounded-xl p-4 border" style={{ background: 'var(--bg-hover)', borderColor: 'var(--border)' }}>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Платформа в цифрах</p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Заработано (все)</p>
+                <p className="font-bold tabular-nums" style={{ color: 'var(--success)' }}>{formatNum4Signed(displayStats.volumeEarned)} $</p>
+              </div>
+              <div>
+                <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Ордеров</p>
+                <p className="font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{displayStats.ordersTotal}</p>
+              </div>
+              <div>
+                <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Win rate</p>
+                <p className="font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{formatNum4(displayStats.ordersWinRate)}%</p>
+              </div>
+              <div>
+                <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Пользователей</p>
+                <p className="font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{displayStats.usersCount} <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>· онлайн {displayStats.onlineUsersCount}</span></p>
+              </div>
+            </div>
+          </div>
+        )}
         {tab === 'login' ? (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

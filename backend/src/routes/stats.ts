@@ -1,12 +1,14 @@
 /**
  * Публичная статистика для главной страницы приложения.
  * Ордера (плюс/минус), пользователи, объём заработанных денег, статус.
+ * При включённой демо-статистике возвращает display — значения растут автоматически от даты запуска (сервер).
  */
 
 import { Router, Request, Response } from 'express';
 import { initDb, listOrders, isMemoryStore } from '../db';
 import { getActiveSessionsCount, getTotalUsersCount } from '../db/authDb';
 import { config } from '../config';
+import { getStatsDisplayConfig, computeDisplayStats, DisplayStats } from '../services/statsDisplayService';
 
 const router = Router();
 
@@ -26,6 +28,10 @@ export interface StatsResponse {
   status: 'ok' | 'degraded';
   databaseMode: 'sqlite' | 'memory';
   okxConnected: boolean;
+  /** Включена ли демо-статистика (рост от даты запуска на сервере) */
+  displayEnabled?: boolean;
+  /** Значения для отображения (если displayEnabled) — объём, ордера, пользователи, сигналы */
+  display?: DisplayStats;
 }
 
 /** GET /api/stats — агрегированная статистика для главной страницы */
@@ -44,22 +50,37 @@ router.get('/', (_req: Request, res: Response) => {
     const usersCount = getTotalUsersCount();
     const onlineUsersCount = getActiveSessionsCount();
 
-    res.json({
-      orders: {
-        total: closed.length + open.length,
-        wins: wins.length,
-        losses: losses.length,
-        totalPnl: Math.round(totalPnl * 100) / 100,
-        totalPnlPercent: totalTrades > 0 ? withPnl.reduce((s, o) => s + (o.pnl_percent ?? 0), 0) / totalTrades : 0,
-        winRate: Math.round(winRate * 10) / 10,
-        openCount: open.length
-      },
+    const orders = {
+      total: closed.length + open.length,
+      wins: wins.length,
+      losses: losses.length,
+      totalPnl: Math.round(totalPnl * 100) / 100,
+      totalPnlPercent: totalTrades > 0 ? withPnl.reduce((s, o) => s + (o.pnl_percent ?? 0), 0) / totalTrades : 0,
+      winRate: Math.round(winRate * 10) / 10,
+      openCount: open.length
+    };
+
+    const volumeEarned = Math.round(totalPnl * 100) / 100;
+    const realStats = {
+      orders,
       usersCount,
       onlineUsersCount,
-      volumeEarned: Math.round(totalPnl * 100) / 100,
+      volumeEarned
+    };
+
+    const displayConfig = getStatsDisplayConfig();
+    const displayEnabled = displayConfig.enabled;
+    const display = displayEnabled
+      ? computeDisplayStats(realStats, 0, displayConfig)
+      : undefined;
+
+    res.json({
+      ...realStats,
       status: 'ok',
       databaseMode: isMemoryStore() ? 'memory' : 'sqlite',
-      okxConnected: config.okx.hasCredentials
+      okxConnected: config.okx.hasCredentials,
+      displayEnabled: displayEnabled || undefined,
+      display
     } as StatsResponse);
   } catch (e) {
     res.status(500).json({

@@ -17,6 +17,7 @@ let useMemoryStore = false;
 let initAttempted = false;
 
 const memoryOrders: MemoryOrderRow[] = [];
+const memorySettings: Record<string, string> = {};
 
 interface MemoryOrderRow {
   id: string;
@@ -219,6 +220,36 @@ export function getDb(): any {
   if (!initAttempted) initDb();
   return useMemoryStore ? null : db;
 }
+
+const SETTINGS_KEY_STATS_DISPLAY = 'stats_display_config';
+
+export function getSetting(key: string): string | null {
+  if (!initAttempted) initDb();
+  if (useMemoryStore) return memorySettings[key] ?? null;
+  const d = getDb();
+  if (!d) return null;
+  try {
+    const row = d.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;
+    return row?.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function setSetting(key: string, value: string): void {
+  if (!initAttempted) initDb();
+  if (useMemoryStore) {
+    memorySettings[key] = value;
+    return;
+  }
+  const d = getDb();
+  if (!d) return;
+  try {
+    d.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, datetime(\'now\'))').run(key, value);
+  } catch {}
+}
+
+export { SETTINGS_KEY_STATS_DISPLAY };
 
 /** Режим in-memory (нет SQLite) — для отображения в админке. */
 export function isMemoryStore(): boolean {

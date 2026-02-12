@@ -42,6 +42,7 @@ import { getSignals } from './signals';
 import { logger, getRecentLogs } from '../lib/logger';
 import { listProxiesForAdmin, addProxy, deleteProxy, getProxy } from '../db/proxies';
 import { getMaintenanceMode, setMaintenanceMode } from '../lib/maintenanceMode';
+import { getStatsDisplayConfig, setStatsDisplayConfig, StatsDisplayConfig } from '../services/statsDisplayService';
 
 const router = Router();
 
@@ -884,6 +885,38 @@ router.post('/maintenance', requireAdmin, (req: Request, res: Response) => {
     setMaintenanceMode(enabled);
     logger.info('Admin', `Maintenance mode ${enabled ? 'enabled' : 'disabled'}`);
     res.json({ enabled: getMaintenanceMode() });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** GET /api/admin/stats-display-config — настройки демо-статистики (рост от даты запуска) */
+router.get('/stats-display-config', requireAdmin, (_req: Request, res: Response) => {
+  try {
+    res.json(getStatsDisplayConfig());
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** PUT /api/admin/stats-display-config — сохранить настройки демо-статистики */
+router.put('/stats-display-config', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const body = req.body as Partial<StatsDisplayConfig>;
+    const patch: Partial<StatsDisplayConfig> = {};
+    if (typeof body.enabled === 'boolean') patch.enabled = body.enabled;
+    if (body.launchDate != null) patch.launchDate = body.launchDate;
+    if (typeof body.volumePerDay === 'number') patch.volumePerDay = body.volumePerDay;
+    if (typeof body.ordersPerDay === 'number') patch.ordersPerDay = body.ordersPerDay;
+    if (typeof body.winRateShare === 'number') patch.winRateShare = body.winRateShare;
+    if (typeof body.usersPerDay === 'number') patch.usersPerDay = body.usersPerDay;
+    if (typeof body.onlineAddMax === 'number') patch.onlineAddMax = body.onlineAddMax;
+    if (typeof body.signalsPerDay === 'number') patch.signalsPerDay = body.signalsPerDay;
+    const next = setStatsDisplayConfig(patch);
+    logger.info('Admin', 'Stats display config updated');
+    res.json(next);
   } catch (e) {
     logger.error('Admin', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });

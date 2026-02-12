@@ -10,8 +10,9 @@ import AdminActivationKeys from './AdminActivationKeys';
 import AdminSubscriptionPlans from './AdminSubscriptionPlans';
 import AdminProxies from './AdminProxies';
 import AdminTrading from './AdminTrading';
+import AdminStatsDisplay from './AdminStatsDisplay';
 
-type AdminTab = 'dashboard' | 'trading' | 'analytics' | 'logs' | 'users' | 'groups' | 'keys' | 'plans' | 'proxies';
+type AdminTab = 'dashboard' | 'trading' | 'analytics' | 'logs' | 'users' | 'groups' | 'keys' | 'plans' | 'proxies' | 'stats';
 
 const TABS: { id: AdminTab; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: '📋' },
@@ -22,7 +23,8 @@ const TABS: { id: AdminTab; label: string; icon: string }[] = [
   { id: 'groups', label: 'Группы', icon: '🔐' },
   { id: 'keys', label: 'Ключи', icon: '🔑' },
   { id: 'plans', label: 'Тарифы', icon: '📦' },
-  { id: 'proxies', label: 'Прокси', icon: '🌐' }
+  { id: 'proxies', label: 'Прокси', icon: '🌐' },
+  { id: 'stats', label: 'Демо-статистика', icon: '📊' }
 ];
 
 export default function AdminPanel() {
@@ -113,6 +115,7 @@ export default function AdminPanel() {
         {tab === 'keys' && <AdminActivationKeys />}
         {tab === 'plans' && <AdminSubscriptionPlans />}
         {tab === 'proxies' && <AdminProxies />}
+        {tab === 'stats' && <AdminStatsDisplay />}
       </main>
     </div>
   );
