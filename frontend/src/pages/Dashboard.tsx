@@ -127,131 +127,167 @@ export default function Dashboard() {
     );
   }
 
+  const cardBase = { background: 'var(--bg-card-solid)', border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' };
+
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Статистика приложения — ордера, пользователи, объём, статус */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="space-y-8 max-w-6xl mx-auto">
+      {/* Hero + главный показатель */}
+      <header className="rounded-2xl overflow-hidden" style={{ ...cardBase, borderLeft: '4px solid var(--accent)' }}>
+        <div className="p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight mb-1" style={{ color: 'var(--text-primary)' }}>
+              Главная
+            </h1>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              Сводка по платформе, ваша статистика и быстрые шаги для старта
+            </p>
+          </div>
+          {!statsLoading && stats && (
+            <div className="shrink-0 rounded-xl px-6 py-4 text-center md:text-right" style={{ background: 'var(--bg-hover)' }}>
+              <p className="text-xs font-medium uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>
+                Объём заработанных (все пользователи)
+              </p>
+              <p className={`text-2xl md:text-3xl font-bold tabular-nums ${(stats.volumeEarned ?? 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                {formatNum4Signed(stats.volumeEarned ?? 0)} $
+              </p>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* Ключевые метрики — компактная сетка */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {statsLoading ? (
-          <>
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="card p-5 md:p-6">
-                <SkeletonCard lines={2} />
-              </div>
-            ))}
-          </>
+          [1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-xl p-4 md:p-5" style={cardBase}>
+              <SkeletonCard lines={2} />
+            </div>
+          ))
         ) : (
           <>
-        <div className="card p-5 md:p-6">
-          <p className="text-sm mb-1 tracking-wide" style={{ color: 'var(--text-muted)' }}>Ордера (всего)</p>
-          <p className="text-2xl md:text-3xl font-bold tracking-tight">
-            {stats?.orders.total ?? '—'}
-          </p>
-          {stats && (
-            <p className="text-sm mt-2 flex items-center gap-2">
-              <span style={{ color: 'var(--success)' }}>{formatNum4Signed(stats.orders.wins)}</span>
-              <span style={{ color: 'var(--text-muted)' }}> / </span>
-              <span style={{ color: 'var(--danger)' }}>-{formatNum4(stats.orders.losses)}</span>
-              <span style={{ color: 'var(--text-muted)' }}> • Win rate {formatNum4(stats.orders.winRate)}%</span>
-            </p>
-          )}
-        </div>
-        <div className="card p-5 md:p-6">
-          <p className="text-sm mb-1 tracking-wide" style={{ color: 'var(--text-muted)' }}>Всего зарегистрировано</p>
-          <p className="text-2xl md:text-3xl font-bold tracking-tight" style={{ color: 'var(--accent)' }}>
-            {stats?.usersCount ?? '—'}
-          </p>
-          {stats && stats.onlineUsersCount != null && (
-            <p className="text-sm mt-2 flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)] animate-pulse" />
-              <span style={{ color: 'var(--success)' }}>Онлайн: {stats.onlineUsersCount}</span>
-            </p>
-          )}
-        </div>
-        <div className="card p-5 md:p-6">
-          <p className="text-sm mb-1 tracking-wide" style={{ color: 'var(--text-muted)' }}>Объём заработанных</p>
-          <p className={`text-2xl md:text-3xl font-bold tracking-tight tabular-nums ${(stats?.volumeEarned ?? 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-            {formatNum4Signed(stats?.volumeEarned ?? 0)} $
-          </p>
-        </div>
-        <div className="card p-5 md:p-6">
-          <p className="text-sm mb-1 tracking-wide" style={{ color: 'var(--text-muted)' }}>Статус приложения</p>
-          <p className="font-medium flex items-center gap-2" style={{ color: stats?.status === 'ok' ? 'var(--success)' : 'var(--warning)' }}>
-            <span className={`w-2 h-2 rounded-full ${stats?.status === 'ok' ? 'bg-[var(--success)] animate-pulse' : 'bg-[var(--warning)]'}`} />
-            {stats?.status === 'ok' ? 'Online' : 'Degraded'}
-          </p>
-          <p className="text-xs mt-2 flex items-center gap-2 flex-wrap">
-            <span className="flex items-center gap-1.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${stats?.okxConnected ? 'bg-[var(--success)] animate-pulse' : 'bg-[var(--danger)]'}`} />
-              <span style={{ color: stats?.okxConnected ? 'var(--success)' : 'var(--text-muted)' }}>OKX: {stats?.okxConnected ? 'Online' : 'нет'}</span>
-            </span>
-            <span style={{ color: 'var(--text-muted)' }}>•</span>
-            <span className="flex items-center gap-1.5" style={{ color: 'var(--success)' }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)] animate-pulse" />
-              База данных Online
-            </span>
-          </p>
-        </div>
+            <div className="rounded-xl p-4 md:p-5 transition-colors hover:bg-[var(--bg-hover)]" style={cardBase}>
+              <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Ордера</p>
+              <p className="text-xl md:text-2xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{stats?.orders.total ?? '—'}</p>
+              {stats && (
+                <p className="text-xs mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5">
+                  <span style={{ color: 'var(--success)' }}>+{stats.orders.wins}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>/</span>
+                  <span style={{ color: 'var(--danger)' }}>-{stats.orders.losses}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>· Win rate {formatNum4(stats.orders.winRate)}%</span>
+                </p>
+              )}
+            </div>
+            <div className="rounded-xl p-4 md:p-5 transition-colors hover:bg-[var(--bg-hover)]" style={cardBase}>
+              <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Пользователи</p>
+              <p className="text-xl md:text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{stats?.usersCount ?? '—'}</p>
+              {stats != null && stats.onlineUsersCount != null && (
+                <p className="text-xs mt-1.5 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)] animate-pulse" />
+                  <span style={{ color: 'var(--success)' }}>онлайн {stats.onlineUsersCount}</span>
+                </p>
+              )}
+            </div>
+            <div className="rounded-xl p-4 md:p-5 transition-colors hover:bg-[var(--bg-hover)]" style={cardBase}>
+              <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Сигналов за сессию</p>
+              <p className="text-xl md:text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{signals.length}</p>
+              <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>вкладка «Сигналы»</p>
+            </div>
+            <div className="rounded-xl p-4 md:p-5 transition-colors hover:bg-[var(--bg-hover)]" style={cardBase}>
+              <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Система</p>
+              <p className="flex items-center gap-2 text-sm font-medium" style={{ color: stats?.status === 'ok' ? 'var(--success)' : 'var(--warning)' }}>
+                <span className={`w-2 h-2 rounded-full shrink-0 ${stats?.status === 'ok' ? 'bg-[var(--success)] animate-pulse' : 'bg-[var(--warning)]'}`} />
+                {stats?.status === 'ok' ? 'Сервис Online' : 'Degraded'}
+              </p>
+              <p className="text-xs mt-2 space-y-1">
+                <span className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${stats?.okxConnected ? 'bg-[var(--success)]' : 'bg-[var(--danger)]'}`} />
+                  OKX (сервер): {stats?.okxConnected ? 'подключён' : 'нет ключей'}
+                </span>
+                <span className="flex items-center gap-1.5" style={{ color: 'var(--success)' }}>
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-[var(--success)]" />
+                  БД: {stats?.databaseMode === 'sqlite' ? 'SQLite' : 'memory'}
+                </span>
+              </p>
+            </div>
           </>
         )}
       </section>
 
-      {/* Info / onboarding block */}
-      <div className="card p-6 md:p-8">
-        <h2 className="section-title mb-4">Как начать пользоваться CLABX 💸</h2>
-        <div className="grid gap-4 md:grid-cols-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-          <ul className="space-y-2 list-disc list-inside">
-            <li>Подключите биржу OKX в разделе «Настройки → Биржа» и сохраните свои API‑ключи.</li>
-            <li>
-              Купите и активируйте ключ доступа у бота{' '}
-              <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
-                @clabx_bot
-              </a>.
-            </li>
-            <li>После активации переходите в разделы «Скринер» и «Авто» — там подбираются монеты и запускается авто‑торговля.</li>
-          </ul>
-          <ul className="space-y-2 list-disc list-inside">
-            <li>Скринер показывает топ‑монеты по волатильности, объёму и уровням, чтобы вы быстро находили точки входа.</li>
-            <li>Раздел «Авто» открывает и закрывает сделки по сигналам и записывает их в статистику на этой странице.</li>
-            <li>Здесь вы видите количество закрытых ордеров, общий заработанный объём и статус подключения сервиса (OKX и база данных).</li>
-          </ul>
+      {/* Как начать — пошагово */}
+      <section className="rounded-2xl overflow-hidden" style={{ ...cardBase, borderLeft: '4px solid var(--accent)' }}>
+        <div className="p-6 md:p-8">
+          <h2 className="text-lg font-bold mb-5 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            <span className="text-xl">🚀</span> Как начать пользоваться CLABX
+          </h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="flex gap-4">
+              <span className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold" style={{ background: 'var(--accent)', color: 'white' }}>1</span>
+              <div>
+                <p className="font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Подключите OKX</p>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>В «Настройки → Биржа» сохраните API‑ключи — они нужны для авто‑торговли и отображения баланса.</p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <span className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold" style={{ background: 'var(--accent)', color: 'white' }}>2</span>
+              <div>
+                <p className="font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Ключ доступа</p>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  Купите ключ в боте{' '}
+                  <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" className="underline font-medium" style={{ color: 'var(--accent)' }}>@clabx_bot</a>
+                  , введите его во вкладке «Активировать».
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <span className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-lg font-bold" style={{ background: 'var(--accent)', color: 'white' }}>3</span>
+              <div>
+                <p className="font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Скринер и Авто</p>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>В «Скринер» — топ монет по волатильности и уровням. В «Авто» — сделки по сигналам, статистика обновляется здесь.</p>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Статистика — блок из старой вкладки «Статистика» */}
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card p-5 md:p-6">
-          <p className="section-title mb-2">Сигналов за сессию</p>
-          <p className="text-2xl font-bold" style={{ color: 'var(--accent)' }}>{signals.length}</p>
-        </div>
-        <div className="card p-5 md:p-6">
-          <p className="section-title mb-2">Ордера (прибыль / убыток)</p>
-          <p className="text-sm font-medium tabular-nums">
-            {stats ? (
-              <>
-                <span style={{ color: 'var(--success)' }}>{formatNum4Signed(stats.orders.wins)}</span>
-                <span style={{ color: 'var(--text-muted)' }}> / </span>
-                <span style={{ color: 'var(--danger)' }}>-{formatNum4(stats.orders.losses)}</span>
-                <span className="block mt-1" style={{ color: 'var(--text-muted)' }}>Всего: {stats.orders.total}</span>
-              </>
+      {/* Последние сигналы + интеграции в одном ряду */}
+      <section className="grid md:grid-cols-2 gap-4 md:gap-6">
+        <div className="rounded-2xl overflow-hidden" style={{ ...cardBase, borderLeft: '4px solid var(--success)' }}>
+          <div className="p-5 md:p-6">
+            <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Последние сигналы</h3>
+            {signals.length === 0 ? (
+              <p className="text-sm py-4" style={{ color: 'var(--text-muted)' }}>Пока нет сигналов за сессию. Они появятся при анализе рынка.</p>
             ) : (
-              '—'
+              <ul className="space-y-2 max-h-40 overflow-y-auto">
+                {signals.slice(0, 8).map((s, i) => (
+                  <li key={i} className="flex items-center justify-between gap-2 text-sm py-1.5 px-2 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
+                    <span className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>{s.symbol ?? '—'}</span>
+                    <span className="shrink-0 font-medium" style={{ color: s.direction === 'LONG' ? 'var(--success)' : 'var(--danger)' }}>
+                      {s.direction === 'LONG' ? 'LONG' : 'SHORT'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
-          </p>
+          </div>
         </div>
-        <div className="card p-5 md:p-6">
-          <p className="section-title mb-2">Интеграции</p>
-          <p className="text-sm font-medium flex items-center gap-2 flex-wrap" style={{ color: 'var(--accent)' }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> OKX
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> TradingView
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" /> Scalpboard
-          </p>
-        </div>
-        <div className="card p-5 md:p-6">
-          <p className="section-title mb-2">Статус</p>
-          <p className="font-medium flex items-center gap-2" style={{ color: stats?.status === 'ok' ? 'var(--success)' : 'var(--warning)' }}>
-            <span className={`w-2 h-2 rounded-full ${stats?.status === 'ok' ? 'bg-[var(--success)] animate-pulse' : 'bg-[var(--warning)]'}`} />
-            {stats?.status === 'ok' ? 'Online' : 'Degraded'}
-          </p>
+        <div className="rounded-2xl overflow-hidden" style={{ ...cardBase, borderLeft: '4px solid var(--accent)' }}>
+          <div className="p-5 md:p-6">
+            <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Интеграции платформы</h3>
+            <ul className="space-y-3 text-sm">
+              <li className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--accent)' }} />
+                <span style={{ color: 'var(--text-primary)' }}>OKX — биржа для авто‑торговли и баланса</span>
+              </li>
+              <li className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--accent)' }} />
+                <span style={{ color: 'var(--text-primary)' }}>TradingView — идеи и графики</span>
+              </li>
+              <li className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: 'var(--accent)' }} />
+                <span style={{ color: 'var(--text-primary)' }}>Telegram — бот @clabx_bot для ключей и поддержки</span>
+              </li>
+            </ul>
+          </div>
         </div>
       </section>
     </div>
