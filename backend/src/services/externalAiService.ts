@@ -67,24 +67,24 @@ export function setExternalAiConfig(patch: Partial<ExternalAiConfig>): ExternalA
   return next;
 }
 
-/** Получить ключ OpenAI: сначала из БД (админка), затем из .env. */
+/** Получить ключ OpenAI: сначала из БД (админка), затем из .env. Ключ обрезается от пробелов. */
 export function getOpenAiKey(): string {
   const stored = getSetting(SETTINGS_KEY_OPENAI_API_KEY);
   if (stored) {
     const dec = decrypt(stored);
-    if (dec) return dec;
+    if (dec) return dec.trim();
   }
-  return config.openai?.apiKey ?? '';
+  return (config.openai?.apiKey ?? '').trim();
 }
 
-/** Получить ключ Anthropic: сначала из БД, затем из .env. */
+/** Получить ключ Anthropic: сначала из БД, затем из .env. Ключ обрезается от пробелов. */
 export function getAnthropicKey(): string {
   const stored = getSetting(SETTINGS_KEY_ANTHROPIC_API_KEY);
   if (stored) {
     const dec = decrypt(stored);
-    if (dec) return dec;
+    if (dec) return dec.trim();
   }
-  return config.anthropic?.apiKey ?? '';
+  return (config.anthropic?.apiKey ?? '').trim();
 }
 
 /** Сохранить ключ OpenAI в БД (зашифровано). Передать пустую строку или null — удалить. */
@@ -165,8 +165,12 @@ async function callOpenAI(prompt: string): Promise<number | null> {
     if (!res.ok) {
       const err = await res.text();
       const isRegionBlocked = res.status === 403 && /unsupported_country_region_territory|country.*not supported/i.test(err);
+      const isInvalidKey = res.status === 401 && /incorrect.*api.*key|invalid.*api.*key|authentication/i.test(err);
       if (isRegionBlocked) {
         logger.warn('externalAi', proxyUrl ? 'OpenAI: 403 даже через прокси — IP прокси тоже в заблокированном регионе. Попробуйте другой прокси или провайдер Claude.' : 'OpenAI: регион не поддерживается (403). Запросы к OpenAI идут через PROXY_LIST — проверьте, что прокси в разрешённом регионе.', { body: err.slice(0, 150) });
+      } else if (isInvalidKey) {
+        const keyPrefix = apiKey.startsWith('sk-') ? 'sk-...' : `начало ключа: ${apiKey.slice(0, 12)}...`;
+        logger.warn('externalAi', `OpenAI 401: неверный API-ключ. Убедитесь, что ключ начинается с sk-proj- или sk-, скопирован полностью с platform.openai.com. В админке: очистите поле OpenAI API Key, вставьте ключ заново, нажмите «Сохранить всё».`, { keyPrefix });
       } else {
         logger.warn('externalAi', 'OpenAI error', { status: res.status, body: err.slice(0, 200) });
       }
