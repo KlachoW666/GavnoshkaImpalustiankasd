@@ -474,6 +474,7 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
   (breakdown as any).multiTF = { ...mtfResults, alignCount: mtfAlignCount };
   (breakdown as any).tapeWindows = tapeWindowResults;
   (breakdown as any).volatilityMultiplier = volatilityMultiplier; // Sinclair: уменьшить размер при высокой волатильности
+  (breakdown as any).atrPct = atr != null && entryPrice > 0 ? atr / entryPrice : undefined; // для фильтра мин. волатильности в авто-цикле
 
   const macd = candles5m.length ? candleAnalyzer.getMACD(candles5m.map((c) => c.close)) : null;
   const bb = candles5m.length ? candleAnalyzer.getBollingerBands(candles5m.map((c) => c.close)) : null;
@@ -575,10 +576,10 @@ router.post('/analyze/:symbol', async (req, res) => {
 
 const MAX_SYMBOLS = 10;
 /** Сигналы 85%+ дают лучший результат — мин. порог 82% для авто-цикла */
-const AUTO_MIN_CONFIDENCE = 0.82;
+const AUTO_MIN_CONFIDENCE = 0.83;  // строже фильтр — меньше сделок «в нуле»
 /** Минимальный risk/reward для открытия ордера в полном автомате — отсекает слабые R:R. 100% в плюс недостижимо, снижаем долю убыточных. */
-const AUTO_MIN_RISK_REWARD = 1.25;
-const AUTO_SCORE_WEIGHTS = { confidence: 0.4, riskReward: 0.3, confluence: 0.15, aiProb: 0.15 };
+const AUTO_MIN_RISK_REWARD = 1.5;  // выше R:R — меньше сделок, лучше средний PnL после комиссий
+const AUTO_SCORE_WEIGHTS = { confidence: 0.4, riskReward: 0.35, confluence: 0.1, aiProb: 0.15 }; // выше вес R:R — предпочитаем сделки с большим потенциалом
 
 /** Преобразовать символ из скринера (BTC/USDT:USDT) в формат runAnalysis (BTC-USDT) */
 function scannerSymbolToMarket(s: string): string {
@@ -640,10 +641,12 @@ async function runAutoTradingBestCycle(
         const alignCount = (r.breakdown as any)?.multiTF?.alignCount ?? 0;
         const confluenceBonus = Math.min(1.2, 0.9 + alignCount * 0.06);
         const aiProb = sig.aiWinProbability ?? 0.5;
-        if (conf >= AUTO_MIN_CONFIDENCE && rr >= AUTO_MIN_RISK_REWARD) {
+        const atrPct = (r.breakdown as any)?.atrPct as number | undefined;
+        const minVolOk = atrPct == null || atrPct >= 0.002; // мин. волатильность 0.2% — иначе сделки часто в нуле
+        if (conf >= AUTO_MIN_CONFIDENCE && rr >= AUTO_MIN_RISK_REWARD && minVolOk) {
           const score =
             conf * AUTO_SCORE_WEIGHTS.confidence +
-            Math.min(rr / 3, 1) * AUTO_SCORE_WEIGHTS.riskReward +
+            Math.min(rr / 2.5, 1) * AUTO_SCORE_WEIGHTS.riskReward +  // rr 2.5+ получает макс. балл — приоритет качественным R:R
             confluenceBonus * AUTO_SCORE_WEIGHTS.confluence +
             aiProb * AUTO_SCORE_WEIGHTS.aiProb;
           results.push({ signal: sig, breakdown: r.breakdown, score });
@@ -657,7 +660,7 @@ async function runAutoTradingBestCycle(
   results.sort((a, b) => b.score - a.score);
   const best = results[0];
   addSignal(best.signal);
-  (best.breakdown as any).autoSettings = { leverage, sizePercent, minConfidence: 82 };
+  (best.breakdown as any).autoSettings = { leverage, sizePercent, minConfidence: Math.round(AUTO_MIN_CONFIDENCE * 100), minRiskReward: AUTO_MIN_RISK_REWARD };
   getBroadcastSignal()?.(best.signal, best.breakdown, userId);
   logger.info('runAutoTradingBestCycle', `Best: ${best.signal.symbol} ${best.signal.direction} conf=${((best.signal.confidence ?? 0) * 100).toFixed(0)}% score=${best.score.toFixed(3)}`);
 

@@ -1,6 +1,6 @@
 import { TradingSignal } from '../types/signal';
 import { CandlePattern } from '../types/candle';
-import { ASYMMETRIC_RR_MIN, detectFailedSignalHint } from '../lib/tradingPrinciples';
+import { ASYMMETRIC_RR_MIN, MIN_TP_DISTANCE_PCT, detectFailedSignalHint } from '../lib/tradingPrinciples';
 import { DEFAULT_TRAILING_CONFIG } from '../lib/trailingStop';
 
 /**
@@ -59,6 +59,19 @@ export class SignalGenerator {
       takeProfit3 = params.direction === 'LONG'
         ? params.entryPrice + risk * (rrMin + 2.5)
         : params.entryPrice - risk * (rrMin + 2.5); // TP3 4.5R вместо 4R — выше R:R
+      // Ограничение: TP1 не ближе 0.2% — иначе комиссия съест прибыль
+      const tp1Dist = Math.abs(takeProfit1 - params.entryPrice);
+      const minDist = params.entryPrice * MIN_TP_DISTANCE_PCT;
+      if (tp1Dist < minDist) {
+        const scale = minDist / tp1Dist;
+        takeProfit1 = params.direction === 'LONG' ? params.entryPrice + minDist : params.entryPrice - minDist;
+        takeProfit2 = params.direction === 'LONG'
+          ? params.entryPrice + (takeProfit2 - params.entryPrice) * scale
+          : params.entryPrice - (params.entryPrice - takeProfit2) * scale;
+        takeProfit3 = params.direction === 'LONG'
+          ? params.entryPrice + (takeProfit3 - params.entryPrice) * scale
+          : params.entryPrice - (params.entryPrice - takeProfit3) * scale;
+      }
     } else {
       const is25x = params.mode === 'futures25x';
       const slPercent = is25x ? 0.0055 : isScalping ? 0.007 : 0.013; // Ужесточён SL для R:R
@@ -76,6 +89,18 @@ export class SignalGenerator {
       takeProfit3 = params.direction === 'LONG'
         ? params.entryPrice * (1 + tpPercent * 2.7)
         : params.entryPrice * (1 - tpPercent * 2.7); // Выше TP — улучшение R:R
+      const tp1Dist = Math.abs(takeProfit1 - params.entryPrice);
+      const minDist = params.entryPrice * MIN_TP_DISTANCE_PCT;
+      if (tp1Dist < minDist) {
+        const scale = minDist / tp1Dist;
+        takeProfit1 = params.direction === 'LONG' ? params.entryPrice + minDist : params.entryPrice - minDist;
+        takeProfit2 = params.direction === 'LONG'
+          ? params.entryPrice + (takeProfit2 - params.entryPrice) * scale
+          : params.entryPrice - (params.entryPrice - takeProfit2) * scale;
+        takeProfit3 = params.direction === 'LONG'
+          ? params.entryPrice + (takeProfit3 - params.entryPrice) * scale
+          : params.entryPrice - (params.entryPrice - takeProfit3) * scale;
+      }
     }
 
     const risk = Math.abs(params.entryPrice - stopLoss);

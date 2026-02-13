@@ -10,6 +10,7 @@ import { getProxy } from '../db/proxies';
 import { listOrders, updateOrderClose } from '../db';
 import { toOkxCcxtSymbol } from '../lib/symbol';
 import { normalizeSymbol } from '../lib/symbol';
+import { MIN_TP_DISTANCE_PCT } from '../lib/tradingPrinciples';
 import { TradingSignal } from '../types/signal';
 import { emotionalFilterInstance } from './emotionalFilter';
 import { logger } from '../lib/logger';
@@ -202,8 +203,17 @@ export async function executeSignal(
   const tpMult = Math.max(0.5, Math.min(1, options.tpMultiplier ?? 1));
   if (tpMult < 1) {
     const distance = takeProfit1 - entryPrice;
-    takeProfit1 = entryPrice + distance * tpMult;
-    logger.info('AutoTrader', 'Быстрый выход: TP уменьшен по множителю', { tpMultiplier: tpMult, takeProfit1, entryPrice, symbol: signal.symbol });
+    const newDistance = distance * tpMult;
+    const minAbsDist = entryPrice * MIN_TP_DISTANCE_PCT;
+    const newAbsDist = Math.abs(newDistance);
+    const useAbsDist = Math.max(newAbsDist, minAbsDist);
+    const effectiveDistance = (distance >= 0 ? 1 : -1) * useAbsDist;
+    takeProfit1 = entryPrice + effectiveDistance;
+    if (newAbsDist < minAbsDist) {
+      logger.info('AutoTrader', 'TP ограничен минимумом 0.2% (покрытие комиссии): быстрый выход дал бы цель < комиссии', { symbol: signal.symbol });
+    } else {
+      logger.info('AutoTrader', 'Быстрый выход: TP уменьшен по множителю', { tpMultiplier: tpMult, symbol: signal.symbol });
+    }
   }
 
   // Ограничиваем долю баланса запасом (OKX может отклонять при точном 100% из-за комиссий и маржи)
@@ -316,8 +326,8 @@ export async function executeSignal(
     const errMsg = e?.message ?? String(e);
     logger.error('AutoTrader', 'createOrder failed', { symbol: signal.symbol, error: errMsg });
     let userMsg = parseOkxShortError(errMsg) || errMsg;
-    if (/insufficient|margin|51020|51119/i.test(errMsg)) {
-      userMsg = `Недостаточно маржи на OKX. Уменьшите «Долю баланса» в настройках, закройте часть позиций или пополните счёт USDT.`;
+    if (/insufficient|margin|51008|51020|51119/i.test(errMsg)) {
+      userMsg = `Недостаточно маржи на OKX (51008). Пополните счёт USDT, закройте часть позиций или уменьшите «Долю баланса» в настройках.`;
     } else if (/50102|Timestamp request expired|timestamp expired/i.test(errMsg)) {
       userMsg = `OKX: время сервера рассинхронизировано (50102). На сервере выполните: timedatectl set-ntp true (или ntpdate -s time.nist.gov).`;
     }
