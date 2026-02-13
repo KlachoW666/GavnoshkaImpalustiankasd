@@ -46,21 +46,28 @@ const DEFAULT_CONFIG: ExternalAiConfig = {
   useAllProviders: false,
   minScore: 0.6,
   openaiModel: 'gpt-5.2',
-  claudeModel: 'claude-3-5-sonnet-20241022',
+  claudeModel: 'claude-3-5-sonnet-latest',
   glmModel: 'glm-5'
 };
+
+/** Устаревшие Claude model IDs — заменяем на актуальный */
+const DEPRECATED_CLAUDE_MODELS = ['claude-3-5-sonnet-20241022', 'claude-3-5-sonnet-20240620'];
 
 function parseConfig(raw: string | null): ExternalAiConfig {
   if (!raw) return { ...DEFAULT_CONFIG };
   try {
     const parsed = JSON.parse(raw) as Partial<ExternalAiConfig>;
+    let claudeModel = String(parsed.claudeModel || DEFAULT_CONFIG.claudeModel).trim() || DEFAULT_CONFIG.claudeModel;
+    if (DEPRECATED_CLAUDE_MODELS.includes(claudeModel)) {
+      claudeModel = DEFAULT_CONFIG.claudeModel;
+    }
     return {
       enabled: Boolean(parsed.enabled),
       provider: parsed.provider === 'claude' ? 'claude' : parsed.provider === 'glm' ? 'glm' : 'openai',
       useAllProviders: Boolean(parsed.useAllProviders),
       minScore: Math.max(0, Math.min(1, Number(parsed.minScore) ?? DEFAULT_CONFIG.minScore)),
       openaiModel: String(parsed.openaiModel || DEFAULT_CONFIG.openaiModel).trim() || DEFAULT_CONFIG.openaiModel,
-      claudeModel: String(parsed.claudeModel || DEFAULT_CONFIG.claudeModel).trim() || DEFAULT_CONFIG.claudeModel,
+      claudeModel,
       glmModel: String(parsed.glmModel || DEFAULT_CONFIG.glmModel).trim() || DEFAULT_CONFIG.glmModel
     };
   } catch {

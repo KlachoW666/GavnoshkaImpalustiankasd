@@ -64,6 +64,7 @@ export async function fetchNewsContext(
     const url = `${CRYPTOPANIC_BASE}?${params.toString()}`;
     const res = await undiciFetch(url, {
       method: 'GET',
+      headers: { 'User-Agent': 'TradingBot/1.0 (https://cryptopanic.com)' },
       signal: controller.signal,
       ...(dispatcher ? { dispatcher } : {})
     });
@@ -95,7 +96,9 @@ export async function fetchNewsContext(
     return `CryptoPanic новости (${currency}): ${lines.join('; ')}`;
   } catch (e) {
     clearTimeout(timeout);
-    logger.warn('cryptopanic', 'CryptoPanic fetch failed', { error: (e as Error).message, symbol });
+    const err = e as Error;
+    const cause = err.cause ? (typeof err.cause === 'object' && 'message' in err.cause ? String((err.cause as Error).message) : String(err.cause)) : undefined;
+    logger.warn('cryptopanic', 'CryptoPanic fetch failed', { error: err.message, cause, symbol });
     return null;
   }
 }
