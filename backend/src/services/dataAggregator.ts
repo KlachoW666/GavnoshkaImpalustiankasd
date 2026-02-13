@@ -7,12 +7,14 @@ import { logger } from '../lib/logger';
 
 /**
  * Data Aggregator — OKX REST API (публичные и приватные данные)
+ * При таймауте — retry с другим прокси (до 2 попыток).
  */
 export class DataAggregator {
   private exchange: Exchange;
 
-  constructor() {
+  private createExchange(proxyUrl?: string): Exchange {
     const { okx } = config;
+    const url = proxyUrl ?? getProxy(config.proxyList) ?? config.proxy ?? '';
     const opts: Record<string, unknown> = {
       apiKey: okx.hasCredentials ? okx.apiKey : undefined,
       secret: okx.hasCredentials ? okx.secret : undefined,
@@ -21,12 +23,19 @@ export class DataAggregator {
       options: { defaultType: 'swap' },
       timeout: config.okx.timeout
     };
-    const proxyUrl = getProxy(config.proxyList) || config.proxy;
-    if (proxyUrl) {
-      opts.httpsProxy = proxyUrl;
-    }
-    this.exchange = new ccxt.okx(opts);
-    logger.info('DataAggregator', `OKX: public${okx.hasCredentials ? ' + trading' : ''}${proxyUrl ? ' [proxy]' : ''}`);
+    if (url) opts.httpsProxy = url;
+    return new ccxt.okx(opts);
+  }
+
+  constructor() {
+    this.exchange = this.createExchange();
+    const proxyUrl = getProxy(config.proxyList) || config.proxy || '';
+    logger.info('DataAggregator', `OKX: public${config.okx.hasCredentials ? ' + trading' : ''}${proxyUrl ? ' [proxy]' : ''}`);
+  }
+
+  private isTimeout(err: unknown): boolean {
+    const msg = err instanceof Error ? err.message : String(err);
+    return /timed out|timeout|ETIMEDOUT/i.test(msg);
   }
 
   getExchangeIds(): string[] {
@@ -44,25 +53,33 @@ export class DataAggregator {
 
   async getOHLCVByExchange(symbol: string, timeframe: string, limit: number): Promise<OHLCVCandle[]> {
     const ccxtSymbol = this.toCcxtSymbol(symbol);
-    try {
-      const data = await this.exchange.fetchOHLCV(ccxtSymbol, timeframe, undefined, limit);
-      if (data?.length) {
-        return data.map((row) => ({
-          timestamp: Number(row[0]),
-          open: Number(row[1]),
-          high: Number(row[2]),
-          low: Number(row[3]),
-          close: Number(row[4]),
-          volume: Number(row[5] ?? 0)
-        }));
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const data = await this.exchange.fetchOHLCV(ccxtSymbol, timeframe, undefined, limit);
+        if (data?.length) {
+          return data.map((row) => ({
+            timestamp: Number(row[0]),
+            open: Number(row[1]),
+            high: Number(row[2]),
+            low: Number(row[3]),
+            close: Number(row[4]),
+            volume: Number(row[5] ?? 0)
+          }));
+        }
+      } catch (e) {
+        const msg = (e as Error).message;
+        if (!msg?.includes('does not have market symbol')) {
+          logger.warn('OKX', 'OHLCV fetch failed', { symbol, attempt: attempt + 1, error: msg });
+        } else {
+          logger.debug('OKX', 'OHLCV symbol not on OKX', { symbol });
+        }
+        if (this.isTimeout(e) && attempt === 0) {
+          this.exchange = this.createExchange();
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
       }
-    } catch (e) {
-      const msg = (e as Error).message;
-      if (!msg?.includes('does not have market symbol')) {
-        logger.warn('OKX', 'OHLCV fetch failed', { symbol, error: msg });
-      } else {
-        logger.debug('OKX', 'OHLCV symbol not on OKX', { symbol });
-      }
+      break;
     }
     return this.getMockCandles(symbol, timeframe, limit);
   }
@@ -74,15 +91,23 @@ export class DataAggregator {
   async getOrderBookByExchange(symbol: string, limit: number): Promise<{ bids: [number, number][]; asks: [number, number][] }> {
     const ccxtSymbol = this.toCcxtSymbol(symbol);
     const okxLimit = Math.min(limit, config.limits.orderBook);
-    try {
-      const ob = await this.exchange.fetchOrderBook(ccxtSymbol, okxLimit);
-      const bids = (ob.bids || []).slice(0, okxLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
-      const asks = (ob.asks || []).slice(0, okxLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
-      return { bids, asks };
-    } catch (e) {
-      logger.warn('OKX', 'OrderBook fetch failed', { symbol, error: (e as Error).message });
-      return this.getMockOrderBook(symbol, limit);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const ob = await this.exchange.fetchOrderBook(ccxtSymbol, okxLimit);
+        const bids = (ob.bids || []).slice(0, okxLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
+        const asks = (ob.asks || []).slice(0, okxLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
+        return { bids, asks };
+      } catch (e) {
+        logger.warn('OKX', 'OrderBook fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
+        if (this.isTimeout(e) && attempt === 0) {
+          this.exchange = this.createExchange();
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+        return this.getMockOrderBook(symbol, limit);
+      }
     }
+    return this.getMockOrderBook(symbol, limit);
   }
 
   async getCurrentPrice(symbol: string): Promise<number> {
@@ -106,24 +131,32 @@ export class DataAggregator {
   async getTrades(symbol: string, limit = 100, _exchangeId?: string): Promise<{ price: number; amount: number; time: number; isBuy: boolean; quoteQuantity?: number }[]> {
     const ccxtSymbol = this.toCcxtSymbol(symbol);
     const okxLimit = Math.min(limit, config.limits.trades);
-    try {
-      const rows = await this.exchange.fetchTrades(ccxtSymbol, undefined, okxLimit);
-      return rows.map((t: any) => {
-        const price = Number(t.price ?? (t.cost && t.amount ? t.cost / t.amount : 0));
-        const amount = Number(t.amount ?? (t.cost && t.price ? t.cost / t.price : 0));
-        const cost = t.cost ?? (price * amount);
-        return {
-          price,
-          amount,
-          time: Number(t.timestamp ?? t.time ?? Date.now()),
-          isBuy: t.side === 'buy' || t.buy === true,
-          quoteQuantity: Number(cost)
-        };
-      }).sort((a, b) => a.time - b.time); // OKX: oldest first для CVD
-    } catch (e) {
-      logger.warn('OKX', 'Trades fetch failed', { symbol, error: (e as Error).message });
-      return this.getMockTrades(symbol, limit);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const rows = await this.exchange.fetchTrades(ccxtSymbol, undefined, okxLimit);
+        return rows.map((t: any) => {
+          const price = Number(t.price ?? (t.cost && t.amount ? t.cost / t.amount : 0));
+          const amount = Number(t.amount ?? (t.cost && t.price ? t.cost / t.price : 0));
+          const cost = t.cost ?? (price * amount);
+          return {
+            price,
+            amount,
+            time: Number(t.timestamp ?? t.time ?? Date.now()),
+            isBuy: t.side === 'buy' || t.buy === true,
+            quoteQuantity: Number(cost)
+          };
+        }).sort((a, b) => a.time - b.time); // OKX: oldest first для CVD
+      } catch (e) {
+        logger.warn('OKX', 'Trades fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
+        if (this.isTimeout(e) && attempt === 0) {
+          this.exchange = this.createExchange();
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+        return this.getMockTrades(symbol, limit);
+      }
     }
+    return this.getMockTrades(symbol, limit);
   }
 
   /** Базовые цены для мок-свечей (DOGE и др. — единая нормализация символа в lib/symbol) */

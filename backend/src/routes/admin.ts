@@ -316,46 +316,54 @@ router.get('/users', requireAdmin, (req: Request, res: Response) => {
   }
 });
 
-function okxProxyAgent(): InstanceType<typeof HttpsProxyAgent> | undefined {
-  const proxyUrl = getProxy(config.proxyList) || config.proxy || '';
-  if (!proxyUrl || !proxyUrl.startsWith('http')) return undefined;
+function okxProxyAgent(proxyUrl?: string): InstanceType<typeof HttpsProxyAgent> | undefined {
+  const url = proxyUrl ?? getProxy(config.proxyList) ?? config.proxy ?? '';
+  if (!url || !url.startsWith('http')) return undefined;
   try {
-    return new HttpsProxyAgent(proxyUrl);
+    return new HttpsProxyAgent(url);
   } catch {
     return undefined;
   }
 }
 
-/** Получить баланс USDT с OKX по ключам пользователя. Пробует real и testnet — ключи могут быть для любого из них. */
+/** Получить баланс USDT с OKX по ключам пользователя. Пробует real/testnet и при таймауте — другой прокси (до 3 попыток). */
 async function fetchOkxBalanceForUser(userId: string): Promise<{ okxBalance: number | null; okxBalanceError: string | null }> {
   const creds = getOkxCredentials(userId);
   if (!creds) return { okxBalance: null, okxBalanceError: null };
-  const proxyUrl = getProxy(config.proxyList) || config.proxy || '';
   const okxTimeout = config.okx.timeout;
-  const baseOpts: Record<string, unknown> = {
-    apiKey: creds.apiKey,
-    secret: creds.secret,
-    password: creds.passphrase || undefined,
-    enableRateLimit: true,
-    timeout: okxTimeout,
-    options: { defaultType: 'swap' }
-  };
-  if (proxyUrl) baseOpts.httpsProxy = proxyUrl;
-  const agent = okxProxyAgent();
-  if (agent) baseOpts.agent = agent;
   let lastError: string | null = null;
-  for (const sandboxMode of [false, true]) {
-    try {
-      const exchange = new ccxt.okx({ ...baseOpts, options: { defaultType: 'swap', sandboxMode } });
-      const balance = await exchange.fetchBalance();
-      const usdt = (balance as any).USDT ?? balance?.usdt;
-      const total = usdt?.total ?? 0;
-      const value = typeof total === 'number' ? total : 0;
-      return { okxBalance: value, okxBalanceError: null };
-    } catch (e) {
-      lastError = (e as Error).message || String(e);
-      logger.warn('Admin', 'OKX balance fetch failed', { userId, sandboxMode, error: lastError });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const proxyUrl = getProxy(config.proxyList) || config.proxy || '';
+    const baseOpts: Record<string, unknown> = {
+      apiKey: creds.apiKey,
+      secret: creds.secret,
+      password: creds.passphrase || undefined,
+      enableRateLimit: true,
+      timeout: okxTimeout,
+      options: { defaultType: 'swap' }
+    };
+    if (proxyUrl) baseOpts.httpsProxy = proxyUrl;
+    const agent = proxyUrl ? okxProxyAgent(proxyUrl) : undefined;
+    if (agent) baseOpts.agent = agent;
+    for (const sandboxMode of [false, true]) {
+      try {
+        const exchange = new ccxt.okx({ ...baseOpts, options: { defaultType: 'swap', sandboxMode } });
+        const balance = await exchange.fetchBalance();
+        const usdt = (balance as any).USDT ?? balance?.usdt;
+        const total = usdt?.total ?? 0;
+        const value = typeof total === 'number' ? total : 0;
+        return { okxBalance: value, okxBalanceError: null };
+      } catch (e) {
+        lastError = (e as Error).message || String(e);
+        logger.warn('Admin', 'OKX balance fetch failed', { userId, sandboxMode, attempt: attempt + 1, error: lastError });
+      }
     }
+    const isTimeout = /timed out|timeout|ETIMEDOUT/i.test(lastError || '');
+    if (isTimeout && attempt < 2) {
+      await new Promise((r) => setTimeout(r, 2500));
+      continue;
+    }
+    break;
   }
   const okxBalanceError = lastError && /50102|Timestamp request expired/i.test(lastError)
     ? `${lastError} Синхронизируйте время на сервере (NTP).`
