@@ -1,14 +1,22 @@
 /**
  * Внешний платный ИИ (OpenAI / Claude) — оценка сигнала перед открытием позиции.
  * Все настройки, включая API-ключи, задаются в админ-панели и хранятся в БД (ключи — зашифрованы).
+ * Запросы к OpenAI/Claude идут через прокси из PROXY_LIST (как и OKX), чтобы обойти блокировку по региону.
  * 100% вероятности не гарантируется; сервис лишь добавляет дополнительный фильтр.
  */
 
+import { fetch as undiciFetch, ProxyAgent } from 'undici';
 import { config } from '../config';
+import { getProxy } from '../db/proxies';
 import { getSetting, setSetting } from '../db';
 import { logger } from '../lib/logger';
 import { encrypt, decrypt } from '../lib/encrypt';
 import type { TradingSignal } from '../types/signal';
+
+/** Прокси для запросов к OpenAI/Claude (тот же список, что и для OKX). */
+function getExternalAiProxy(): string {
+  return getProxy(config.proxyList) || config.proxy || '';
+}
 
 const SETTINGS_KEY_EXTERNAL_AI = 'external_ai_config';
 const SETTINGS_KEY_OPENAI_API_KEY = 'external_ai_openai_api_key';
@@ -128,14 +136,17 @@ function buildPrompt(signal: TradingSignal, context?: string): string {
 Ответь ОДНИМ числом от 0.0 до 1.0 (например 0.72), без текста.`;
 }
 
-/** Вызов OpenAI Chat Completions. */
+/** Вызов OpenAI Chat Completions (через прокси из PROXY_LIST при наличии). */
 async function callOpenAI(prompt: string): Promise<number | null> {
   const apiKey = getOpenAiKey();
   if (!apiKey) return null;
+  const proxyUrl = getExternalAiProxy();
+  const dispatcher = proxyUrl && proxyUrl.startsWith('http') ? new ProxyAgent(proxyUrl) : undefined;
+  if (dispatcher) logger.info('externalAi', 'OpenAI request via proxy', { proxy: proxyUrl.replace(/:[^:@]+@/, ':***@').slice(0, 40) + '…' });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await undiciFetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -147,14 +158,15 @@ async function callOpenAI(prompt: string): Promise<number | null> {
         max_tokens: 20,
         temperature: 0.3
       }),
-      signal: controller.signal
+      signal: controller.signal,
+      ...(dispatcher ? { dispatcher } : {})
     });
     clearTimeout(timeout);
     if (!res.ok) {
       const err = await res.text();
       const isRegionBlocked = res.status === 403 && /unsupported_country_region_territory|country.*not supported/i.test(err);
       if (isRegionBlocked) {
-        logger.warn('externalAi', 'OpenAI: регион/страна не поддерживается (403). Используйте провайдер Claude в админке или прокси/VPN для OpenAI.', { body: err.slice(0, 150) });
+        logger.warn('externalAi', proxyUrl ? 'OpenAI: 403 даже через прокси — IP прокси тоже в заблокированном регионе. Попробуйте другой прокси или провайдер Claude.' : 'OpenAI: регион не поддерживается (403). Запросы к OpenAI идут через PROXY_LIST — проверьте, что прокси в разрешённом регионе.', { body: err.slice(0, 150) });
       } else {
         logger.warn('externalAi', 'OpenAI error', { status: res.status, body: err.slice(0, 200) });
       }
@@ -173,14 +185,16 @@ async function callOpenAI(prompt: string): Promise<number | null> {
   }
 }
 
-/** Вызов Anthropic Messages API. */
+/** Вызов Anthropic Messages API (через прокси из PROXY_LIST при наличии). */
 async function callClaude(prompt: string): Promise<number | null> {
   const apiKey = getAnthropicKey();
   if (!apiKey) return null;
+  const proxyUrl = getExternalAiProxy();
+  const dispatcher = proxyUrl && proxyUrl.startsWith('http') ? new ProxyAgent(proxyUrl) : undefined;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await undiciFetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -192,7 +206,8 @@ async function callClaude(prompt: string): Promise<number | null> {
         max_tokens: 20,
         messages: [{ role: 'user', content: prompt }]
       }),
-      signal: controller.signal
+      signal: controller.signal,
+      ...(dispatcher ? { dispatcher } : {})
     });
     clearTimeout(timeout);
     if (!res.ok) {

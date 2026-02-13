@@ -54,7 +54,22 @@ interface PerUserAutoState {
 }
 const autoAnalyzeByUser = new Map<string, PerUserAutoState>();
 /** Результат последнего исполнения по userId (для отображения на фронте) */
-const lastExecutionByUser = new Map<string, { lastError?: string; lastSkipReason?: string; lastOrderId?: string; useTestnet?: boolean; at: number }>();
+interface LastExecutionEntry {
+  lastError?: string;
+  lastSkipReason?: string;
+  lastOrderId?: string;
+  useTestnet?: boolean;
+  at: number;
+  /** Внутренняя ML-оценка (0–1) лучшего сигнала в цикле */
+  lastAiProb?: number;
+  /** Консервативная оценка для фильтра (с учётом числа примеров) */
+  lastEffectiveAiProb?: number;
+  /** Оценка внешнего ИИ (OpenAI/Claude), если вызывался */
+  lastExternalAiScore?: number;
+  /** Был ли вызван внешний ИИ в этом цикле */
+  lastExternalAiUsed?: boolean;
+}
+const lastExecutionByUser = new Map<string, LastExecutionEntry>();
 const faFilter = new FundamentalFilter();
 const aggregator = new DataAggregator();
 const candleAnalyzer = new CandleAnalyzer();
@@ -501,6 +516,7 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
     atrNorm,
     spreadNorm
   };
+  /** Каждый сигнал анализируется через внутреннюю ML-модель (confidence, R:R, ATR, спред и т.д.). В авто-цикле дополнительно используется внешний ИИ (OpenAI/Claude), если включён. */
   const aiWinProbability = mlPredict(mlFeatures);
   signal = {
     ...signal,
@@ -649,11 +665,36 @@ async function runAutoTradingBestCycle(
   const hasUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
   const canExecute = config.autoTradingExecutionEnabled && executeOrders && (config.okx.hasCredentials || hasUserCreds);
 
-  const setLastExecution = (err?: string, orderId?: string, skipReason?: string) => {
+  const setLastExecution = (
+    err?: string,
+    orderId?: string,
+    skipReason?: string,
+    aiInfo?: { aiProb: number; effectiveAiProb: number; externalAiScore?: number; externalAiUsed?: boolean }
+  ) => {
     if (userId) {
-      lastExecutionByUser.set(userId, { lastError: err, lastSkipReason: skipReason, lastOrderId: orderId, useTestnet, at: Date.now() });
+      const entry: LastExecutionEntry = {
+        lastError: err,
+        lastSkipReason: skipReason,
+        lastOrderId: orderId,
+        useTestnet,
+        at: Date.now()
+      };
+      if (aiInfo) {
+        entry.lastAiProb = aiInfo.aiProb;
+        entry.lastEffectiveAiProb = aiInfo.effectiveAiProb;
+        if (aiInfo.externalAiScore != null) entry.lastExternalAiScore = aiInfo.externalAiScore;
+        if (aiInfo.externalAiUsed != null) entry.lastExternalAiUsed = aiInfo.externalAiUsed;
+      }
+      lastExecutionByUser.set(userId, entry);
     }
   };
+
+  const aiInfoForExecution = (extScore?: number | null, extUsed?: boolean) => ({
+    aiProb,
+    effectiveAiProb,
+    externalAiScore: extScore ?? undefined,
+    externalAiUsed: extUsed ?? false
+  });
 
   if (!canExecute) {
     let reason = 'Исполнение отключено';
@@ -667,24 +708,27 @@ async function runAutoTradingBestCycle(
 
   /** Risk/Reward: не открывать при слабом R:R (чаще убытки). 100% в плюс невозможно — отсекаем худшие по R:R. */
   const rr = best.signal.risk_reward ?? 0;
+  const aiProb = best.signal.aiWinProbability ?? 0;
+  const mlSamples = mlGetStats().samples;
+  const effectiveAiProb = effectiveProbability(aiProb, mlSamples);
+  let externalAiScore: number | null = null;
+  let externalAiUsed = false;
+
   if (rr < AUTO_MIN_RISK_REWARD) {
     const skipReason = `R:R ${rr.toFixed(2)} ниже минимума ${AUTO_MIN_RISK_REWARD}. Ордер не открыт.`;
     logger.info('runAutoTradingBestCycle', skipReason, { symbol: best.signal.symbol, rr });
-    setLastExecution(undefined, undefined, skipReason);
+    setLastExecution(undefined, undefined, skipReason, aiInfoForExecution(undefined, false));
     return;
   }
 
   /** AI-анализ перед открытием: консервативная оценка при малом числе примеров; порог не блокирует при холодной модели. */
-  const aiProb = best.signal.aiWinProbability ?? 0;
-  const mlSamples = mlGetStats().samples;
-  const effectiveAiProb = effectiveProbability(aiProb, mlSamples);
   if (minAiProb > 0) {
     if (mlSamples < MIN_SAMPLES_FOR_AI_GATE) {
       logger.info('runAutoTradingBestCycle', 'AI gate skipped: model cold (samples < ' + MIN_SAMPLES_FOR_AI_GATE + ')', { symbol: best.signal.symbol, samples: mlSamples });
     } else if (effectiveAiProb < minAiProb) {
       const skipReason = `AI: вероятность выигрыша ${(effectiveAiProb * 100).toFixed(1)}% ниже порога ${(minAiProb * 100).toFixed(0)}%. Ордер не открыт.`;
       logger.info('runAutoTradingBestCycle', skipReason, { symbol: best.signal.symbol, effectiveAiProb, minAiProb });
-      setLastExecution(undefined, undefined, skipReason);
+      setLastExecution(undefined, undefined, skipReason, aiInfoForExecution(undefined, false));
       return;
     }
   }
@@ -692,12 +736,14 @@ async function runAutoTradingBestCycle(
   /** Внешний платный ИИ (OpenAI/Claude): дополнительная оценка сигнала. При ошибке/таймауте не блокируем. */
   const extAi = getExternalAiConfig();
   if (extAi.enabled && externalAiHasKey(extAi.provider)) {
+    externalAiUsed = true;
     try {
       const evalResult = await externalAiEvaluate(best.signal);
+      if (evalResult != null) externalAiScore = evalResult.score;
       if (evalResult != null && evalResult.score < extAi.minScore) {
         const skipReason = `Внешний ИИ (${extAi.provider}): оценка ${(evalResult.score * 100).toFixed(0)}% ниже порога ${(extAi.minScore * 100).toFixed(0)}%. Ордер не открыт.`;
         logger.info('runAutoTradingBestCycle', skipReason, { symbol: best.signal.symbol, score: evalResult.score, minScore: extAi.minScore });
-        setLastExecution(undefined, undefined, skipReason);
+        setLastExecution(undefined, undefined, skipReason, aiInfoForExecution(externalAiScore ?? undefined, externalAiUsed));
         return;
       }
     } catch (e) {
@@ -714,7 +760,7 @@ async function runAutoTradingBestCycle(
   }, hasUserCreds ? userCreds : undefined).then((result) => {
     if (result.ok) {
       logger.info('runAutoTradingBestCycle', `OKX order placed: ${result.orderId} (${useTestnet ? 'testnet' : 'real'})`);
-      setLastExecution(undefined, result.orderId);
+      setLastExecution(undefined, result.orderId, undefined, aiInfoForExecution(externalAiScore ?? undefined, externalAiUsed));
       if (userId && result.orderId) {
         try {
           initDb();
@@ -750,13 +796,13 @@ async function runAutoTradingBestCycle(
       logger.warn('runAutoTradingBestCycle', `OKX execution skipped: ${err}`);
       if (userId) {
         const cur = lastExecutionByUser.get(userId);
-        setLastExecution(isBalanceSkip ? undefined : err, cur?.lastOrderId, isBalanceSkip ? err : undefined);
+        setLastExecution(isBalanceSkip ? undefined : err, cur?.lastOrderId, isBalanceSkip ? err : undefined, aiInfoForExecution(externalAiScore ?? undefined, externalAiUsed));
       }
     }
   }).catch((e) => {
     const msg = (e as Error).message;
     logger.error('runAutoTradingBestCycle', 'OKX execute failed', { error: msg });
-    setLastExecution(msg);
+    setLastExecution(msg, undefined, undefined, aiInfoForExecution(externalAiScore ?? undefined, externalAiUsed));
   });
 }
 
@@ -886,7 +932,11 @@ router.get('/auto-analyze/last-execution', requireAuth, (req, res) => {
     lastSkipReason: last.lastSkipReason,
     lastOrderId: last.lastOrderId,
     useTestnet: last.useTestnet,
-    at: last.at
+    at: last.at,
+    lastAiProb: last.lastAiProb,
+    lastEffectiveAiProb: last.lastEffectiveAiProb,
+    lastExternalAiScore: last.lastExternalAiScore,
+    lastExternalAiUsed: last.lastExternalAiUsed
   });
 });
 

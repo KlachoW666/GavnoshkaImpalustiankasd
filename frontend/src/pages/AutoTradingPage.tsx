@@ -380,7 +380,16 @@ export default function AutoTradingPage() {
   const [lastBreakdown, setLastBreakdown] = useState<BreakdownType | null>(null);
   const [status, setStatus] = useState<'idle' | 'running' | 'error' | 'stopped_daily_loss'>('idle');
   const [okxData, setOkxData] = useState<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number }>; balance: number; openCount: number; balanceError?: string; executionAvailable?: boolean } | null>(null);
-  const [lastExecution, setLastExecution] = useState<{ lastError?: string; lastSkipReason?: string; lastOrderId?: string; at?: number } | null>(null);
+  const [lastExecution, setLastExecution] = useState<{
+    lastError?: string;
+    lastSkipReason?: string;
+    lastOrderId?: string;
+    at?: number;
+    lastAiProb?: number;
+    lastEffectiveAiProb?: number;
+    lastExternalAiScore?: number;
+    lastExternalAiUsed?: boolean;
+  } | null>(null);
   const [cycleTimer, setCycleTimer] = useState<{ lastCycleAt: number; intervalMs: number } | null>(null);
   const [, setTick] = useState(0);
   const [serverHistory, setServerHistory] = useState<HistoryEntry[]>([]);
@@ -491,8 +500,22 @@ export default function AutoTradingPage() {
       return;
     }
     const fetchLast = () => {
-      api.get<{ lastError?: string; lastSkipReason?: string; lastOrderId?: string; at?: number }>('/market/auto-analyze/last-execution', { headers: { Authorization: `Bearer ${token}` } })
-        .then((data) => setLastExecution(data?.lastError !== undefined || data?.lastSkipReason !== undefined || data?.lastOrderId !== undefined ? data : null))
+      api.get<{
+          lastError?: string;
+          lastSkipReason?: string;
+          lastOrderId?: string;
+          at?: number;
+          lastAiProb?: number;
+          lastEffectiveAiProb?: number;
+          lastExternalAiScore?: number;
+          lastExternalAiUsed?: boolean;
+        }>('/market/auto-analyze/last-execution', { headers: { Authorization: `Bearer ${token}` } })
+        .then((data) => setLastExecution(
+          data?.lastError !== undefined || data?.lastSkipReason !== undefined || data?.lastOrderId !== undefined ||
+          data?.lastAiProb !== undefined || data?.lastExternalAiUsed !== undefined
+            ? data
+            : null
+        ))
         .catch(() => setLastExecution(null));
     };
     fetchLast();
@@ -1050,6 +1073,32 @@ export default function AutoTradingPage() {
         )}
         {enabled && settings.fullAuto && settings.executeOrders && lastExecution && (
           <div className="mt-4 pt-4 border-t text-sm" style={{ borderColor: 'var(--border)' }}>
+            {(lastExecution.lastAiProb != null || lastExecution.lastExternalAiUsed) && (
+              <div className="mb-3 p-3 rounded-xl" style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)' }}>
+                <p className="font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Используется AI</p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  Внутренняя ML-оценка (уверенность):{' '}
+                  <strong style={{ color: 'var(--accent)' }}>
+                    {lastExecution.lastEffectiveAiProb != null
+                      ? `${(lastExecution.lastEffectiveAiProb * 100).toFixed(1)}%`
+                      : lastExecution.lastAiProb != null
+                        ? `${(lastExecution.lastAiProb * 100).toFixed(1)}%`
+                        : '—'}
+                  </strong>
+                  {lastExecution.lastExternalAiUsed && (
+                    <>
+                      {' '}
+                      · Внешний ИИ (OpenAI/Claude):{' '}
+                      <strong style={{ color: 'var(--accent)' }}>
+                        {lastExecution.lastExternalAiScore != null
+                          ? `${(lastExecution.lastExternalAiScore * 100).toFixed(0)}%`
+                          : 'вызов не вернул оценку'}
+                      </strong>
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
             {lastExecution.lastOrderId ? (
               <p className="font-medium" style={{ color: 'var(--success)' }}>
                 Последнее исполнение: ордер #{lastExecution.lastOrderId} (реальный счёт OKX)
