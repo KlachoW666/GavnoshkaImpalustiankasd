@@ -46,11 +46,13 @@ import { getStatsDisplayConfig, setStatsDisplayConfig, StatsDisplayConfig } from
 import {
   getExternalAiConfig,
   setExternalAiConfig,
-  hasApiKey as externalAiHasKey,
+  hasAnyApiKey,
   hasOpenAiKey,
   hasAnthropicKey,
+  hasGlmKey,
   setOpenAiKey,
   setAnthropicKey,
+  setGlmKey,
   type ExternalAiConfig
 } from '../services/externalAiService';
 
@@ -948,7 +950,8 @@ router.get('/external-ai', requireAdmin, (_req: Request, res: Response) => {
       ...cfg,
       openaiKeySet: hasOpenAiKey(),
       anthropicKeySet: hasAnthropicKey(),
-      currentProviderKeySet: externalAiHasKey(cfg.provider)
+      glmKeySet: hasGlmKey(),
+      currentProviderKeySet: hasAnyApiKey(cfg)
     });
   } catch (e) {
     logger.error('Admin', (e as Error).message);
@@ -959,24 +962,26 @@ router.get('/external-ai', requireAdmin, (_req: Request, res: Response) => {
 /** PUT /api/admin/external-ai — сохранить настройки внешнего ИИ и/или API-ключи (все в админке). */
 router.put('/external-ai', requireAdmin, (req: Request, res: Response) => {
   try {
-    const body = req.body as Partial<ExternalAiConfig> & { openaiApiKey?: string; anthropicApiKey?: string };
+    const body = req.body as Partial<ExternalAiConfig> & { openaiApiKey?: string; anthropicApiKey?: string; glmApiKey?: string };
     const patch: Partial<ExternalAiConfig> = {};
     if (typeof body.enabled === 'boolean') patch.enabled = body.enabled;
-    if (body.provider === 'openai' || body.provider === 'claude') patch.provider = body.provider;
+    if (body.provider === 'openai' || body.provider === 'claude' || body.provider === 'glm') patch.provider = body.provider;
+    if (typeof body.useAllProviders === 'boolean') patch.useAllProviders = body.useAllProviders;
     if (typeof body.minScore === 'number') patch.minScore = Math.max(0, Math.min(1, body.minScore));
+    if (typeof body.openaiModel === 'string') patch.openaiModel = body.openaiModel.trim();
+    if (typeof body.claudeModel === 'string') patch.claudeModel = body.claudeModel.trim();
+    if (typeof body.glmModel === 'string') patch.glmModel = body.glmModel.trim();
     const next = setExternalAiConfig(patch);
-    if (body.openaiApiKey !== undefined) {
-      setOpenAiKey(body.openaiApiKey === '' ? null : body.openaiApiKey);
-    }
-    if (body.anthropicApiKey !== undefined) {
-      setAnthropicKey(body.anthropicApiKey === '' ? null : body.anthropicApiKey);
-    }
-    logger.info('Admin', 'External AI config updated', { enabled: next.enabled, provider: next.provider });
+    if (body.openaiApiKey !== undefined) setOpenAiKey(body.openaiApiKey === '' ? null : body.openaiApiKey);
+    if (body.anthropicApiKey !== undefined) setAnthropicKey(body.anthropicApiKey === '' ? null : body.anthropicApiKey);
+    if (body.glmApiKey !== undefined) setGlmKey(body.glmApiKey === '' ? null : body.glmApiKey);
+    logger.info('Admin', 'External AI config updated', { enabled: next.enabled, provider: next.provider, useAllProviders: next.useAllProviders });
     res.json({
       ...next,
       openaiKeySet: hasOpenAiKey(),
       anthropicKeySet: hasAnthropicKey(),
-      currentProviderKeySet: externalAiHasKey(next.provider)
+      glmKeySet: hasGlmKey(),
+      currentProviderKeySet: hasAnyApiKey(next)
     });
   } catch (e) {
     logger.error('Admin', (e as Error).message);

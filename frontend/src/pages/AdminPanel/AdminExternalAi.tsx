@@ -3,10 +3,15 @@ import { adminApi } from '../../utils/adminApi';
 
 interface ExternalAiState {
   enabled: boolean;
-  provider: 'openai' | 'claude';
+  provider: 'openai' | 'claude' | 'glm';
+  useAllProviders: boolean;
   minScore: number;
+  openaiModel?: string;
+  claudeModel?: string;
+  glmModel?: string;
   openaiKeySet?: boolean;
   anthropicKeySet?: boolean;
+  glmKeySet?: boolean;
   currentProviderKeySet?: boolean;
 }
 
@@ -16,6 +21,10 @@ const cardStyle = {
   boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
 };
 
+const DEFAULT_OPENAI = 'gpt-5.2';
+const DEFAULT_CLAUDE = 'claude-3-5-sonnet-20241022';
+const DEFAULT_GLM = 'glm-5';
+
 export default function AdminExternalAi() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -23,38 +32,42 @@ export default function AdminExternalAi() {
   const minScoreRef = useRef<number>(0.6);
   const [openaiApiKey, setOpenaiApiKey] = useState('');
   const [anthropicApiKey, setAnthropicApiKey] = useState('');
+  const [glmApiKey, setGlmApiKey] = useState('');
   const [touchedOpenAi, setTouchedOpenAi] = useState(false);
   const [touchedAnthropic, setTouchedAnthropic] = useState(false);
+  const [touchedGlm, setTouchedGlm] = useState(false);
 
   const fetchConfig = () => {
     adminApi.get<ExternalAiState>('/admin/external-ai').then(setConfig).catch(() => setConfig(null));
   };
 
-  useEffect(() => {
-    fetchConfig();
-  }, []);
+  useEffect(() => { fetchConfig(); }, []);
+  useEffect(() => { if (config) minScoreRef.current = config.minScore; }, [config]);
 
-  useEffect(() => {
-    if (config) minScoreRef.current = config.minScore;
-  }, [config]);
-
-  const save = async (patch: Partial<ExternalAiState> & { openaiApiKey?: string; anthropicApiKey?: string } = {}) => {
+  const save = async (patch: Partial<ExternalAiState> & { openaiApiKey?: string; anthropicApiKey?: string; glmApiKey?: string } = {}) => {
     setLoading(true);
     setMessage('');
     try {
       const body: Record<string, unknown> = {
         enabled: patch.enabled ?? config?.enabled,
         provider: patch.provider ?? config?.provider,
-        minScore: patch.minScore ?? config?.minScore
+        useAllProviders: patch.useAllProviders ?? config?.useAllProviders,
+        minScore: patch.minScore ?? config?.minScore,
+        openaiModel: patch.openaiModel ?? config?.openaiModel ?? DEFAULT_OPENAI,
+        claudeModel: patch.claudeModel ?? config?.claudeModel ?? DEFAULT_CLAUDE,
+        glmModel: patch.glmModel ?? config?.glmModel ?? DEFAULT_GLM
       };
       if (touchedOpenAi) body.openaiApiKey = patch.openaiApiKey ?? openaiApiKey;
       if (touchedAnthropic) body.anthropicApiKey = patch.anthropicApiKey ?? anthropicApiKey;
+      if (touchedGlm) body.glmApiKey = patch.glmApiKey ?? glmApiKey;
       await adminApi.put('/admin/external-ai', body);
       setMessage('Настройки сохранены.');
       setOpenaiApiKey('');
       setAnthropicApiKey('');
+      setGlmApiKey('');
       setTouchedOpenAi(false);
       setTouchedAnthropic(false);
+      setTouchedGlm(false);
       fetchConfig();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Ошибка');
@@ -64,10 +77,7 @@ export default function AdminExternalAi() {
   };
 
   const saveAll = () => {
-    save({
-      openaiApiKey: touchedOpenAi ? openaiApiKey : undefined,
-      anthropicApiKey: touchedAnthropic ? anthropicApiKey : undefined
-    });
+    save({ openaiApiKey: touchedOpenAi ? openaiApiKey : undefined, anthropicApiKey: touchedAnthropic ? anthropicApiKey : undefined, glmApiKey: touchedGlm ? glmApiKey : undefined });
   };
 
   if (config == null) {
@@ -78,16 +88,20 @@ export default function AdminExternalAi() {
     );
   }
 
+  const openaiModel = config.openaiModel || DEFAULT_OPENAI;
+  const claudeModel = config.claudeModel || DEFAULT_CLAUDE;
+  const glmModel = config.glmModel || DEFAULT_GLM;
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-3">
         <span className="text-2xl">🤖</span>
         <div>
           <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-            Внешний ИИ (OpenAI / Claude)
+            Внешний ИИ (OpenAI / Claude / GLM)
           </h2>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Дополнительная оценка сигнала перед открытием позиции. Все настройки, включая API-ключи, задаются ниже.
+            Модели могут работать вместе: при «Все провайдеры» вызываются все с ключами и усредняется оценка.
           </p>
         </div>
       </div>
@@ -118,45 +132,88 @@ export default function AdminExternalAi() {
               Включить внешний ИИ перед открытием ордера
             </span>
           </label>
+          <label className="flex items-center gap-3 cursor-pointer ml-6">
+            <input
+              type="checkbox"
+              checked={config.useAllProviders === true}
+              onChange={(e) => save({ useAllProviders: e.target.checked })}
+              className="rounded w-5 h-5 accent-[var(--accent)]"
+            />
+            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+              Все провайдеры вместе (усреднять оценки)
+            </span>
+          </label>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            Если включено и ключ API задан, каждый кандидат на открытие позиции отправляется выбранной модели. Ордер не откроется, если оценка ниже порога.
+            Если «Все провайдеры» выкл — используется один выбранный. Иначе вызываются OpenAI, Claude и GLM (у кого есть ключи) и берётся средняя оценка.
           </p>
         </div>
 
-        <div className="mt-6 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
-          <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Провайдер</p>
-          <div className="flex flex-wrap gap-3">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="provider"
-                checked={config.provider === 'openai'}
-                onChange={() => save({ provider: 'openai' })}
-                className="accent-[var(--accent)]"
-              />
-              <span>OpenAI (GPT-4o-mini)</span>
-              {config.openaiKeySet !== undefined && (
-                <span className="text-xs" style={{ color: config.openaiKeySet ? 'var(--success)' : 'var(--text-muted)' }}>
-                  {config.openaiKeySet ? 'ключ задан' : 'ключ не задан'}
-                </span>
-              )}
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="provider"
-                checked={config.provider === 'claude'}
-                onChange={() => save({ provider: 'claude' })}
-                className="accent-[var(--accent)]"
-              />
-              <span>Claude (Haiku)</span>
-              {config.anthropicKeySet !== undefined && (
-                <span className="text-xs" style={{ color: config.anthropicKeySet ? 'var(--success)' : 'var(--text-muted)' }}>
-                  {config.anthropicKeySet ? 'ключ задан' : 'ключ не задан'}
-                </span>
-              )}
-            </label>
+        {!config.useAllProviders && (
+          <div className="mt-6 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
+            <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Провайдер (при «Все провайдеры» выкл)</p>
+            <div className="flex flex-wrap gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="provider" checked={config.provider === 'openai'} onChange={() => save({ provider: 'openai' })} className="accent-[var(--accent)]" />
+                <span>OpenAI</span>
+                {config.openaiKeySet !== undefined && <span className="text-xs" style={{ color: config.openaiKeySet ? 'var(--success)' : 'var(--text-muted)' }}>{config.openaiKeySet ? 'ключ задан' : ''}</span>}
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="provider" checked={config.provider === 'claude'} onChange={() => save({ provider: 'claude' })} className="accent-[var(--accent)]" />
+                <span>Claude</span>
+                {config.anthropicKeySet !== undefined && <span className="text-xs" style={{ color: config.anthropicKeySet ? 'var(--success)' : 'var(--text-muted)' }}>{config.anthropicKeySet ? 'ключ задан' : ''}</span>}
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="provider" checked={config.provider === 'glm'} onChange={() => save({ provider: 'glm' })} className="accent-[var(--accent)]" />
+                <span>GLM</span>
+                {config.glmKeySet !== undefined && <span className="text-xs" style={{ color: config.glmKeySet ? 'var(--success)' : 'var(--text-muted)' }}>{config.glmKeySet ? 'ключ задан' : ''}</span>}
+              </label>
+            </div>
           </div>
+        )}
+
+        <div className="mt-6 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
+          <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Модели (ID для API)</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>OpenAI</label>
+              <input
+                type="text"
+                value={openaiModel}
+                onChange={(e) => setConfig((c) => c ? { ...c, openaiModel: e.target.value } : c)}
+                onBlur={() => save({ openaiModel })}
+                placeholder="gpt-4o, gpt-5, gpt-4o-mini"
+                className="w-full px-3 py-2 rounded-lg border text-sm"
+                style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Claude</label>
+              <input
+                type="text"
+                value={claudeModel}
+                onChange={(e) => setConfig((c) => c ? { ...c, claudeModel: e.target.value } : c)}
+                onBlur={() => save({ claudeModel })}
+                placeholder="claude-3-5-sonnet"
+                className="w-full px-3 py-2 rounded-lg border text-sm"
+                style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>GLM</label>
+              <input
+                type="text"
+                value={glmModel}
+                onChange={(e) => setConfig((c) => c ? { ...c, glmModel: e.target.value } : c)}
+                onBlur={() => save({ glmModel })}
+                placeholder="glm-5, glm-4"
+                className="w-full px-3 py-2 rounded-lg border text-sm"
+                style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+              />
+            </div>
+          </div>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+            gpt-5.2, gpt-5, gpt-4o — OpenAI; claude-3-5-sonnet — Claude; glm-5 — Zhipu GLM.
+          </p>
         </div>
 
         <div className="mt-6 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
@@ -170,25 +227,19 @@ export default function AdminExternalAi() {
               max={100}
               step={5}
               value={Math.round(config.minScore * 100)}
-              onChange={(e) => {
-                const v = parseInt(e.target.value, 10) / 100;
-                minScoreRef.current = v;
-                setConfig((c) => (c ? { ...c, minScore: v } : c));
-              }}
+              onChange={(e) => { const v = parseInt(e.target.value, 10) / 100; minScoreRef.current = v; setConfig((c) => (c ? { ...c, minScore: v } : c)); }}
               onMouseUp={() => save({ minScore: minScoreRef.current })}
               onTouchEnd={() => save({ minScore: minScoreRef.current })}
               className="slider-track max-w-[200px]"
             />
-            <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--accent)' }}>
-              {Math.round(config.minScore * 100)}%
-            </span>
+            <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{Math.round(config.minScore * 100)}%</span>
           </div>
         </div>
 
         <div className="mt-6 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
-          <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>API-ключи (задаются в админке)</p>
+          <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>API-ключи</p>
           <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-            Введите ключ и нажмите «Сохранить всё». Оставьте пустым, чтобы не менять. Чтобы удалить ключ — очистите поле и сохраните.
+            Введите ключ и нажмите «Сохранить всё». Оставьте пустым, чтобы не менять.
           </p>
           <div className="space-y-3">
             <div>
@@ -215,20 +266,23 @@ export default function AdminExternalAi() {
                 autoComplete="off"
               />
             </div>
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Zhipu (GLM) API Key</label>
+              <input
+                type="password"
+                value={glmApiKey}
+                onChange={(e) => { setGlmApiKey(e.target.value); setTouchedGlm(true); }}
+                placeholder={config.glmKeySet ? '•••••••• (задан)' : 'Ключ с open.bigmodel.cn'}
+                className="w-full max-w-md px-3 py-2 rounded-lg border text-sm"
+                style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                autoComplete="off"
+              />
+            </div>
           </div>
-          <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-            Ключи хранятся на сервере в зашифрованном виде (задайте ENCRYPTION_KEY в .env для шифрования).
-          </p>
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={saveAll}
-            disabled={loading}
-            className="px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 transition-opacity"
-            style={{ background: 'var(--accent)', color: 'white' }}
-          >
+          <button type="button" onClick={saveAll} disabled={loading} className="px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50" style={{ background: 'var(--accent)', color: 'white' }}>
             {loading ? 'Сохранение…' : 'Сохранить всё'}
           </button>
         </div>

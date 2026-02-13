@@ -1078,17 +1078,20 @@ export default function AutoTradingPage() {
                 <p className="font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Используется AI</p>
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                   Внутренняя ML-оценка (уверенность):{' '}
-                  <strong style={{ color: 'var(--accent)' }}>
+                  <strong style={{ color: 'var(--accent)' }} title={(lastExecution.lastAiProb ?? 0.5) === 0.5 ? '50% — начальное при 0 примерах (холодный старт); растёт с накоплением закрытых сделок' : undefined}>
                     {lastExecution.lastEffectiveAiProb != null
                       ? `${(lastExecution.lastEffectiveAiProb * 100).toFixed(1)}%`
                       : lastExecution.lastAiProb != null
                         ? `${(lastExecution.lastAiProb * 100).toFixed(1)}%`
                         : '—'}
                   </strong>
+                  {((lastExecution.lastAiProb ?? 0.5) === 0.5 || (lastExecution.lastEffectiveAiProb ?? 0.5) === 0.5) && (
+                    <span className="ml-1" title="50% — начальное значение при 0 примерах; растёт с накоплением закрытых сделок">ⓘ</span>
+                  )}
                   {lastExecution.lastExternalAiUsed && (
                     <>
                       {' '}
-                      · Внешний ИИ (OpenAI/Claude):{' '}
+                      · Внешний ИИ (OpenAI/Claude/GLM):{' '}
                       <strong style={{ color: 'var(--accent)' }}>
                         {lastExecution.lastExternalAiScore != null
                           ? `${(lastExecution.lastExternalAiScore * 100).toFixed(0)}%`

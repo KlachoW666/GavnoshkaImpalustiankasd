@@ -23,7 +23,7 @@ import { logger } from '../lib/logger';
 import { VOLUME_BREAKOUT_MULTIPLIER, volatilitySizeMultiplier, isPotentialFalseBreakout } from '../lib/tradingPrinciples';
 import { FundamentalFilter } from '../services/fundamentalFilter';
 import { adjustConfidence, update as mlUpdate, predict as mlPredict, getStats as mlGetStats, MIN_SAMPLES_FOR_AI_GATE, effectiveProbability } from '../services/onlineMLService';
-import { getExternalAiConfig, hasApiKey as externalAiHasKey, evaluateSignal as externalAiEvaluate } from '../services/externalAiService';
+import { getExternalAiConfig, hasAnyApiKey as externalAiHasKey, evaluateSignal as externalAiEvaluate } from '../services/externalAiService';
 import { calcLiquidationPrice, calcLiquidationPriceSimple } from '../lib/liquidationPrice';
 import { executeSignal } from '../services/autoTrader';
 import { initDb, insertOrder } from '../db';
@@ -736,15 +736,16 @@ async function runAutoTradingBestCycle(
     }
   }
 
-  /** Внешний платный ИИ (OpenAI/Claude): дополнительная оценка сигнала. При ошибке/таймауте не блокируем. */
+  /** Внешний платный ИИ (OpenAI/Claude/GLM): дополнительная оценка. Модели работают вместе при useAllProviders. */
   const extAi = getExternalAiConfig();
-  if (extAi.enabled && externalAiHasKey(extAi.provider)) {
+  if (extAi.enabled && externalAiHasKey(extAi)) {
     externalAiUsed = true;
     try {
       const evalResult = await externalAiEvaluate(best.signal);
       if (evalResult != null) externalAiScore = evalResult.score;
       if (evalResult != null && evalResult.score < extAi.minScore) {
-        const skipReason = `Внешний ИИ (${extAi.provider}): оценка ${(evalResult.score * 100).toFixed(0)}% ниже порога ${(extAi.minScore * 100).toFixed(0)}%. Ордер не открыт.`;
+        const provLabel = evalResult.providers?.length ? evalResult.providers.join(' + ') : extAi.provider;
+        const skipReason = `Внешний ИИ (${provLabel}): оценка ${(evalResult.score * 100).toFixed(0)}% ниже порога ${(extAi.minScore * 100).toFixed(0)}%. Ордер не открыт.`;
         logger.info('runAutoTradingBestCycle', skipReason, { symbol: best.signal.symbol, score: evalResult.score, minScore: extAi.minScore });
         setLastExecution(undefined, undefined, skipReason, aiInfoForExecution(externalAiScore ?? undefined, externalAiUsed));
         return;
