@@ -727,7 +727,7 @@ async function runAutoTradingBestCycle(
   /** AI-анализ перед открытием: консервативная оценка при малом числе примеров; порог не блокирует при холодной модели. */
   if (minAiProb > 0) {
     if (mlSamples < MIN_SAMPLES_FOR_AI_GATE) {
-      logger.info('runAutoTradingBestCycle', 'AI gate skipped: model cold (samples < ' + MIN_SAMPLES_FOR_AI_GATE + ')', { symbol: best.signal.symbol, samples: mlSamples });
+      logger.info('runAutoTradingBestCycle', `AI gate skipped: model cold (samples ${mlSamples} < ${MIN_SAMPLES_FOR_AI_GATE}). Порог minAiProb не применяется до накопления примеров.`, { symbol: best.signal.symbol, samples: mlSamples });
     } else if (effectiveAiProb < minAiProb) {
       const skipReason = `AI: вероятность выигрыша ${(effectiveAiProb * 100).toFixed(1)}% ниже порога ${(minAiProb * 100).toFixed(0)}%. Ордер не открыт.`;
       logger.info('runAutoTradingBestCycle', skipReason, { symbol: best.signal.symbol, effectiveAiProb, minAiProb });

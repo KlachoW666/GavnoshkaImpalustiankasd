@@ -7,8 +7,10 @@
 
 import { logger } from '../lib/logger';
 
-/** Минимум примеров, после которого AI-фильтр перед открытием позиции учитывается. До этого порог не блокирует. */
-export const MIN_SAMPLES_FOR_AI_GATE = 15;
+/** Минимум примеров, после которого AI-фильтр (minAiProb) учитывается. До этого порог не блокирует. env: ML_MIN_SAMPLES_GATE */
+export const MIN_SAMPLES_FOR_AI_GATE = typeof process !== 'undefined' && process.env?.ML_MIN_SAMPLES_GATE
+  ? Math.max(5, Math.min(50, Number(process.env.ML_MIN_SAMPLES_GATE) || 15))
+  : 15;
 /** Примеров, после которых предсказание считается «уверенным» (без сдвига к 0.5). */
 export const SAMPLES_FOR_FULL_TRUST = 50;
 

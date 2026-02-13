@@ -1173,8 +1173,8 @@ export default function AutoTradingPage() {
                 </p>
               )}
               {settings.fullAuto && settings.executeOrders && (
-                <>
-                  <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+                <div className="mt-4 space-y-4">
+                  <div className="pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
                     <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Быстрый выход (меньше время в позиции)</p>
                     <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>TP ближе к входу — позиция закрывается по профиту раньше. 85% = уже цель, 100% = полный TP сигнала.</p>
                     <div className="flex items-center gap-3">
@@ -1190,7 +1190,7 @@ export default function AutoTradingPage() {
                       <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{Math.round((settings.tpMultiplier ?? 0.85) * 100)}%</span>
                     </div>
                   </div>
-                  <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+                  <div className="pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
                     <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>AI-фильтр: мин. вероятность выигрыша</p>
                     <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Ордер не откроется, если ML-оценка ниже порога. 0% = выкл. Не гарантирует прибыль, но отсекает слабые сигналы.</p>
                     <div className="flex items-center gap-3">
@@ -1208,7 +1208,7 @@ export default function AutoTradingPage() {
                       </span>
                     </div>
                   </div>
-                </>
+                </div>
               )}
             </>
           )}

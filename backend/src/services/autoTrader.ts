@@ -526,7 +526,9 @@ export async function getPositionsAndBalanceForApi(
     try {
       if (attempt > 0) {
         const isTimestampRetry = OKX_TIMESTAMP_EXPIRED.test(lastError || '');
-        if (isTimestampRetry) await new Promise((r) => setTimeout(r, 2000));
+        const isTimeout = /timed out|timeout|ETIMEDOUT/i.test(lastError || '');
+        const delayMs = isTimestampRetry ? 2000 : (isTimeout ? 2500 : 0); // таймаут — пауза перед сменой прокси
+        if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
         exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
       }
       const { balance, positions } = await fetchBalanceAndPositions(exchange);
@@ -536,8 +538,8 @@ export async function getPositionsAndBalanceForApi(
       lastError = msg;
       const isTimeout = /timed out|timeout|ETIMEDOUT/i.test(msg);
       const isTimestampExpired = OKX_TIMESTAMP_EXPIRED.test(msg);
-      if (isTimeout && attempt < 1) {
-        logger.warn('AutoTrader', 'getPositionsAndBalance timeout, retrying with new proxy', { useUserCreds: !!useUserCreds });
+      if (isTimeout && attempt < 2) {
+        logger.warn('AutoTrader', 'getPositionsAndBalance timeout, retrying with new proxy after 2.5s', { attempt: attempt + 1, useUserCreds: !!useUserCreds });
         continue;
       }
       if (isTimestampExpired && attempt < 2) {
