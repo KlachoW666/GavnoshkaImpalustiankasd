@@ -711,7 +711,7 @@ export default function AutoTradingPage() {
       pair: pos.signal.symbol,
       direction: pos.signal.direction,
       size: pos.size,
-      leverage: lev,
+      leverage: pos.leverage ?? 1,
       openPrice: pos.openPrice,
       closePrice: price,
       pnl,
@@ -1124,40 +1124,42 @@ export default function AutoTradingPage() {
                 </p>
               )}
               {settings.fullAuto && settings.executeOrders && (
-                <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
-                  <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Быстрый выход (меньше время в позиции)</p>
-                  <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>TP ближе к входу — позиция закрывается по профиту раньше. 85% = уже цель, 100% = полный TP сигнала.</p>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="range"
-                      min={50}
-                      max={100}
-                      step={5}
-                      value={Math.round((settings.tpMultiplier ?? 0.85) * 100)}
-                      onChange={(e) => updateSetting('tpMultiplier', parseInt(e.target.value, 10) / 100)}
-                      className="slider-track max-w-[200px]"
-                    />
-                    <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{Math.round((settings.tpMultiplier ?? 0.85) * 100)}%</span>
+                <>
+                  <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+                    <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Быстрый выход (меньше время в позиции)</p>
+                    <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>TP ближе к входу — позиция закрывается по профиту раньше. 85% = уже цель, 100% = полный TP сигнала.</p>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min={50}
+                        max={100}
+                        step={5}
+                        value={Math.round((settings.tpMultiplier ?? 0.85) * 100)}
+                        onChange={(e) => updateSetting('tpMultiplier', parseInt(e.target.value, 10) / 100)}
+                        className="slider-track max-w-[200px]"
+                      />
+                      <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{Math.round((settings.tpMultiplier ?? 0.85) * 100)}%</span>
+                    </div>
                   </div>
-                </div>
-                <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
-                  <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>AI-фильтр: мин. вероятность выигрыша</p>
-                  <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Ордер не откроется, если ML-оценка ниже порога. 0% = выкл. Не гарантирует прибыль, но отсекает слабые сигналы.</p>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="range"
-                      min={0}
-                      max={70}
-                      step={5}
-                      value={Math.round((settings.minAiProb ?? 0) * 100)}
-                      onChange={(e) => updateSetting('minAiProb', parseInt(e.target.value, 10) / 100)}
-                      className="slider-track max-w-[200px]"
-                    />
-                    <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--accent)' }}>
-                      {(settings.minAiProb ?? 0) === 0 ? 'Выкл' : `${Math.round((settings.minAiProb ?? 0) * 100)}%`}
-                    </span>
+                  <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+                    <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>AI-фильтр: мин. вероятность выигрыша</p>
+                    <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Ордер не откроется, если ML-оценка ниже порога. 0% = выкл. Не гарантирует прибыль, но отсекает слабые сигналы.</p>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min={0}
+                        max={70}
+                        step={5}
+                        value={Math.round((settings.minAiProb ?? 0) * 100)}
+                        onChange={(e) => updateSetting('minAiProb', parseInt(e.target.value, 10) / 100)}
+                        className="slider-track max-w-[200px]"
+                      />
+                      <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--accent)' }}>
+                        {(settings.minAiProb ?? 0) === 0 ? 'Выкл' : `${Math.round((settings.minAiProb ?? 0) * 100)}%`}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                </>
               )}
             </>
           )}
