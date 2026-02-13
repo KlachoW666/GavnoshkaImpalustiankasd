@@ -97,7 +97,7 @@ export async function fetchNewsContext(
   } catch (e) {
     clearTimeout(timeout);
     const err = e as Error;
-    const cause = err.cause ? (typeof err.cause === 'object' && 'message' in err.cause ? String((err.cause as Error).message) : String(err.cause)) : undefined;
+    const cause = (e as { cause?: unknown }).cause != null ? String((e as { cause?: unknown }).cause) : undefined;
     logger.warn('cryptopanic', 'CryptoPanic fetch failed', { error: err.message, cause, symbol });
     return null;
   }
