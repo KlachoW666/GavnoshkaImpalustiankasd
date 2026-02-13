@@ -152,7 +152,12 @@ async function callOpenAI(prompt: string): Promise<number | null> {
     clearTimeout(timeout);
     if (!res.ok) {
       const err = await res.text();
-      logger.warn('externalAi', 'OpenAI error', { status: res.status, body: err.slice(0, 200) });
+      const isRegionBlocked = res.status === 403 && /unsupported_country_region_territory|country.*not supported/i.test(err);
+      if (isRegionBlocked) {
+        logger.warn('externalAi', 'OpenAI: регион/страна не поддерживается (403). Используйте провайдер Claude в админке или прокси/VPN для OpenAI.', { body: err.slice(0, 150) });
+      } else {
+        logger.warn('externalAi', 'OpenAI error', { status: res.status, body: err.slice(0, 200) });
+      }
       return null;
     }
     const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
