@@ -19,7 +19,7 @@ export class DataAggregator {
       password: okx.hasCredentials && okx.passphrase ? okx.passphrase : undefined,
       enableRateLimit: true,
       options: { defaultType: 'swap' },
-      timeout: 30000, // OKX /asset/currencies и др. могут отвечать медленно
+      timeout: config.okx.timeout
     };
     const proxyUrl = getProxy(config.proxyList) || config.proxy;
     if (proxyUrl) {

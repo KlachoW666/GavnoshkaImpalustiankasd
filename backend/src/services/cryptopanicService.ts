@@ -14,7 +14,7 @@ function getProxyUrl(): string {
 }
 
 const CRYPTOPANIC_BASE = 'https://api.cryptopanic.com/v1/posts/';
-const REQUEST_TIMEOUT_MS = 15000;
+const REQUEST_TIMEOUT_MS = 25000;
 
 export interface CryptoPanicPost {
   title: string;

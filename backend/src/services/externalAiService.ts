@@ -46,12 +46,15 @@ const DEFAULT_CONFIG: ExternalAiConfig = {
   useAllProviders: false,
   minScore: 0.6,
   openaiModel: 'gpt-5.2',
-  claudeModel: 'claude-3-5-sonnet-latest',
+  claudeModel: 'claude-3-5-haiku-20241022',
   glmModel: 'glm-5'
 };
 
-/** Устаревшие Claude model IDs — заменяем на актуальный */
-const DEPRECATED_CLAUDE_MODELS = ['claude-3-5-sonnet-20241022', 'claude-3-5-sonnet-20240620'];
+/** Устаревшие/недоступные Claude model IDs — заменяем на актуальный */
+const DEPRECATED_CLAUDE_MODELS = [
+  'claude-3-5-sonnet-20241022', 'claude-3-5-sonnet-20240620',
+  'claude-3-5-sonnet-latest'
+];
 
 function parseConfig(raw: string | null): ExternalAiConfig {
   if (!raw) return { ...DEFAULT_CONFIG };

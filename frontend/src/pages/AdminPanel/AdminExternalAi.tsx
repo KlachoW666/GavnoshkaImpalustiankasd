@@ -23,7 +23,7 @@ const cardStyle = {
 };
 
 const DEFAULT_OPENAI = 'gpt-5.2';
-const DEFAULT_CLAUDE = 'claude-3-5-sonnet-latest';
+const DEFAULT_CLAUDE = 'claude-3-5-haiku-20241022';
 const DEFAULT_GLM = 'glm-5';
 
 export default function AdminExternalAi() {
