@@ -11,6 +11,7 @@ import { getSetting, setSetting } from '../db';
 import { logger } from '../lib/logger';
 import { encrypt, decrypt } from '../lib/encrypt';
 import type { TradingSignal } from '../types/signal';
+import { fetchNewsContext } from './cryptopanicService';
 
 function getExternalAiProxy(): string {
   return getProxy(config.proxyList) || config.proxy || '';
@@ -20,6 +21,7 @@ const SETTINGS_KEY_EXTERNAL_AI = 'external_ai_config';
 const SETTINGS_KEY_OPENAI_API_KEY = 'external_ai_openai_api_key';
 const SETTINGS_KEY_ANTHROPIC_API_KEY = 'external_ai_anthropic_api_key';
 const SETTINGS_KEY_GLM_API_KEY = 'external_ai_glm_api_key';
+const SETTINGS_KEY_CRYPTOPANIC_API_KEY = 'external_ai_cryptopanic_api_key';
 
 export type ExternalAiProvider = 'openai' | 'claude' | 'glm';
 
@@ -139,6 +141,28 @@ export function setGlmKey(value: string | null): void {
   setSetting(SETTINGS_KEY_GLM_API_KEY, encrypt(v));
 }
 
+export function getCryptoPanicKey(): string {
+  const stored = getSetting(SETTINGS_KEY_CRYPTOPANIC_API_KEY);
+  if (stored) {
+    const dec = decrypt(stored);
+    if (dec) return dec.trim();
+  }
+  return '';
+}
+
+export function setCryptoPanicKey(value: string | null): void {
+  const v = (value ?? '').trim();
+  if (!v) {
+    setSetting(SETTINGS_KEY_CRYPTOPANIC_API_KEY, '');
+    return;
+  }
+  setSetting(SETTINGS_KEY_CRYPTOPANIC_API_KEY, encrypt(v));
+}
+
+export function hasCryptoPanicKey(): boolean {
+  return Boolean(getCryptoPanicKey());
+}
+
 export function hasApiKey(provider: ExternalAiProvider): boolean {
   if (provider === 'openai') return Boolean(getOpenAiKey());
   if (provider === 'claude') return Boolean(getAnthropicKey());
@@ -192,7 +216,7 @@ async function callOpenAI(prompt: string, model: string): Promise<number | null>
       body: JSON.stringify({
         model: model || 'gpt-5.2',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 20,
+        max_completion_tokens: 20,
         temperature: 0.3
       }),
       signal: controller.signal,
@@ -308,6 +332,7 @@ async function callGLM(prompt: string, model: string): Promise<number | null> {
 
 /**
  * Оценка сигнала внешним ИИ. При useAllProviders вызывает все доступные модели и усредняет.
+ * Если задан CryptoPanic API-ключ — подтягиваются новости и передаются в контекст.
  */
 export async function evaluateSignal(
   signal: TradingSignal,
@@ -315,7 +340,21 @@ export async function evaluateSignal(
 ): Promise<{ score: number; providers: string[] } | null> {
   const cfg = getExternalAiConfig();
   if (!cfg.enabled) return null;
-  const prompt = buildPrompt(signal, context);
+
+  let fullContext = context ?? '';
+  if (hasCryptoPanicKey()) {
+    try {
+      const cpKey = getCryptoPanicKey();
+      const newsContext = await fetchNewsContext(cpKey, signal.symbol ?? '', 5);
+      if (newsContext) {
+        fullContext = fullContext ? `${fullContext}. ${newsContext}` : newsContext;
+      }
+    } catch (e) {
+      logger.warn('externalAi', 'CryptoPanic fetch failed', { error: (e as Error).message });
+    }
+  }
+
+  const prompt = buildPrompt(signal, fullContext || undefined);
   const providers: string[] = [];
   const scores: number[] = [];
 

@@ -12,6 +12,7 @@ interface ExternalAiState {
   openaiKeySet?: boolean;
   anthropicKeySet?: boolean;
   glmKeySet?: boolean;
+  cryptopanicKeySet?: boolean;
   currentProviderKeySet?: boolean;
 }
 
@@ -33,9 +34,11 @@ export default function AdminExternalAi() {
   const [openaiApiKey, setOpenaiApiKey] = useState('');
   const [anthropicApiKey, setAnthropicApiKey] = useState('');
   const [glmApiKey, setGlmApiKey] = useState('');
+  const [cryptoPanicApiKey, setCryptoPanicApiKey] = useState('');
   const [touchedOpenAi, setTouchedOpenAi] = useState(false);
   const [touchedAnthropic, setTouchedAnthropic] = useState(false);
   const [touchedGlm, setTouchedGlm] = useState(false);
+  const [touchedCryptoPanic, setTouchedCryptoPanic] = useState(false);
 
   const fetchConfig = () => {
     adminApi.get<ExternalAiState>('/admin/external-ai').then(setConfig).catch(() => setConfig(null));
@@ -44,7 +47,7 @@ export default function AdminExternalAi() {
   useEffect(() => { fetchConfig(); }, []);
   useEffect(() => { if (config) minScoreRef.current = config.minScore; }, [config]);
 
-  const save = async (patch: Partial<ExternalAiState> & { openaiApiKey?: string; anthropicApiKey?: string; glmApiKey?: string } = {}) => {
+  const save = async (patch: Partial<ExternalAiState> & { openaiApiKey?: string; anthropicApiKey?: string; glmApiKey?: string; cryptoPanicApiKey?: string } = {}) => {
     setLoading(true);
     setMessage('');
     try {
@@ -60,14 +63,17 @@ export default function AdminExternalAi() {
       if (touchedOpenAi) body.openaiApiKey = patch.openaiApiKey ?? openaiApiKey;
       if (touchedAnthropic) body.anthropicApiKey = patch.anthropicApiKey ?? anthropicApiKey;
       if (touchedGlm) body.glmApiKey = patch.glmApiKey ?? glmApiKey;
+      if (touchedCryptoPanic) body.cryptoPanicApiKey = patch.cryptoPanicApiKey ?? cryptoPanicApiKey;
       await adminApi.put('/admin/external-ai', body);
       setMessage('Настройки сохранены.');
       setOpenaiApiKey('');
       setAnthropicApiKey('');
       setGlmApiKey('');
+      setCryptoPanicApiKey('');
       setTouchedOpenAi(false);
       setTouchedAnthropic(false);
       setTouchedGlm(false);
+      setTouchedCryptoPanic(false);
       fetchConfig();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Ошибка');
@@ -77,7 +83,12 @@ export default function AdminExternalAi() {
   };
 
   const saveAll = () => {
-    save({ openaiApiKey: touchedOpenAi ? openaiApiKey : undefined, anthropicApiKey: touchedAnthropic ? anthropicApiKey : undefined, glmApiKey: touchedGlm ? glmApiKey : undefined });
+    save({
+      openaiApiKey: touchedOpenAi ? openaiApiKey : undefined,
+      anthropicApiKey: touchedAnthropic ? anthropicApiKey : undefined,
+      glmApiKey: touchedGlm ? glmApiKey : undefined,
+      cryptoPanicApiKey: touchedCryptoPanic ? cryptoPanicApiKey : undefined
+    });
   };
 
   if (config == null) {
@@ -101,7 +112,7 @@ export default function AdminExternalAi() {
             Внешний ИИ (OpenAI / Claude / GLM)
           </h2>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Модели могут работать вместе: при «Все провайдеры» вызываются все с ключами и усредняется оценка.
+            Модели могут работать вместе: при «Все провайдеры» вызываются все с ключами и усредняется оценка. CryptoPanic — новости для контекста перед ордером.
           </p>
         </div>
       </div>
@@ -277,6 +288,21 @@ export default function AdminExternalAi() {
                 style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
                 autoComplete="off"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>CryptoPanic API Key</label>
+              <input
+                type="password"
+                value={cryptoPanicApiKey}
+                onChange={(e) => { setCryptoPanicApiKey(e.target.value); setTouchedCryptoPanic(true); }}
+                placeholder={config.cryptopanicKeySet ? '•••••••• (задан)' : 'auth_token с cryptopanic.com/developers'}
+                className="w-full max-w-md px-3 py-2 rounded-lg border text-sm"
+                style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                autoComplete="off"
+              />
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                Новости для анализа перед открытием ордера. Бесплатный ключ: cryptopanic.com/developers/api/dashboard
+              </p>
             </div>
           </div>
         </div>
