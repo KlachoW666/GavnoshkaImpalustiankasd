@@ -13,7 +13,9 @@ export const autoAnalyzeStartSchema = z.object({
   maxPositions: z.number().min(1).max(10).optional().catch(undefined),
   sizePercent: z.number().min(1).max(50).optional().catch(undefined),
   leverage: z.number().min(1).max(125).optional().catch(undefined),
-  tpMultiplier: z.number().min(0.5).max(1).optional().catch(undefined)
+  tpMultiplier: z.number().min(0.5).max(1).optional().catch(undefined),
+  /** AI-фильтр: мин. вероятность выигрыша (0–1). 0 = выкл. Ордер не открывается, если ML-оценка ниже порога. */
+  minAiProb: z.number().min(0).max(1).optional().catch(undefined)
 }).passthrough();
 
 export type AutoAnalyzeStartBody = z.infer<typeof autoAnalyzeStartSchema>;

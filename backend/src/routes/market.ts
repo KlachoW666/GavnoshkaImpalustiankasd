@@ -22,7 +22,7 @@ import { normalizeSymbol } from '../lib/symbol';
 import { logger } from '../lib/logger';
 import { VOLUME_BREAKOUT_MULTIPLIER, volatilitySizeMultiplier, isPotentialFalseBreakout } from '../lib/tradingPrinciples';
 import { FundamentalFilter } from '../services/fundamentalFilter';
-import { adjustConfidence, update as mlUpdate, predict as mlPredict } from '../services/onlineMLService';
+import { adjustConfidence, update as mlUpdate, predict as mlPredict, getStats as mlGetStats, MIN_SAMPLES_FOR_AI_GATE, effectiveProbability } from '../services/onlineMLService';
 import { calcLiquidationPrice, calcLiquidationPriceSimple } from '../lib/liquidationPrice';
 import { executeSignal } from '../services/autoTrader';
 import { initDb, insertOrder } from '../db';
@@ -36,6 +36,7 @@ let autoAnalyzeMaxPositions = 2;
 let autoAnalyzeSizePercent = 25;
 let autoAnalyzeLeverage = 25;
 let autoAnalyzeTpMultiplier = 1;
+let autoAnalyzeMinAiProb = 0;
 
 interface PerUserAutoState {
   timer: ReturnType<typeof setInterval>;
@@ -47,6 +48,8 @@ interface PerUserAutoState {
   sizePercent: number;
   leverage: number;
   tpMultiplier: number;
+  /** AI-фильтр: мин. вероятность выигрыша (0–1). 0 = выкл. */
+  minAiProb: number;
 }
 const autoAnalyzeByUser = new Map<string, PerUserAutoState>();
 /** Результат последнего исполнения по userId (для отображения на фронте) */
@@ -481,13 +484,21 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
     priceDirection,
     falseBreakoutRisk: falseBreakoutHint
   });
+  const atrNorm = (atr != null && avgAtr != null && avgAtr > 0)
+    ? Math.min(1, (atr / avgAtr) / 2)
+    : undefined;
+  const spreadNorm = obSignal.spreadPct != null
+    ? Math.max(0, 1 - Math.min(1, obSignal.spreadPct / 0.5))
+    : undefined;
   const mlFeatures = {
     confidence: signal.confidence ?? 0,
     direction: direction === 'LONG' ? 1 : 0,
     riskReward: signal.risk_reward ?? 1,
     triggersCount: (signal.triggers ?? []).length,
     rsiBucket: rsi != null ? (rsi < 35 ? 1 : rsi > 65 ? -1 : 0) : undefined,
-    volumeConfirm: candlesSignal.volumeConfirm ? 1 : 0
+    volumeConfirm: candlesSignal.volumeConfirm ? 1 : 0,
+    atrNorm,
+    spreadNorm
   };
   const aiWinProbability = mlPredict(mlFeatures);
   signal = {
@@ -548,7 +559,9 @@ router.post('/analyze/:symbol', async (req, res) => {
 const MAX_SYMBOLS = 10;
 /** Сигналы 85%+ дают лучший результат — мин. порог 82% для авто-цикла */
 const AUTO_MIN_CONFIDENCE = 0.82;
-const AUTO_SCORE_WEIGHTS = { confidence: 0.5, riskReward: 0.35, confluence: 0.15 };
+/** Минимальный risk/reward для открытия ордера в полном автомате — отсекает слабые R:R. 100% в плюс недостижимо, снижаем долю убыточных. */
+const AUTO_MIN_RISK_REWARD = 1.25;
+const AUTO_SCORE_WEIGHTS = { confidence: 0.4, riskReward: 0.3, confluence: 0.15, aiProb: 0.15 };
 
 /** Преобразовать символ из скринера (BTC/USDT:USDT) в формат runAnalysis (BTC-USDT) */
 function scannerSymbolToMarket(s: string): string {
@@ -566,7 +579,7 @@ async function runAutoTradingBestCycle(
   timeframe = '5m',
   useScanner = false,
   userId?: string,
-  execOpts?: { executeOrders: boolean; useTestnet: boolean; maxPositions: number; sizePercent: number; leverage: number; tpMultiplier?: number }
+  execOpts?: { executeOrders: boolean; useTestnet: boolean; maxPositions: number; sizePercent: number; leverage: number; tpMultiplier?: number; minAiProb?: number }
 ): Promise<void> {
   let syms = symbols.slice(0, MAX_SYMBOLS);
   if (useScanner) {
@@ -597,6 +610,7 @@ async function runAutoTradingBestCycle(
   const sizePercent = execOpts?.sizePercent ?? autoAnalyzeSizePercent;
   const leverage = execOpts?.leverage ?? autoAnalyzeLeverage;
   const tpMultiplier = execOpts?.tpMultiplier ?? autoAnalyzeTpMultiplier;
+  const minAiProb = Math.max(0, Math.min(1, execOpts?.minAiProb ?? 0));
 
   const results: Array<{ signal: Awaited<ReturnType<typeof runAnalysis>>['signal']; breakdown: any; score: number }> = [];
   await Promise.all(
@@ -608,11 +622,13 @@ async function runAutoTradingBestCycle(
         const rr = sig.risk_reward ?? 1;
         const alignCount = (r.breakdown as any)?.multiTF?.alignCount ?? 0;
         const confluenceBonus = Math.min(1.2, 0.9 + alignCount * 0.06);
-        if (conf >= AUTO_MIN_CONFIDENCE) {
+        const aiProb = sig.aiWinProbability ?? 0.5;
+        if (conf >= AUTO_MIN_CONFIDENCE && rr >= AUTO_MIN_RISK_REWARD) {
           const score =
             conf * AUTO_SCORE_WEIGHTS.confidence +
             Math.min(rr / 3, 1) * AUTO_SCORE_WEIGHTS.riskReward +
-            confluenceBonus * AUTO_SCORE_WEIGHTS.confluence;
+            confluenceBonus * AUTO_SCORE_WEIGHTS.confluence +
+            aiProb * AUTO_SCORE_WEIGHTS.aiProb;
           results.push({ signal: sig, breakdown: r.breakdown, score });
         }
       } catch (e) {
@@ -646,6 +662,30 @@ async function runAutoTradingBestCycle(
     logger.info('runAutoTradingBestCycle', `Execution skipped: ${reason}`, { userId, useTestnet });
     setLastExecution(reason);
     return;
+  }
+
+  /** Risk/Reward: не открывать при слабом R:R (чаще убытки). 100% в плюс невозможно — отсекаем худшие по R:R. */
+  const rr = best.signal.risk_reward ?? 0;
+  if (rr < AUTO_MIN_RISK_REWARD) {
+    const skipReason = `R:R ${rr.toFixed(2)} ниже минимума ${AUTO_MIN_RISK_REWARD}. Ордер не открыт.`;
+    logger.info('runAutoTradingBestCycle', skipReason, { symbol: best.signal.symbol, rr });
+    setLastExecution(undefined, undefined, skipReason);
+    return;
+  }
+
+  /** AI-анализ перед открытием: консервативная оценка при малом числе примеров; порог не блокирует при холодной модели. */
+  const aiProb = best.signal.aiWinProbability ?? 0;
+  const mlSamples = mlGetStats().samples;
+  const effectiveAiProb = effectiveProbability(aiProb, mlSamples);
+  if (minAiProb > 0) {
+    if (mlSamples < MIN_SAMPLES_FOR_AI_GATE) {
+      logger.info('runAutoTradingBestCycle', 'AI gate skipped: model cold (samples < ' + MIN_SAMPLES_FOR_AI_GATE + ')', { symbol: best.signal.symbol, samples: mlSamples });
+    } else if (effectiveAiProb < minAiProb) {
+      const skipReason = `AI: вероятность выигрыша ${(effectiveAiProb * 100).toFixed(1)}% ниже порога ${(minAiProb * 100).toFixed(0)}%. Ордер не открыт.`;
+      logger.info('runAutoTradingBestCycle', skipReason, { symbol: best.signal.symbol, effectiveAiProb, minAiProb });
+      setLastExecution(undefined, undefined, skipReason);
+      return;
+    }
   }
 
   executeSignal(best.signal, {
@@ -728,6 +768,7 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   const sizePercent = Math.max(1, Math.min(50, parseInt(String(body?.sizePercent)) || 25));
   const leverage = Math.max(1, Math.min(125, parseInt(String(body?.leverage)) || 25));
   const tpMultiplier = Math.max(0.5, Math.min(1, parseFloat(String(body?.tpMultiplier)) || 0.85));
+  const minAiProb = Math.max(0, Math.min(1, parseFloat(String(body?.minAiProb)) || 0));
 
   autoAnalyzeExecuteOrders = fullAuto && executeOrders;
   autoAnalyzeUseTestnet = useTestnet;
@@ -735,6 +776,7 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   autoAnalyzeSizePercent = sizePercent;
   autoAnalyzeLeverage = leverage;
   autoAnalyzeTpMultiplier = tpMultiplier;
+  autoAnalyzeMinAiProb = minAiProb;
 
   const runAll = () => {
     const state = autoAnalyzeByUser.get(userId);
@@ -746,7 +788,8 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
         maxPositions,
         sizePercent,
         leverage,
-        tpMultiplier
+        tpMultiplier,
+        minAiProb
       }).catch((e) => logger.error('auto-analyze', (e as Error).message));
     } else {
       for (const sym of syms) {
@@ -756,7 +799,7 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   };
   const now = Date.now();
   const timer = setInterval(runAll, intervalMs);
-  autoAnalyzeByUser.set(userId, { timer, intervalMs, lastCycleAt: now, executeOrders: fullAuto && executeOrders, useTestnet, maxPositions, sizePercent, leverage, tpMultiplier });
+  autoAnalyzeByUser.set(userId, { timer, intervalMs, lastCycleAt: now, executeOrders: fullAuto && executeOrders, useTestnet, maxPositions, sizePercent, leverage, tpMultiplier, minAiProb });
   runAll();
   return {
     status: 'started',

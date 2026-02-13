@@ -98,6 +98,8 @@ interface AutoTradingSettings {
   executeOrders: boolean;
   /** Быстрый выход: множитель TP 0.5–1 (0.85 = уже TP, меньше время в позиции) */
   tpMultiplier: number;
+  /** AI-фильтр: мин. вероятность выигрыша 0–1 (0 = выкл). Ордер не открывается, если ML-оценка ниже. */
+  minAiProb: number;
 }
 
 const DEFAULT_SETTINGS: AutoTradingSettings = {
@@ -122,7 +124,8 @@ const DEFAULT_SETTINGS: AutoTradingSettings = {
   fullAuto: false,
   useScanner: true,
   executeOrders: false,
-  tpMultiplier: 0.85
+  tpMultiplier: 0.85,
+  minAiProb: 0
 };
 
 /** Аналитика: SHORT в плюсе, LONG в минусе — для LONG требуем +8% уверенности */
@@ -169,6 +172,7 @@ function loadSettings(): AutoTradingSettings {
       s.useScanner = s.useScanner !== false;
       s.executeOrders = Boolean(s.executeOrders);
       s.tpMultiplier = Math.max(0.5, Math.min(1, Number(s.tpMultiplier) || 0.85));
+      s.minAiProb = Math.max(0, Math.min(1, Number(s.minAiProb) ?? 0));
       if ((s.minConfidence ?? 80) > 90) s.minConfidence = 90;
       return s;
     }
@@ -516,7 +520,8 @@ export default function AutoTradingPage() {
           maxPositions: FULL_AUTO_DEFAULTS.maxPositions,
           sizePercent: FULL_AUTO_DEFAULTS.sizePercent,
           leverage: FULL_AUTO_DEFAULTS.leverage,
-          tpMultiplier: Math.max(0.5, Math.min(1, settings.tpMultiplier ?? 0.85))
+          tpMultiplier: Math.max(0.5, Math.min(1, settings.tpMultiplier ?? 0.85)),
+          minAiProb: Math.max(0, Math.min(1, settings.minAiProb ?? 0))
         }
       : {
           symbols: syms,
@@ -538,7 +543,7 @@ export default function AutoTradingPage() {
       fetch(`${API}/market/auto-analyze/stop`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } }).catch(() => {});
       setStatus('idle');
     };
-  }, [enabled, symbols, settings.intervalMs, settings.scalpingMode, settings.strategy, settings.fullAuto, settings.useScanner, settings.executeOrders, settings.tpMultiplier, token]);
+  }, [enabled, symbols, settings.intervalMs, settings.scalpingMode, settings.strategy, settings.fullAuto, settings.useScanner, settings.executeOrders, settings.tpMultiplier, settings.minAiProb, token]);
 
   useEffect(() => {
     if (!enabled || status !== 'running' || !token) {
@@ -694,11 +699,11 @@ export default function AutoTradingPage() {
     if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) {
       price = pos.openPrice;
     }
-    const lev = pos.leverage || 1;
+    // size в БД = номинал позиции в USDT; PnL в USDT = (priceChg%) × size (плечо в формулу не входит)
     const pnl = pos.signal.direction === 'LONG'
-      ? ((price - pos.openPrice) / pos.openPrice) * pos.size * lev
-      : ((pos.openPrice - price) / pos.openPrice) * pos.size * lev;
-    const pnlPercent = (pnl / pos.size) * 100;
+      ? ((price - pos.openPrice) / pos.openPrice) * pos.size
+      : ((pos.openPrice - price) / pos.openPrice) * pos.size;
+    const pnlPercent = pos.size > 0 ? (pnl / pos.size) * 100 : 0;
     const sl = getSL(pos);
     const tp = getTP(pos);
     const entry: HistoryEntry = {
@@ -1133,6 +1138,24 @@ export default function AutoTradingPage() {
                       className="slider-track max-w-[200px]"
                     />
                     <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{Math.round((settings.tpMultiplier ?? 0.85) * 100)}%</span>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+                  <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>AI-фильтр: мин. вероятность выигрыша</p>
+                  <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Ордер не откроется, если ML-оценка ниже порога. 0% = выкл. Не гарантирует прибыль, но отсекает слабые сигналы.</p>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min={0}
+                      max={70}
+                      step={5}
+                      value={Math.round((settings.minAiProb ?? 0) * 100)}
+                      onChange={(e) => updateSetting('minAiProb', parseInt(e.target.value, 10) / 100)}
+                      className="slider-track max-w-[200px]"
+                    />
+                    <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--accent)' }}>
+                      {(settings.minAiProb ?? 0) === 0 ? 'Выкл' : `${Math.round((settings.minAiProb ?? 0) * 100)}%`}
+                    </span>
                   </div>
                 </div>
               )}
