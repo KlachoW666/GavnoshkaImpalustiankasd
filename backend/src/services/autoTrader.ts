@@ -284,6 +284,7 @@ export async function executeSignal(
     return order;
   };
 
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   try {
     let order: unknown;
     try {
@@ -291,9 +292,14 @@ export async function executeSignal(
     } catch (e: any) {
       const errMsg = e?.message ?? String(e);
       const isAccountModeError = /51010|account mode|cannot complete.*account mode/i.test(errMsg);
+      const isTimestampExpired = /50102|Timestamp request expired|timestamp expired/i.test(errMsg);
       if (isAccountModeError) {
         logger.info('AutoTrader', 'Retrying with tdMode=isolated (account mode 51010)', { symbol: signal.symbol });
         order = await tryPlaceOrder('isolated');
+      } else if (isTimestampExpired) {
+        logger.info('AutoTrader', '50102 Timestamp expired, retrying createOrder after 2s (sync server clock: timedatectl set-ntp true)', { symbol: signal.symbol });
+        await sleep(2000);
+        order = await tryPlaceOrder('cross');
       } else {
         throw e;
       }
@@ -312,6 +318,8 @@ export async function executeSignal(
     let userMsg = parseOkxShortError(errMsg) || errMsg;
     if (/insufficient|margin|51020|51119/i.test(errMsg)) {
       userMsg = `Недостаточно маржи на OKX. Уменьшите «Долю баланса» в настройках, закройте часть позиций или пополните счёт USDT.`;
+    } else if (/50102|Timestamp request expired|timestamp expired/i.test(errMsg)) {
+      userMsg = `OKX: время сервера рассинхронизировано (50102). На сервере выполните: timedatectl set-ntp true (или ntpdate -s time.nist.gov).`;
     }
     return { ok: false, error: userMsg };
   }
