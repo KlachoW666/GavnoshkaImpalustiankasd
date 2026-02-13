@@ -1,28 +1,31 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import Dashboard from './pages/Dashboard';
 import SignalFeed from './pages/SignalFeed';
-import ChartView from './pages/ChartView';
-import DemoPage from './pages/DemoPage';
-import AutoTradingPage from './pages/AutoTradingPage';
-import SettingsPage from './pages/SettingsPage';
-import PnlCalculatorPage from './pages/PnlCalculatorPage';
-import ScannerPage from './pages/ScannerPage';
-import ActivatePage from './pages/ActivatePage';
-import AdminPanel from './pages/AdminPanel';
-import AuthPage from './pages/AuthPage';
-import MaintenancePage from './pages/MaintenancePage';
-import PrivacyPage from './pages/PrivacyPage';
-import TermsPage from './pages/TermsPage';
-import ProfilePage from './pages/ProfilePage';
-import HelpPage from './pages/HelpPage';
-import BacktestPage from './pages/BacktestPage';
-import CopyTradingPage from './pages/CopyTradingPage';
-import SocialPage from './pages/SocialPage';
-import TraderProfilePage from './pages/TraderProfilePage';
 import { getSavedPage, savePage } from './store/appStore';
 import { useNotifications } from './contexts/NotificationContext';
 import { useAuth } from './contexts/AuthContext';
 import { getSettings } from './store/settingsStore';
+
+const ChartView = lazy(() => import('./pages/ChartView'));
+const DemoPage = lazy(() => import('./pages/DemoPage'));
+const AutoTradingPage = lazy(() => import('./pages/AutoTradingPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const PnlCalculatorPage = lazy(() => import('./pages/PnlCalculatorPage'));
+const ScannerPage = lazy(() => import('./pages/ScannerPage'));
+const ActivatePage = lazy(() => import('./pages/ActivatePage'));
+const AdminPanel = lazy(() => import('./pages/AdminPanel'));
+const AuthPage = lazy(() => import('./pages/AuthPage'));
+const MaintenancePage = lazy(() => import('./pages/MaintenancePage'));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+const TermsPage = lazy(() => import('./pages/TermsPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const HelpPage = lazy(() => import('./pages/HelpPage'));
+const BacktestPage = lazy(() => import('./pages/BacktestPage'));
+const CopyTradingPage = lazy(() => import('./pages/CopyTradingPage'));
+const SocialPage = lazy(() => import('./pages/SocialPage'));
+const TraderProfilePage = lazy(() => import('./pages/TraderProfilePage'));
+import { useOnlineStatus } from './hooks/useOnlineStatus';
+import { OfflineBanner } from './components/OfflineBanner';
 
 type Page = 'dashboard' | 'signals' | 'chart' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms' | 'help' | 'backtest' | 'copy' | 'social' | 'trader';
 
@@ -313,6 +316,7 @@ export default function App() {
   }, [allowedSet]);
 
   const safePage = allowedSet.has(page) ? page : 'dashboard';
+  const online = useOnlineStatus();
 
   if (loading) {
     return (
@@ -322,8 +326,11 @@ export default function App() {
     );
   }
   if (!user) {
-    if (maintenanceMode) return <MaintenancePage />;
-    return <AuthPage />;
+    return (
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)', color: 'var(--text-muted)' }}>Загрузка…</div>}>
+        {maintenanceMode ? <MaintenancePage /> : <AuthPage />}
+      </Suspense>
+    );
   }
 
   return (
@@ -511,6 +518,7 @@ export default function App() {
       )}
 
       <main className="flex-1 min-h-0 overflow-auto py-8 px-8 md:px-12 lg:px-16">
+        <Suspense fallback={<div className="flex items-center justify-center py-16" style={{ color: 'var(--text-muted)' }}>Загрузка…</div>}>
         <div className={safePage === 'dashboard' ? 'block' : 'hidden'}>
           <Dashboard />
         </div>
@@ -570,6 +578,7 @@ export default function App() {
         <div className={safePage === 'terms' ? 'block' : 'hidden'}>
           <TermsPage />
         </div>
+        </Suspense>
       </main>
 
       <footer
@@ -640,6 +649,7 @@ export default function App() {
           </p>
         </div>
       </footer>
+      {!online && <OfflineBanner />}
     </div>
   );
 }

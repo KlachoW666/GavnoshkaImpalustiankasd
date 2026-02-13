@@ -7,9 +7,11 @@ import { DataAggregator } from '../services/dataAggregator';
 import { runBacktest } from '../services/backtester';
 import { normalizeSymbol } from '../lib/symbol';
 import { logger } from '../lib/logger';
+import { rateLimit } from '../middleware/rateLimit';
 
 const router = Router();
 const dataAgg = new DataAggregator();
+const backtestRunLimit = rateLimit({ windowMs: 60 * 1000, max: 15 });
 
 /**
  * POST /api/backtest/run
@@ -26,7 +28,7 @@ const dataAgg = new DataAggregator();
  *   atrSlMultiplier?: number
  * }
  */
-router.post('/run', async (req: Request, res: Response) => {
+router.post('/run', backtestRunLimit, async (req: Request, res: Response) => {
   try {
     const body = req.body as {
       symbol?: string;

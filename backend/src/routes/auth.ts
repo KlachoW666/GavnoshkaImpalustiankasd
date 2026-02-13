@@ -26,6 +26,8 @@ import { initDb, listOrders } from '../db';
 import { logger } from '../lib/logger';
 import { getMaintenanceMode } from '../lib/maintenanceMode';
 import { rateLimit } from '../middleware/rateLimit';
+import { validateBody } from '../middleware/validate';
+import { registerSchema, loginSchema } from '../schemas/auth';
 
 const router = Router();
 const authEndpointLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
@@ -82,7 +84,7 @@ export function optionalAuth(req: Request, _res: Response, next: () => void): vo
 }
 
 /** POST /api/auth/register — регистрация (без подтверждения почты) */
-router.post('/register', authEndpointLimit, (req: Request, res: Response) => {
+router.post('/register', authEndpointLimit, validateBody(registerSchema), (req: Request, res: Response) => {
   try {
     if (getMaintenanceMode()) {
       res.status(503).json({
@@ -91,16 +93,7 @@ router.post('/register', authEndpointLimit, (req: Request, res: Response) => {
       });
       return;
     }
-    const username = (req.body?.username as string)?.trim();
-    const password = req.body?.password as string;
-    if (!username || username.length < 2) {
-      res.status(400).json({ error: 'Логин от 2 символов' });
-      return;
-    }
-    if (!password || password.length < 4) {
-      res.status(400).json({ error: 'Пароль от 4 символов' });
-      return;
-    }
+    const { username, password } = (req as any).validatedBody;
     if (findUserByUsername(username)) {
       res.status(400).json({ error: 'Пользователь с таким логином уже есть' });
       return;
@@ -131,14 +124,9 @@ router.post('/register', authEndpointLimit, (req: Request, res: Response) => {
 });
 
 /** POST /api/auth/login — вход */
-router.post('/login', authEndpointLimit, (req: Request, res: Response) => {
+router.post('/login', authEndpointLimit, validateBody(loginSchema), (req: Request, res: Response) => {
   try {
-    const username = (req.body?.username as string)?.trim();
-    const password = req.body?.password as string;
-    if (!username || !password) {
-      res.status(400).json({ error: 'Логин и пароль обязательны' });
-      return;
-    }
+    const { username, password } = (req as any).validatedBody;
     const user = findUserByUsername(username);
     if (!user || !bcrypt.compareSync(password, user.password_hash)) {
       res.status(401).json({ error: 'Неверный логин или пароль' });

@@ -3,6 +3,9 @@ import { DataAggregator } from '../services/dataAggregator';
 import { getBroadcastSignal } from '../websocket';
 import { findSessionUserId, getOkxCredentials } from '../db/authDb';
 import { requireAuth } from './auth';
+import { rateLimit } from '../middleware/rateLimit';
+import { validateBody } from '../middleware/validate';
+import { autoAnalyzeStartSchema } from '../schemas/autoAnalyze';
 import { CandleAnalyzer } from '../services/candleAnalyzer';
 import { SignalGenerator } from '../services/signalGenerator';
 import { addSignal, getSignalsSince } from './signals';
@@ -768,10 +771,12 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   };
 }
 
-router.post('/auto-analyze/start', requireAuth, (req, res) => {
+const autoAnalyzeStartLimit = rateLimit({ windowMs: 60 * 1000, max: 10 });
+router.post('/auto-analyze/start', autoAnalyzeStartLimit, requireAuth, validateBody(autoAnalyzeStartSchema), (req, res) => {
   try {
     const userId = (req as any).userId as string;
-    const result = startAutoAnalyzeForUser(userId, req.body);
+    const body = { ...req.body, ...(req as any).validatedBody };
+    const result = startAutoAnalyzeForUser(userId, body);
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });
