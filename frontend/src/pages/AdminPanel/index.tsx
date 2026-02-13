@@ -11,12 +11,14 @@ import AdminSubscriptionPlans from './AdminSubscriptionPlans';
 import AdminProxies from './AdminProxies';
 import AdminTrading from './AdminTrading';
 import AdminStatsDisplay from './AdminStatsDisplay';
+import AdminExternalAi from './AdminExternalAi';
 
-type AdminTab = 'dashboard' | 'trading' | 'analytics' | 'logs' | 'users' | 'groups' | 'keys' | 'plans' | 'proxies' | 'stats';
+type AdminTab = 'dashboard' | 'trading' | 'analytics' | 'logs' | 'users' | 'groups' | 'keys' | 'plans' | 'proxies' | 'stats' | 'external-ai';
 
 const TABS: { id: AdminTab; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: '📋' },
   { id: 'trading', label: 'Торговля', icon: '📈' },
+  { id: 'external-ai', label: 'Внешний ИИ', icon: '🤖' },
   { id: 'analytics', label: 'Аналитика', icon: '📊' },
   { id: 'logs', label: 'Логи', icon: '🖥️' },
   { id: 'users', label: 'Пользователи', icon: '👥' },
@@ -108,6 +110,7 @@ export default function AdminPanel() {
       <main className="max-w-7xl mx-auto py-6 px-4 md:px-6">
         {tab === 'dashboard' && <AdminDashboard />}
         {tab === 'trading' && <AdminTrading />}
+        {tab === 'external-ai' && <AdminExternalAi />}
         {tab === 'analytics' && <AdminAnalytics />}
         {tab === 'logs' && <AdminLogs />}
         {tab === 'users' && <AdminUsers />}

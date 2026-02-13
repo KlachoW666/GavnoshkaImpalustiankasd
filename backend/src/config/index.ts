@@ -70,6 +70,14 @@ export const config = {
     candlesMax: 1000
   },
 
+  /** Внешний ИИ (OpenAI / Claude) для оценки сигнала перед открытием позиции. Ключи — в .env. */
+  openai: {
+    apiKey: envStr('OPENAI_API_KEY')
+  },
+  anthropic: {
+    apiKey: envStr('ANTHROPIC_API_KEY')
+  },
+
   /** Timeframes and 48h bar counts */
   timeframes: {
     '1m': 2880,

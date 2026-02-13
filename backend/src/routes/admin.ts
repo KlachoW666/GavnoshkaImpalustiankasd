@@ -43,6 +43,16 @@ import { logger, getRecentLogs } from '../lib/logger';
 import { listProxiesForAdmin, addProxy, deleteProxy, getProxy } from '../db/proxies';
 import { getMaintenanceMode, setMaintenanceMode } from '../lib/maintenanceMode';
 import { getStatsDisplayConfig, setStatsDisplayConfig, StatsDisplayConfig } from '../services/statsDisplayService';
+import {
+  getExternalAiConfig,
+  setExternalAiConfig,
+  hasApiKey as externalAiHasKey,
+  hasOpenAiKey,
+  hasAnthropicKey,
+  setOpenAiKey,
+  setAnthropicKey,
+  type ExternalAiConfig
+} from '../services/externalAiService';
 
 const router = Router();
 
@@ -924,6 +934,50 @@ router.put('/stats-display-config', requireAdmin, (req: Request, res: Response) 
     const next = setStatsDisplayConfig(patch);
     logger.info('Admin', 'Stats display config updated');
     res.json(next);
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** GET /api/admin/external-ai — настройки внешнего ИИ. Ключи не отдаём, только флаги «задан». */
+router.get('/external-ai', requireAdmin, (_req: Request, res: Response) => {
+  try {
+    const cfg = getExternalAiConfig();
+    res.json({
+      ...cfg,
+      openaiKeySet: hasOpenAiKey(),
+      anthropicKeySet: hasAnthropicKey(),
+      currentProviderKeySet: externalAiHasKey(cfg.provider)
+    });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** PUT /api/admin/external-ai — сохранить настройки внешнего ИИ и/или API-ключи (все в админке). */
+router.put('/external-ai', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const body = req.body as Partial<ExternalAiConfig> & { openaiApiKey?: string; anthropicApiKey?: string };
+    const patch: Partial<ExternalAiConfig> = {};
+    if (typeof body.enabled === 'boolean') patch.enabled = body.enabled;
+    if (body.provider === 'openai' || body.provider === 'claude') patch.provider = body.provider;
+    if (typeof body.minScore === 'number') patch.minScore = Math.max(0, Math.min(1, body.minScore));
+    const next = setExternalAiConfig(patch);
+    if (body.openaiApiKey !== undefined) {
+      setOpenAiKey(body.openaiApiKey === '' ? null : body.openaiApiKey);
+    }
+    if (body.anthropicApiKey !== undefined) {
+      setAnthropicKey(body.anthropicApiKey === '' ? null : body.anthropicApiKey);
+    }
+    logger.info('Admin', 'External AI config updated', { enabled: next.enabled, provider: next.provider });
+    res.json({
+      ...next,
+      openaiKeySet: hasOpenAiKey(),
+      anthropicKeySet: hasAnthropicKey(),
+      currentProviderKeySet: externalAiHasKey(next.provider)
+    });
   } catch (e) {
     logger.error('Admin', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });
