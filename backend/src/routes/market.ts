@@ -79,14 +79,22 @@ function setLastExecutionForUser(
   userId: string,
   err?: string,
   orderId?: string,
-  skipReason?: string
+  skipReason?: string,
+  aiInfo?: { aiProb: number; effectiveAiProb: number; externalAiScore?: number; externalAiUsed?: boolean }
 ): void {
-  lastExecutionByUser.set(userId, {
+  const entry: LastExecutionEntry = {
     lastError: err,
     lastOrderId: orderId,
     lastSkipReason: skipReason,
     at: Date.now()
-  });
+  };
+  if (aiInfo) {
+    entry.lastAiProb = aiInfo.aiProb;
+    entry.lastEffectiveAiProb = aiInfo.effectiveAiProb;
+    if (aiInfo.externalAiScore != null) entry.lastExternalAiScore = aiInfo.externalAiScore;
+    if (aiInfo.externalAiUsed != null) entry.lastExternalAiUsed = aiInfo.externalAiUsed;
+  }
+  lastExecutionByUser.set(userId, entry);
 }
 const faFilter = new FundamentalFilter();
 const aggregator = new DataAggregator();
@@ -882,12 +890,48 @@ async function runManualCycle(
   const hasCreds = creds && (creds.apiKey ?? '').trim() && (creds.secret ?? '').trim();
   if (opts.executeOrders && !hasCreds && !config.okx.hasCredentials) return;
 
+  const minAiProb = Math.max(0, Math.min(1, opts.minAiProb ?? 0));
+
   for (const sym of syms) {
     try {
       const r = await runAnalysis(sym, timeframe, mode, { userId });
       const sig = r?.signal;
       if (!sig || (sig.confidence ?? 0) < minConf || (sig.risk_reward ?? 1) < 1.2) continue;
       if (!opts.executeOrders || !creds) continue;
+
+      const aiProb = sig.aiWinProbability ?? 0.5;
+      const mlSamples = mlGetStats().samples;
+      const effectiveAiProb = effectiveProbability(aiProb, mlSamples);
+      let externalAiScore: number | null = null;
+      let externalAiUsed = false;
+
+      const aiInfo = () => ({ aiProb, effectiveAiProb, externalAiScore: externalAiScore ?? undefined, externalAiUsed });
+
+      if (minAiProb > 0 && mlSamples >= MIN_SAMPLES_FOR_AI_GATE && effectiveAiProb < minAiProb) {
+        const skipReason = `AI: вероятность ${(effectiveAiProb * 100).toFixed(1)}% ниже порога ${(minAiProb * 100).toFixed(0)}%. Ордер не открыт.`;
+        logger.info('runManualCycle', skipReason, { symbol: sym, effectiveAiProb, minAiProb });
+        setLastExecutionForUser(userId, undefined, undefined, skipReason, aiInfo());
+        break;
+      }
+
+      const extAi = getExternalAiConfig();
+      if (extAi.enabled && externalAiHasKey(extAi)) {
+        externalAiUsed = true;
+        try {
+          const evalResult = await externalAiEvaluate(sig);
+          if (evalResult != null) externalAiScore = evalResult.score;
+          if (evalResult != null && evalResult.score < extAi.minScore) {
+            const provLabel = evalResult.providers?.length ? evalResult.providers.join(' + ') : extAi.provider;
+            const skipReason = `Внешний ИИ (${provLabel}): оценка ${(evalResult.score * 100).toFixed(0)}% ниже порога ${(extAi.minScore * 100).toFixed(0)}%. Ордер не открыт.`;
+            logger.info('runManualCycle', skipReason, { symbol: sym, score: evalResult.score, minScore: extAi.minScore });
+            setLastExecutionForUser(userId, undefined, undefined, skipReason, aiInfo());
+            break;
+          }
+        } catch (e) {
+          logger.warn('runManualCycle', 'External AI evaluation failed', { error: (e as Error).message });
+        }
+      }
+
       await executeSignal(
         sig,
         {
@@ -902,9 +946,9 @@ async function runManualCycle(
         { apiKey: creds.apiKey, secret: creds.secret, passphrase: creds.passphrase ?? '' }
       ).then((res) => {
         if (res.ok) logger.info('runManualCycle', 'Order executed', { symbol: sym, orderId: res.orderId });
-        else setLastExecutionForUser(userId, res.error ?? 'Unknown');
+        setLastExecutionForUser(userId, res.ok ? undefined : (res.error ?? 'Unknown'), res.orderId, undefined, aiInfo());
       }).catch((e) => {
-        setLastExecutionForUser(userId, (e as Error).message);
+        setLastExecutionForUser(userId, (e as Error).message, undefined, undefined, aiInfo());
       });
       break; // один ордер за цикл в ручном режиме
     } catch (e) {
