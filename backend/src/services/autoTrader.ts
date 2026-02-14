@@ -14,6 +14,7 @@ import { MIN_TP_DISTANCE_PCT } from '../lib/tradingPrinciples';
 import { TradingSignal } from '../types/signal';
 import { emotionalFilterInstance } from './emotionalFilter';
 import { logger } from '../lib/logger';
+import { getPositionSize } from '../lib/positionSizing';
 
 function okxProxyAgent(): InstanceType<typeof HttpsProxyAgent> | undefined {
   const proxyUrl = getProxy(config.proxyList) || config.proxy;
@@ -36,6 +37,10 @@ export interface ExecuteOptions {
   useTestnet?: boolean;
   /** Множитель TP (0.5–1): 0.85 = уже TP, быстрее выход из позиции */
   tpMultiplier?: number;
+  /** Режим размера: percent = доля баланса; risk = по стопу (riskPct баланса на сделку) */
+  sizeMode?: 'percent' | 'risk';
+  /** Риск на сделку (0.01–0.03) при sizeMode=risk */
+  riskPct?: number;
 }
 
 export interface ExecuteResult {
@@ -223,8 +228,18 @@ export async function executeSignal(
   if (balance < 20) {
     maxUsableBalance = Math.min(maxUsableBalance, balance * 0.15);
   }
-  let margin = Math.min((balance * options.sizePercent) / 100, maxUsableBalance);
-  let positionValue = margin * options.leverage;
+  let margin: number;
+  let positionValue: number;
+  if (options.sizeMode === 'risk' && stopLoss > 0) {
+    const riskPct = Math.max(0.01, Math.min(0.03, options.riskPct ?? 0.02));
+    const sizeUsd = getPositionSize(balance, entryPrice, stopLoss, { riskPct, fallbackPct: options.sizePercent / 100 });
+    const limitedSize = Math.min(sizeUsd, maxUsableBalance * options.leverage);
+    positionValue = Math.min(limitedSize, balance * 0.25 * options.leverage);
+    margin = positionValue / options.leverage;
+  } else {
+    margin = Math.min((balance * options.sizePercent) / 100, maxUsableBalance);
+    positionValue = margin * options.leverage;
+  }
   // OKX не принимает слишком мелкие ордера — не менее MIN_NOTIONAL_USD
   if (positionValue < MIN_NOTIONAL_USD) {
     const needMargin = MIN_NOTIONAL_USD / options.leverage;

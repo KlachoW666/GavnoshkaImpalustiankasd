@@ -1,35 +1,40 @@
 /**
  * API ордеров — сохранение и получение из БД (все пользователи).
+ * Валидация Zod, проверка владельца при PATCH.
  */
 
 import { Router, Request, Response } from 'express';
-import { initDb, insertOrder, updateOrderClose, listOrders } from '../db';
+import { initDb, insertOrder, updateOrderClose, listOrders, getOrderById } from '../db';
 import { syncClosedOrdersFromOkx } from '../services/autoTrader';
-import { getBearerToken } from './auth';
-import { findSessionUserId } from '../db/authDb';
 import { getOkxCredentials } from '../db/authDb';
 import { logger } from '../lib/logger';
 import { optionalAuth } from './auth';
+import { orderCloseSchema } from '../schemas/orders';
 
 const router = Router();
 
 function getClientId(req: Request): string {
   const header = req.headers['x-client-id'] as string | undefined;
   const body = (req.body?.clientId as string) || (req.query?.clientId as string);
-  return (header || body || 'default').trim() || 'default';
+  const userId = (req as any).userId as string | undefined;
+  return (userId || header || body || 'default').trim() || 'default';
 }
 
 /** POST /api/orders — создать ордер (открытие) или обновить (закрытие) */
-router.post('/', (req: Request, res: Response) => {
+router.post('/', optionalAuth, (req: Request, res: Response) => {
   try {
     initDb();
     const clientId = getClientId(req);
     const body = req.body || {};
-    const id = body.id as string;
-    if (!id || typeof id !== 'string') {
+    const id = typeof body.id === 'string' ? body.id.trim() : '';
+    if (!id) {
       return res.status(400).json({ error: 'id обязателен' });
     }
     if (body.status === 'closed' && body.closePrice != null) {
+      const order = getOrderById(id);
+      if (order && order.client_id !== clientId) {
+        return res.status(403).json({ error: 'Ордер принадлежит другому пользователю' });
+      }
       updateOrderClose({
         id,
         closePrice: Number(body.closePrice),
@@ -61,20 +66,38 @@ router.post('/', (req: Request, res: Response) => {
   }
 });
 
-/** PATCH /api/orders/:id — закрыть ордер */
-router.patch('/:id', (req: Request, res: Response) => {
+/** PATCH /api/orders/:id — закрыть ордер. Проверка владельца. */
+router.patch('/:id', optionalAuth, (req: Request, res: Response) => {
   try {
     initDb();
-    const id = req.params.id;
+    const id = req.params.id?.trim();
     const body = req.body || {};
-    const closePrice = Number(body.closePrice);
-    const pnl = Number(body.pnl) ?? 0;
-    const pnlPercent = Number(body.pnlPercent) ?? 0;
-    const closeTime = typeof body.closeTime === 'string' ? body.closeTime : new Date().toISOString();
-    if (!id || !Number.isFinite(closePrice)) {
-      return res.status(400).json({ error: 'id и closePrice обязательны' });
+    const parseResult = orderCloseSchema.safeParse({
+      closePrice: body.closePrice,
+      pnl: body.pnl,
+      pnlPercent: body.pnlPercent,
+      closeTime: body.closeTime
+    });
+    if (!parseResult.success) {
+      const msg = parseResult.error.issues[0]?.message ?? 'Неверные данные';
+      return res.status(400).json({ error: msg });
     }
-    updateOrderClose({ id, closePrice, pnl, pnlPercent, closeTime });
+    const { closePrice, pnl, pnlPercent, closeTime } = parseResult.data;
+    if (!id) {
+      return res.status(400).json({ error: 'id обязателен' });
+    }
+    const clientId = getClientId(req);
+    const order = getOrderById(id);
+    if (order && order.client_id !== clientId) {
+      return res.status(403).json({ error: 'Ордер принадлежит другому пользователю' });
+    }
+    updateOrderClose({
+      id,
+      closePrice,
+      pnl: pnl ?? 0,
+      pnlPercent: pnlPercent ?? 0,
+      closeTime: closeTime ?? new Date().toISOString()
+    });
     res.json({ ok: true });
   } catch (e) {
     logger.error('Orders', (e as Error).message);

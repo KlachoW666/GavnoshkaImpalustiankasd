@@ -598,7 +598,7 @@ async function runAutoTradingBestCycle(
   timeframe = '5m',
   useScanner = false,
   userId?: string,
-  execOpts?: { executeOrders: boolean; useTestnet: boolean; maxPositions: number; sizePercent: number; leverage: number; tpMultiplier?: number; minAiProb?: number }
+  execOpts?: { executeOrders: boolean; useTestnet: boolean; maxPositions: number; sizePercent: number; sizeMode?: 'percent' | 'risk'; riskPct?: number; leverage: number; tpMultiplier?: number; minAiProb?: number }
 ): Promise<void> {
   let syms = symbols.slice(0, MAX_SYMBOLS);
   if (useScanner) {
@@ -630,6 +630,8 @@ async function runAutoTradingBestCycle(
   const leverage = execOpts?.leverage ?? autoAnalyzeLeverage;
   const tpMultiplier = execOpts?.tpMultiplier ?? autoAnalyzeTpMultiplier;
   const minAiProb = Math.max(0, Math.min(1, execOpts?.minAiProb ?? 0));
+  const sizeMode = execOpts?.sizeMode ?? 'percent';
+  const riskPct = execOpts?.riskPct ?? 0.02;
 
   const results: Array<{ signal: Awaited<ReturnType<typeof runAnalysis>>['signal']; breakdown: any; score: number }> = [];
   await Promise.all(
@@ -781,6 +783,8 @@ async function runAutoTradingBestCycle(
 
   executeSignal(best.signal, {
     sizePercent,
+    sizeMode,
+    riskPct,
     leverage,
     maxPositions,
     useTestnet,
@@ -860,6 +864,8 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   const leverage = Math.max(1, Math.min(125, parseInt(String(body?.leverage)) || 25));
   const tpMultiplier = Math.max(0.5, Math.min(1, parseFloat(String(body?.tpMultiplier)) || 0.85));
   const minAiProb = Math.max(0, Math.min(1, parseFloat(String(body?.minAiProb)) || 0));
+  const sizeMode = body?.sizeMode === 'risk' ? 'risk' : 'percent';
+  const riskPct = Math.max(0.01, Math.min(0.03, parseFloat(String(body?.riskPct)) || 0.02));
 
   autoAnalyzeExecuteOrders = fullAuto && executeOrders;
   autoAnalyzeUseTestnet = useTestnet;
@@ -878,6 +884,8 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
         useTestnet,
         maxPositions,
         sizePercent,
+        sizeMode,
+        riskPct,
         leverage,
         tpMultiplier,
         minAiProb

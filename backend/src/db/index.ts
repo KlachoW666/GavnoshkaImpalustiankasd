@@ -380,6 +380,18 @@ export function updateOrderClose(order: {
   });
 }
 
+export function getOrderById(id: string): OrderRow | null {
+  if (!initAttempted) initDb();
+  if (useMemoryStore) {
+    const o = memoryOrders.find((x) => x.id === id);
+    return o ? (o as OrderRow) : null;
+  }
+  const d = getDb();
+  if (!d) return null;
+  const row = d.prepare('SELECT * FROM orders WHERE id = ?').get(id) as OrderRow | undefined;
+  return row ?? null;
+}
+
 export function listOrders(opts?: { clientId?: string; status?: 'open' | 'closed'; limit?: number; sinceMs?: number }): OrderRow[] {
   if (!initAttempted) initDb();
   const sinceIso = opts?.sinceMs != null ? new Date(Date.now() - opts.sinceMs).toISOString() : null;

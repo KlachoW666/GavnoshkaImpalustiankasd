@@ -283,42 +283,59 @@ async function callOpenAI(prompt: string, model: string): Promise<number | null>
   }
 }
 
+const CLAUDE_RETRY_529 = 3;
+const CLAUDE_RETRY_DELAY_MS = 6000;
+
 async function callClaude(prompt: string, model: string): Promise<number | null> {
   const apiKey = getAnthropicKey();
   if (!apiKey) return null;
   const proxyUrl = getExternalAiProxy();
   const dispatcher = proxyUrl && proxyUrl.startsWith('http') ? new ProxyAgent(proxyUrl) : undefined;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const res = await undiciFetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: model || 'claude-3-5-sonnet-20241022',
-        max_tokens: 20,
-        messages: [{ role: 'user', content: prompt }]
-      }),
-      signal: controller.signal,
-      ...(dispatcher ? { dispatcher } : {})
-    });
-    clearTimeout(timeout);
-    if (!res.ok) {
-      const err = await res.text();
-      logger.warn('externalAi', 'Claude error', { status: res.status, body: err.slice(0, 200) });
-      return null;
+  let lastErr: Error | null = null;
+  for (let attempt = 1; attempt <= CLAUDE_RETRY_529; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await undiciFetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: model || 'claude-3-5-sonnet-20241022',
+          max_tokens: 20,
+          messages: [{ role: 'user', content: prompt }]
+        }),
+        signal: controller.signal,
+        ...(dispatcher ? { dispatcher } : {})
+      });
+      clearTimeout(timeout);
+      if (res.status === 529) {
+        logger.warn('externalAi', 'Claude 529 Overloaded, retrying', { attempt, max: CLAUDE_RETRY_529 });
+        if (attempt < CLAUDE_RETRY_529) {
+          await new Promise((r) => setTimeout(r, CLAUDE_RETRY_DELAY_MS));
+          continue;
+        }
+      }
+      if (!res.ok) {
+        const err = await res.text();
+        logger.warn('externalAi', 'Claude error', { status: res.status, body: err.slice(0, 200) });
+        return null;
+      }
+      const data = (await res.json()) as { content?: Array<{ text?: string }> };
+      const text = data.content?.[0]?.text?.trim();
+      if (!text) return null;
+      const num = parseFloat(text.replace(/[^\d.]/g, ''));
+      if (!Number.isFinite(num)) return null;
+      return Math.max(0, Math.min(1, num));
+    } catch (e) {
+      clearTimeout(timeout);
+      lastErr = e as Error;
+      logger.warn('externalAi', 'Claude request failed', { attempt, error: (e as Error).message });
+      if (attempt < CLAUDE_RETRY_529) {
+        await new Promise((r) => setTimeout(r, CLAUDE_RETRY_DELAY_MS));
+      }
     }
-    const data = (await res.json()) as { content?: Array<{ text?: string }> };
-    const text = data.content?.[0]?.text?.trim();
-    if (!text) return null;
-    const num = parseFloat(text.replace(/[^\d.]/g, ''));
-    if (!Number.isFinite(num)) return null;
-    return Math.max(0, Math.min(1, num));
-  } catch (e) {
-    clearTimeout(timeout);
-    logger.warn('externalAi', 'Claude request failed', { error: (e as Error).message });
-    return null;
   }
+  return null;
 }
 
 /** Zhipu GLM (OpenAI-совместимый API). */

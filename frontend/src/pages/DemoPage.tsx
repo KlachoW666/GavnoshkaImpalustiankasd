@@ -200,10 +200,11 @@ export default function DemoPage() {
   const closePosition = (pos: DemoPosition, usePrice?: number) => {
     const price = usePrice ?? pos.currentPrice;
     const lev = pos.leverage || 1;
+    // size = номинал в USDT; PnL в USDT = (priceChg%) × size (плечо не входит)
     const pnl = pos.signal.direction === 'LONG'
-      ? ((price - pos.openPrice) / pos.openPrice) * pos.size * lev
-      : ((pos.openPrice - price) / pos.openPrice) * pos.size * lev;
-    const pnlPercent = (pnl / pos.size) * 100;
+      ? ((price - pos.openPrice) / pos.openPrice) * pos.size
+      : ((pos.openPrice - price) / pos.openPrice) * pos.size;
+    const pnlPercent = pos.size > 0 ? (pnl / pos.size) * 100 : 0;
     const entry: HistoryEntry = {
       id: pos.id,
       pair: pos.signal.symbol,
@@ -369,8 +370,8 @@ export default function DemoPage() {
                 const rawPct = pos.signal.direction === 'LONG'
                   ? ((pos.currentPrice - pos.openPrice) / pos.openPrice) * 100
                   : ((pos.openPrice - pos.currentPrice) / pos.openPrice) * 100;
-                const pnlPct = rawPct * lev;
-                const pnl = pos.size * (rawPct / 100) * lev;
+                const pnlPct = rawPct * lev; // % на маржу (для отображения)
+                const pnl = pos.size * (rawPct / 100); // PnL в USDT без × lev
                 const sl = getSL(pos);
                 const tp = getTP(pos);
                 return (
