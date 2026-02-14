@@ -51,10 +51,12 @@ import {
   hasAnthropicKey,
   hasGlmKey,
   hasCryptoPanicKey,
+  hasGNewsKey,
   setOpenAiKey,
   setAnthropicKey,
   setGlmKey,
   setCryptoPanicKey,
+  setGNewsKey,
   type ExternalAiConfig
 } from '../services/externalAiService';
 
@@ -962,6 +964,7 @@ router.get('/external-ai', requireAdmin, (_req: Request, res: Response) => {
       anthropicKeySet: hasAnthropicKey(),
       glmKeySet: hasGlmKey(),
       cryptopanicKeySet: hasCryptoPanicKey(),
+      gnewsKeySet: hasGNewsKey(),
       currentProviderKeySet: hasAnyApiKey(cfg)
     });
   } catch (e) {
@@ -973,7 +976,7 @@ router.get('/external-ai', requireAdmin, (_req: Request, res: Response) => {
 /** PUT /api/admin/external-ai — сохранить настройки внешнего ИИ и/или API-ключи (все в админке). */
 router.put('/external-ai', requireAdmin, (req: Request, res: Response) => {
   try {
-    const body = req.body as Partial<ExternalAiConfig> & { openaiApiKey?: string; anthropicApiKey?: string; glmApiKey?: string; cryptoPanicApiKey?: string };
+    const body = req.body as Partial<ExternalAiConfig> & { openaiApiKey?: string; anthropicApiKey?: string; glmApiKey?: string; cryptoPanicApiKey?: string; gnewsApiKey?: string };
     const patch: Partial<ExternalAiConfig> = {};
     if (typeof body.enabled === 'boolean') patch.enabled = body.enabled;
     if (body.provider === 'openai' || body.provider === 'claude' || body.provider === 'glm') patch.provider = body.provider;
@@ -987,6 +990,7 @@ router.put('/external-ai', requireAdmin, (req: Request, res: Response) => {
     if (body.anthropicApiKey !== undefined) setAnthropicKey(body.anthropicApiKey === '' ? null : body.anthropicApiKey);
     if (body.glmApiKey !== undefined) setGlmKey(body.glmApiKey === '' ? null : body.glmApiKey);
     if (body.cryptoPanicApiKey !== undefined) setCryptoPanicKey(body.cryptoPanicApiKey === '' ? null : body.cryptoPanicApiKey);
+    if (body.gnewsApiKey !== undefined) setGNewsKey(body.gnewsApiKey === '' ? null : body.gnewsApiKey);
     logger.info('Admin', 'External AI config updated', { enabled: next.enabled, provider: next.provider, useAllProviders: next.useAllProviders });
     res.json({
       ...next,
@@ -994,6 +998,7 @@ router.put('/external-ai', requireAdmin, (req: Request, res: Response) => {
       anthropicKeySet: hasAnthropicKey(),
       glmKeySet: hasGlmKey(),
       cryptopanicKeySet: hasCryptoPanicKey(),
+      gnewsKeySet: hasGNewsKey(),
       currentProviderKeySet: hasAnyApiKey(next)
     });
   } catch (e) {

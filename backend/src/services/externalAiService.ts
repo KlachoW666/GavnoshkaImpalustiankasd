@@ -11,7 +11,8 @@ import { getSetting, setSetting } from '../db';
 import { logger } from '../lib/logger';
 import { encrypt, decrypt } from '../lib/encrypt';
 import type { TradingSignal } from '../types/signal';
-import { fetchNewsContext } from './cryptopanicService';
+import { fetchNewsContext as fetchCryptoPanicNews } from './cryptopanicService';
+import { fetchNewsContext as fetchGNewsContext } from './gnewsService';
 
 function getExternalAiProxy(): string {
   return getProxy(config.proxyList) || config.proxy || '';
@@ -22,6 +23,7 @@ const SETTINGS_KEY_OPENAI_API_KEY = 'external_ai_openai_api_key';
 const SETTINGS_KEY_ANTHROPIC_API_KEY = 'external_ai_anthropic_api_key';
 const SETTINGS_KEY_GLM_API_KEY = 'external_ai_glm_api_key';
 const SETTINGS_KEY_CRYPTOPANIC_API_KEY = 'external_ai_cryptopanic_api_key';
+const SETTINGS_KEY_GNEWS_API_KEY = 'external_ai_gnews_api_key';
 
 export type ExternalAiProvider = 'openai' | 'claude' | 'glm';
 
@@ -171,6 +173,28 @@ export function setCryptoPanicKey(value: string | null): void {
 
 export function hasCryptoPanicKey(): boolean {
   return Boolean(getCryptoPanicKey());
+}
+
+export function getGNewsKey(): string {
+  const stored = getSetting(SETTINGS_KEY_GNEWS_API_KEY);
+  if (stored) {
+    const dec = decrypt(stored);
+    if (dec) return dec.trim();
+  }
+  return '';
+}
+
+export function setGNewsKey(value: string | null): void {
+  const v = (value ?? '').trim();
+  if (!v) {
+    setSetting(SETTINGS_KEY_GNEWS_API_KEY, '');
+    return;
+  }
+  setSetting(SETTINGS_KEY_GNEWS_API_KEY, encrypt(v));
+}
+
+export function hasGNewsKey(): boolean {
+  return Boolean(getGNewsKey());
 }
 
 export function hasApiKey(provider: ExternalAiProvider): boolean {
@@ -342,7 +366,7 @@ async function callGLM(prompt: string, model: string): Promise<number | null> {
 
 /**
  * Оценка сигнала внешним ИИ. При useAllProviders вызывает все доступные модели и усредняет.
- * Если задан CryptoPanic API-ключ — подтягиваются новости и передаются в контекст.
+ * Новости для контекста: CryptoPanic, при сбое/ENOTFOUND — fallback на GNews.
  */
 export async function evaluateSignal(
   signal: TradingSignal,
@@ -352,15 +376,27 @@ export async function evaluateSignal(
   if (!cfg.enabled) return null;
 
   let fullContext = context ?? '';
-  if (hasCryptoPanicKey()) {
-    try {
-      const cpKey = getCryptoPanicKey();
-      const newsContext = await fetchNewsContext(cpKey, signal.symbol ?? '', 5);
-      if (newsContext) {
-        fullContext = fullContext ? `${fullContext}. ${newsContext}` : newsContext;
+  const symbol = signal.symbol ?? '';
+
+  if (hasCryptoPanicKey() || hasGNewsKey()) {
+    let newsContext: string | null = null;
+    if (hasCryptoPanicKey()) {
+      try {
+        newsContext = await fetchCryptoPanicNews(getCryptoPanicKey(), symbol, 5);
+      } catch (e) {
+        logger.warn('externalAi', 'CryptoPanic fetch failed', { error: (e as Error).message });
       }
-    } catch (e) {
-      logger.warn('externalAi', 'CryptoPanic fetch failed', { error: (e as Error).message });
+    }
+    if (!newsContext && hasGNewsKey()) {
+      try {
+        newsContext = await fetchGNewsContext(getGNewsKey(), symbol, 5);
+        if (newsContext) logger.info('externalAi', 'GNews fallback used for news context', { symbol });
+      } catch (e) {
+        logger.warn('externalAi', 'GNews fetch failed', { error: (e as Error).message });
+      }
+    }
+    if (newsContext) {
+      fullContext = fullContext ? `${fullContext}. ${newsContext}` : newsContext;
     }
   }
 

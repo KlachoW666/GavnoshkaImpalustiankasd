@@ -13,6 +13,7 @@ interface ExternalAiState {
   anthropicKeySet?: boolean;
   glmKeySet?: boolean;
   cryptopanicKeySet?: boolean;
+  gnewsKeySet?: boolean;
   currentProviderKeySet?: boolean;
 }
 
@@ -35,10 +36,12 @@ export default function AdminExternalAi() {
   const [anthropicApiKey, setAnthropicApiKey] = useState('');
   const [glmApiKey, setGlmApiKey] = useState('');
   const [cryptoPanicApiKey, setCryptoPanicApiKey] = useState('');
+  const [gnewsApiKey, setGnewsApiKey] = useState('');
   const [touchedOpenAi, setTouchedOpenAi] = useState(false);
   const [touchedAnthropic, setTouchedAnthropic] = useState(false);
   const [touchedGlm, setTouchedGlm] = useState(false);
   const [touchedCryptoPanic, setTouchedCryptoPanic] = useState(false);
+  const [touchedGnews, setTouchedGnews] = useState(false);
 
   const fetchConfig = () => {
     adminApi.get<ExternalAiState>('/admin/external-ai').then(setConfig).catch(() => setConfig(null));
@@ -47,7 +50,7 @@ export default function AdminExternalAi() {
   useEffect(() => { fetchConfig(); }, []);
   useEffect(() => { if (config) minScoreRef.current = config.minScore; }, [config]);
 
-  const save = async (patch: Partial<ExternalAiState> & { openaiApiKey?: string; anthropicApiKey?: string; glmApiKey?: string; cryptoPanicApiKey?: string } = {}) => {
+  const save = async (patch: Partial<ExternalAiState> & { openaiApiKey?: string; anthropicApiKey?: string; glmApiKey?: string; cryptoPanicApiKey?: string; gnewsApiKey?: string } = {}) => {
     setLoading(true);
     setMessage('');
     try {
@@ -64,16 +67,19 @@ export default function AdminExternalAi() {
       if (touchedAnthropic) body.anthropicApiKey = patch.anthropicApiKey ?? anthropicApiKey;
       if (touchedGlm) body.glmApiKey = patch.glmApiKey ?? glmApiKey;
       if (touchedCryptoPanic) body.cryptoPanicApiKey = patch.cryptoPanicApiKey ?? cryptoPanicApiKey;
+      if (touchedGnews) body.gnewsApiKey = patch.gnewsApiKey ?? gnewsApiKey;
       await adminApi.put('/admin/external-ai', body);
       setMessage('Настройки сохранены.');
       setOpenaiApiKey('');
       setAnthropicApiKey('');
       setGlmApiKey('');
       setCryptoPanicApiKey('');
+      setGnewsApiKey('');
       setTouchedOpenAi(false);
       setTouchedAnthropic(false);
       setTouchedGlm(false);
       setTouchedCryptoPanic(false);
+      setTouchedGnews(false);
       fetchConfig();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Ошибка');
@@ -87,7 +93,8 @@ export default function AdminExternalAi() {
       openaiApiKey: touchedOpenAi ? openaiApiKey : undefined,
       anthropicApiKey: touchedAnthropic ? anthropicApiKey : undefined,
       glmApiKey: touchedGlm ? glmApiKey : undefined,
-      cryptoPanicApiKey: touchedCryptoPanic ? cryptoPanicApiKey : undefined
+      cryptoPanicApiKey: touchedCryptoPanic ? cryptoPanicApiKey : undefined,
+      gnewsApiKey: touchedGnews ? gnewsApiKey : undefined
     });
   };
 
@@ -112,7 +119,7 @@ export default function AdminExternalAi() {
             Внешний ИИ (OpenAI / Claude / GLM)
           </h2>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Модели могут работать вместе: при «Все провайдеры» вызываются все с ключами и усредняется оценка. CryptoPanic — новости для контекста перед ордером.
+            Модели могут работать вместе: при «Все провайдеры» вызываются все с ключами и усредняется оценка. Новости: CryptoPanic, при сбое — GNews (fallback).
           </p>
         </div>
       </div>
@@ -302,6 +309,21 @@ export default function AdminExternalAi() {
               />
               <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                 Новости для анализа перед открытием ордера. Бесплатный ключ: cryptopanic.com/developers/api/dashboard
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>GNews API Key (fallback)</label>
+              <input
+                type="password"
+                value={gnewsApiKey}
+                onChange={(e) => { setGnewsApiKey(e.target.value); setTouchedGnews(true); }}
+                placeholder={config.gnewsKeySet ? '•••••••• (задан)' : 'apikey с gnews.io — альтернатива CryptoPanic'}
+                className="w-full max-w-md px-3 py-2 rounded-lg border text-sm"
+                style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                autoComplete="off"
+              />
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                Используется при сбое CryptoPanic (ENOTFOUND). Бесплатно: 100 запросов/день — gnews.io
               </p>
             </div>
           </div>
