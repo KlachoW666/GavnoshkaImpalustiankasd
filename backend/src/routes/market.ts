@@ -978,7 +978,7 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   const executeOrders = Boolean(body?.executeOrders);
   /** По умолчанию авто только на реальном счёте; демо — только при явном useTestnet: true (Демо режим) */
   const useTestnet = body?.useTestnet === true;
-  const maxPositions = Math.max(1, Math.min(10, parseInt(String(body?.maxPositions)) || 2));
+  const maxPositions = Math.max(1, Math.min(20, parseInt(String(body?.maxPositions)) || 5));
   const sizePercent = Math.max(1, Math.min(50, parseInt(String(body?.sizePercent)) || 25));
   const leverage = Math.max(1, Math.min(125, parseInt(String(body?.leverage)) || 25));
   const tpMultiplier = Math.max(0.5, Math.min(1, parseFloat(String(body?.tpMultiplier)) || 0.85));

@@ -56,15 +56,15 @@ const SCALPING_PRESET = {
   autoCloseSl: 0.6,
   tpMultiplier: 0.75,
   cooldownSec: 120,
-  maxPositions: 2
+  maxPositions: 5
 };
 
-/** Стратегия: BTC/USDT 25x, 10% депозита, риск 1–2%, R:R 1:2+, макс 2 сделки, дневной лимит 3–4% */
+/** Стратегия: BTC/USDT 25x, 10% депозита, риск 1–2%, R:R 1:2+, макс 5 сделок, дневной лимит 3–4% */
 const FUTURES_25X_PRESET = {
   sizePercent: 10,
   leverage: 25,
   minConfidence: 65,
-  maxPositions: 2,
+  maxPositions: 5,
   maxDailyLossPercent: 4,
   autoCloseTp: 2,
   autoCloseSl: 1,
@@ -117,7 +117,7 @@ const DEFAULT_SETTINGS: AutoTradingSettings = {
   autoCloseTp: 1.5,
   autoCloseSl: 0.8,
   useSignalSLTP: true,
-  maxPositions: 3,
+  maxPositions: 5,
   cooldownSec: 300,
   allowedDirections: ['LONG', 'SHORT'],
   scalpingMode: true,
@@ -142,7 +142,7 @@ const FULL_AUTO_DEFAULTS = {
   leverage: 25,
   minConfidence: 78,
   useSignalSLTP: true,
-  maxPositions: 2,
+  maxPositions: 5,
   cooldownSec: 180,
   intervalMs: 15000,
   strategy: 'futures25x' as const,
@@ -530,6 +530,18 @@ export default function AutoTradingPage() {
   }, [enabled, settings.executeOrders, token]);
 
   useEffect(() => {
+    if (!token) return;
+    api.get<{ running: boolean }>('/market/auto-analyze/status', { headers: { Authorization: `Bearer ${token}` } })
+      .then((data) => {
+        if (data?.running) {
+          setEnabled(true);
+          setStatus('running');
+        }
+      })
+      .catch(() => {});
+  }, [token]);
+
+  useEffect(() => {
     if (!enabled) return;
     const syms = symbols
       .map((s) => normSymbol(s) || s.replace(/_/g, '-'))
@@ -545,7 +557,7 @@ export default function AutoTradingPage() {
       mode: settings.strategy === 'futures25x' ? 'futures25x' : settings.scalpingMode ? 'scalping' : 'default',
       executeOrders: settings.executeOrders === true,
       useTestnet: false,
-      maxPositions: settings.maxPositions ?? 3,
+      maxPositions: settings.maxPositions ?? 5,
       sizePercent: settings.sizePercent ?? 10,
       sizeMode: settings.sizeMode ?? 'percent',
       riskPct: Math.max(0.01, Math.min(0.03, (settings.riskPct ?? 2) / 100)),
@@ -579,7 +591,6 @@ export default function AutoTradingPage() {
       })
       .catch(() => setStatus('error'));
     return () => {
-      fetch(`${API}/market/auto-analyze/stop`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } }).catch(() => {});
       setStatus('idle');
     };
   }, [enabled, symbols, settings.intervalMs, settings.scalpingMode, settings.strategy, settings.fullAuto, settings.useScanner, settings.executeOrders, settings.tpMultiplier, settings.minAiProb, settings.sizeMode, settings.riskPct, settings.sizePercent, settings.leverage, settings.maxPositions, settings.mode, token]);
@@ -645,7 +656,7 @@ export default function AutoTradingPage() {
           const hasPosition = positionsRef.current.some((p) => normSymbol(p.signal.symbol) === sigNorm);
           if (hasPosition) return;
 
-          const maxPos = useFullAuto ? FULL_AUTO_DEFAULTS.maxPositions : (st.maxPositions ?? 3);
+          const maxPos = useFullAuto ? FULL_AUTO_DEFAULTS.maxPositions : (st.maxPositions ?? 5);
           const count = positionsRef.current.filter((p) => normSymbol(p.signal.symbol) === sigNorm).length;
           if (count >= maxPos) return;
 
@@ -1045,7 +1056,18 @@ export default function AutoTradingPage() {
         <div className="flex flex-wrap items-center gap-4 sm:gap-6">
           <button
             type="button"
-            onClick={(e) => { e.preventDefault(); setEnabled(!enabled); }}
+            onClick={async (e) => {
+              e.preventDefault();
+              if (enabled) {
+                try {
+                  await fetch(`${API}/market/auto-analyze/stop`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+                  });
+                } catch {}
+              }
+              setEnabled(!enabled);
+            }}
             disabled={status === 'running' && !enabled}
             className={`px-8 py-3.5 rounded-xl font-semibold text-base transition-all shadow-lg min-w-[160px] ${
               enabled ? 'bg-[var(--danger)] text-white hover:brightness-110' : 'bg-[var(--accent)] text-white hover:brightness-110'
@@ -1562,7 +1584,7 @@ export default function AutoTradingPage() {
           </div>
           <div className="w-40">
             <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>Макс. позиций</label>
-            <input type="range" min={1} max={10} value={settings.maxPositions} onChange={(e) => updateSetting('maxPositions', Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))} className="slider-track" />
+            <input type="range" min={1} max={20} value={settings.maxPositions} onChange={(e) => updateSetting('maxPositions', Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))} className="slider-track" />
             <p className="text-sm font-bold mt-1 text-[var(--accent)]">{settings.maxPositions}</p>
           </div>
           <div className="w-48">

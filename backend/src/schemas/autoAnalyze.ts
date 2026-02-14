@@ -10,7 +10,7 @@ export const autoAnalyzeStartSchema = z.object({
   useScanner: z.boolean().optional(),
   executeOrders: z.boolean().optional(),
   useTestnet: z.boolean().optional(),
-  maxPositions: z.number().min(1).max(10).optional().catch(undefined),
+  maxPositions: z.number().min(1).max(20).optional().catch(undefined),
   sizePercent: z.number().min(1).max(50).optional().catch(undefined),
   /** Режим размера: percent | risk. risk = по стопу (размер из riskPct баланса) */
   sizeMode: z.enum(['percent', 'risk']).optional().catch(undefined),
