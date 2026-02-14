@@ -79,8 +79,7 @@ export function getDerivedAddress(userIndex: number): { address: string } | null
   const root = getRootWallet();
   if (!root) return null;
   try {
-    const path = `${BIP44_PATH}/${userIndex}`;
-    const wallet = root.derivePath(path);
+    const wallet = root.derivePath(String(userIndex));
     return { address: wallet.address };
   } catch (e) {
     logger.error('hdWallet', 'derivePath failed', { userIndex, error: (e as Error).message });
