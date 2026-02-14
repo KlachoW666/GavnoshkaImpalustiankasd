@@ -27,7 +27,7 @@ import { getExternalAiConfig, hasAnyApiKey as externalAiHasKey, evaluateSignal a
 import { FundingRateMonitor } from '../services/fundingRateMonitor';
 import { calcLiquidationPrice, calcLiquidationPriceSimple } from '../lib/liquidationPrice';
 import { executeSignal } from '../services/autoTrader';
-import { initDb, insertOrder } from '../db';
+import { initDb, insertOrder, getSetting, setSetting } from '../db';
 
 const router = Router();
 
@@ -57,6 +57,7 @@ interface PerUserAutoState {
   fullAuto: boolean;
 }
 const autoAnalyzeByUser = new Map<string, PerUserAutoState>();
+const AUTO_ANALYZE_STATE_KEY = 'auto_analyze_persisted_state';
 /** Результат последнего исполнения по userId (для отображения на фронте) */
 interface LastExecutionEntry {
   lastError?: string;
@@ -1002,6 +1003,37 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   autoAnalyzeTpMultiplier = tpMultiplier;
   autoAnalyzeMinAiProb = minAiProb;
 
+  const bodyToPersist: Record<string, unknown> = {
+    symbols: syms,
+    timeframe,
+    mode,
+    intervalMs,
+    fullAuto,
+    useScanner,
+    executeOrders,
+    useTestnet,
+    maxPositions,
+    sizePercent,
+    leverage,
+    tpMultiplier,
+    minAiProb,
+    sizeMode,
+    riskPct,
+    ...(minConfidence != null ? { minConfidence } : {})
+  };
+  try {
+    const raw = getSetting(AUTO_ANALYZE_STATE_KEY);
+    let sessions: Array<{ userId: string; body: Record<string, unknown> }> = [];
+    if (raw) {
+      try {
+        sessions = JSON.parse(raw);
+      } catch {}
+    }
+    sessions = sessions.filter((s) => s.userId !== userId);
+    sessions.push({ userId, body: bodyToPersist });
+    setSetting(AUTO_ANALYZE_STATE_KEY, JSON.stringify(sessions));
+  } catch {}
+
   const runAll = () => {
     const state = autoAnalyzeByUser.get(userId);
     if (state) state.lastCycleAt = Date.now();
@@ -1082,9 +1114,19 @@ export function stopAutoAnalyze(userId?: string): void {
       clearInterval(state.timer);
       autoAnalyzeByUser.delete(userId);
     }
+    try {
+      const raw = getSetting(AUTO_ANALYZE_STATE_KEY);
+      if (raw) {
+        const sessions = (JSON.parse(raw) as Array<{ userId: string; body: Record<string, unknown> }>).filter((s) => s.userId !== userId);
+        setSetting(AUTO_ANALYZE_STATE_KEY, JSON.stringify(sessions));
+      }
+    } catch {}
   } else {
     autoAnalyzeByUser.forEach((state) => clearInterval(state.timer));
     autoAnalyzeByUser.clear();
+    try {
+      setSetting(AUTO_ANALYZE_STATE_KEY, '[]');
+    } catch {}
   }
 }
 
@@ -1093,6 +1135,24 @@ router.post('/auto-analyze/stop', requireAuth, (req, res) => {
   stopAutoAnalyze(userId);
   res.json({ status: 'stopped' });
 });
+
+/** Восстановить авто-торговлю после перезапуска сервера (из сохранённого состояния в БД) */
+export function restoreAutoTradingState(): void {
+  try {
+    const raw = getSetting(AUTO_ANALYZE_STATE_KEY);
+    if (!raw) return;
+    const sessions = JSON.parse(raw) as Array<{ userId: string; body: Record<string, unknown> }>;
+    if (!Array.isArray(sessions) || sessions.length === 0) return;
+    for (const { userId, body } of sessions) {
+      if (userId && body && typeof body === 'object') {
+        startAutoAnalyzeForUser(userId, body);
+        logger.info('auto-analyze', 'Restored auto-trading after restart', { userId });
+      }
+    }
+  } catch (e) {
+    logger.warn('auto-analyze', 'Restore failed: ' + (e as Error).message);
+  }
+}
 
 export function getAutoAnalyzeStatus(userId?: string): { running: boolean; lastCycleAt?: number; intervalMs?: number } {
   if (userId) {

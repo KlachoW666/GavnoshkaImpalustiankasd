@@ -37,6 +37,7 @@ import { createWebSocketServer, getBroadcastBreakout } from './websocket';
 import { startDepositScanner } from './services/depositScanner';
 import { initDb, getDb, isMemoryStore, getSetting } from './db';
 import { preloadAdminTokens } from './services/adminService';
+import { restoreAutoTradingState } from './routes/market';
 import { emotionalFilterInstance } from './services/emotionalFilter';
 import { seedDefaultAdmin } from './db/seed';
 import { notifyBreakoutAlert } from './services/notificationService';
@@ -169,6 +170,7 @@ export async function startServer(port: number = config.port): Promise<void> {
     } catch {}
   }
   logger.info('Server', isMemoryStore() ? 'Database: in-memory (native SQLite unavailable)' : 'Database: SQLite initialized');
+  restoreAutoTradingState();
   const host = process.env.HOST || '0.0.0.0';
   return new Promise((resolve) => {
     server.listen(port, host, () => {
