@@ -16,8 +16,6 @@ export default function AdminWallet() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [mnemonic, setMnemonic] = useState('');
-  const [chain, setChain] = useState<'bsc' | 'eth'>('bsc');
-  const [rpcUrl, setRpcUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [customIdx, setCustomIdx] = useState(0);
   const [customNetwork, setCustomNetwork] = useState('trc20');
@@ -47,7 +45,7 @@ export default function AdminWallet() {
     setSaving(true);
     setError('');
     try {
-      await adminApi.post('/admin/wallet/config', { mnemonic: mnemonic.trim(), chain, rpcUrl: rpcUrl.trim() || undefined });
+      await adminApi.post('/admin/wallet/config', { mnemonic: mnemonic.trim() });
       setMnemonic('');
       await fetchData();
     } catch (e) {
@@ -125,15 +123,15 @@ export default function AdminWallet() {
           <p className="text-sm">{Number(data?.withdrawals?.total_sent_usdt ?? 0).toFixed(2)} USDT</p>
         </div>
         <div className="p-4 rounded-xl" style={cardStyle}>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>HD кошелёк</p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>TRC20 кошелёк</p>
           <p className="text-lg font-bold">{data?.enabled ? '✓' : '—'}</p>
         </div>
       </div>
 
-      {/* Seed-фраза */}
+      {/* Seed-фраза — только USDT/TRC20 */}
       <section className="p-5 rounded-xl" style={cardStyle}>
         <h3 className="font-medium mb-3">Seed-фраза (шифруется)</h3>
-        <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>12 или 24 слова. Trust Wallet — импортируйте seed, видите все средства.</p>
+        <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>12 или 24 слова. Зачисления и выводы только по USDT/TRC20.</p>
         <textarea
           value={mnemonic}
           onChange={(e) => setMnemonic(e.target.value)}
@@ -143,21 +141,16 @@ export default function AdminWallet() {
           rows={2}
         />
         <div className="flex flex-wrap gap-3 mt-3">
-          <select value={chain} onChange={(e) => setChain(e.target.value as 'bsc' | 'eth')} className="rounded-lg px-3 py-2" style={{ background: 'var(--bg)' }}>
-            <option value="bsc">BSC (BNB Chain)</option>
-            <option value="eth">Ethereum</option>
-          </select>
-          <input type="text" value={rpcUrl} onChange={(e) => setRpcUrl(e.target.value)} placeholder="RPC URL (опц.)" className="rounded-lg px-3 py-2 flex-1 min-w-48" style={{ background: 'var(--bg)' }} />
           <button onClick={handleSaveSeed} disabled={saving} className="px-4 py-2 rounded-lg font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>
             {saving ? '…' : 'Сохранить'}
           </button>
         </div>
       </section>
 
-      {/* Кастомные адреса (TRC20 и др.) */}
+      {/* Кастомные адреса TRC20 (опц.) */}
       <section className="p-5 rounded-xl" style={cardStyle}>
-        <h3 className="font-medium mb-3">Кастомные адреса (TRC20 и др.)</h3>
-        <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Аккаунт 0–4. TRC20: 2PUVwn… — добавьте адрес для приёма USDT в Tron.</p>
+        <h3 className="font-medium mb-3">Кастомные TRC20 адреса (опционально)</h3>
+        <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Аккаунт 0–4. Адрес должен начинаться с T, 34 символа (напр. TYDzsYUEpvnYmQk4zGP9gZhgxw4jv3mD7A).</p>
         <div className="flex flex-wrap gap-2 mb-3">
           <select value={customIdx} onChange={(e) => setCustomIdx(Number(e.target.value))} className="rounded-lg px-3 py-2" style={{ background: 'var(--bg)' }}>
             {[0, 1, 2, 3, 4].map((i) => <option key={i} value={i}>Аккаунт {i}</option>)}

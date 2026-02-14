@@ -113,8 +113,8 @@ export default function WalletPage() {
       setWithdrawError('Минимум 1 USDT');
       return;
     }
-    if (!addr || addr.length < 40) {
-      setWithdrawError('Укажите корректный адрес кошелька');
+    if (!addr || addr.length < 30 || !addr.startsWith('T')) {
+      setWithdrawError('Укажите корректный Tron (TRC20) адрес (начинается с T, 34 символа)');
       return;
     }
     if (!token) return;
@@ -264,7 +264,7 @@ export default function WalletPage() {
                   </div>
                 ))}
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  Подтверждение: 1–5 мин. TRC20 — только если админ добавил ваш аккаунт.
+                  Подтверждение: 1–5 мин. Только USDT/TRC20.
                 </p>
               </div>
             )}

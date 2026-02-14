@@ -6,7 +6,7 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from './auth';
 import { getBalance, debitBalance, creditBalance, getOrCreateWalletIndex, createWithdrawal } from '../db/walletDb';
-import { getDerivedAddress, getAddressForNetwork, DEPOSIT_NETWORKS, isHdWalletEnabled } from '../services/hdWalletService';
+import { getAddressForNetwork, isHdWalletEnabled } from '../services/hdWalletService';
 import { getOpenPositions, getClosedPositions, insertInternalPosition, getPositionById, closeInternalPosition } from '../db/internalTradingDb';
 import { DataAggregator } from '../services/dataAggregator';
 import { updateWalletAddress } from '../db/walletDb';
@@ -29,30 +29,27 @@ router.get('/balance', requireAuth, (req: Request, res: Response) => {
   }
 });
 
-/** GET /api/wallet/deposit-address — адрес для пополнения (уникальный для пользователя) */
+/** GET /api/wallet/deposit-address — адрес для пополнения (только USDT/TRC20) */
 router.get('/deposit-address', requireAuth, (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId as string;
     if (!isHdWalletEnabled()) {
-      return res.status(503).json({ error: 'HD Wallet не настроен. Обратитесь к администратору.' });
+      return res.status(503).json({ error: 'Кошелёк не настроен. Обратитесь к администратору.' });
     }
-    let idx = getOrCreateWalletIndex(userId);
+    const idx = getOrCreateWalletIndex(userId);
     if (idx == null) return res.status(500).json({ error: 'Не удалось создать адрес' });
-    const derived = getDerivedAddress(idx);
-    if (!derived) return res.status(500).json({ error: 'Ошибка генерации адреса' });
-    updateWalletAddress(userId, idx, derived.address);
     const addresses: Array<{ network: string; label: string; address: string }> = [];
-    const labels: Record<string, string> = { bsc: 'BNB Smart Chain (BEP-20)', eth: 'Ethereum (ERC-20)', trc20: 'Tron (TRC20)' };
-    for (const net of DEPOSIT_NETWORKS) {
-      const addr = getAddressForNetwork(net, idx);
-      if (addr) addresses.push({ network: net, label: labels[net] ?? net, address: addr });
+    const addr = getAddressForNetwork('trc20', idx);
+    if (addr) {
+      updateWalletAddress(userId, idx, addr);
+      addresses.push({ network: 'trc20', label: 'Tron (TRC20)', address: addr });
     }
     res.json({
-      primaryAddress: derived.address,
-      primaryNetwork: 'BNB Smart Chain (BEP-20)',
+      primaryAddress: addr ?? '',
+      primaryNetwork: 'Tron (TRC20)',
       addresses,
       currency: 'USDT',
-      warning: 'Отправляйте только USDT. Другие токены будут потеряны.'
+      warning: 'Отправляйте только USDT по сети Tron (TRC20). Другие токены или сети будут потеряны.'
     });
   } catch (e) {
     logger.error('wallet', (e as Error).message);
@@ -70,8 +67,8 @@ router.post('/withdraw', requireAuth, (req: Request, res: Response) => {
     if (!isHdWalletEnabled()) {
       return res.status(503).json({ error: 'HD Wallet не настроен.' });
     }
-    if (!toAddress || toAddress.length < 40) {
-      return res.status(400).json({ error: 'Укажите корректный адрес кошелька.' });
+    if (!toAddress || toAddress.length < 30) {
+      return res.status(400).json({ error: 'Укажите корректный Tron (TRC20) адрес кошелька (начинается с T, 34 символа).' });
     }
     if (!Number.isFinite(amountRaw) || amountRaw < MIN_WITHDRAW_USDT) {
       return res.status(400).json({ error: `Минимальная сумма вывода: ${MIN_WITHDRAW_USDT} USDT` });

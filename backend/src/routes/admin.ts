@@ -64,10 +64,8 @@ import {
 import {
   isHdWalletEnabled,
   setWalletConfigFromAdmin,
-  clearWalletCache,
   getConfig,
-  signWithdraw,
-  broadcastTx
+  signWithdraw
 } from '../services/hdWalletService';
 import {
   getPendingWithdrawals,
@@ -1108,16 +1106,14 @@ router.get('/wallet', requireAdmin, (_req: Request, res: Response) => {
   }
 });
 
-/** POST /api/admin/wallet/config — seed (шифруется), chain, rpc */
+/** POST /api/admin/wallet/config — seed (шифруется), только TRC20 */
 router.post('/wallet/config', requireAdmin, (req: Request, res: Response) => {
   try {
     const mnemonic = (req.body?.mnemonic as string)?.trim();
-    const chain = req.body?.chain === 'eth' ? 'eth' : 'bsc';
-    const rpcUrl = (req.body?.rpcUrl as string)?.trim();
     if (!mnemonic || mnemonic.split(' ').length < 12) {
       return res.status(400).json({ error: 'Seed-фраза: 12 или 24 слова' });
     }
-    setWalletConfigFromAdmin(mnemonic, chain, rpcUrl || undefined);
+    setWalletConfigFromAdmin(mnemonic, 'trc20');
     res.json({ ok: true, enabled: isHdWalletEnabled() });
   } catch (e) {
     logger.error('Admin', (e as Error).message);
@@ -1152,13 +1148,13 @@ router.post('/wallet/withdrawals/:id/approve', requireAdmin, async (req: Request
     if (!walletInfo) return res.status(500).json({ error: 'Адрес кошелька пользователя не найден' });
     const feePct = 0.005;
     const amountNet = w.amount_usdt * (1 - feePct);
-    const signed = await signWithdraw(walletInfo.derivation_index, w.to_address, amountNet);
-    if ('error' in signed) return res.status(500).json({ error: signed.error });
-    const broadcast = await broadcastTx(signed.signedTx);
-    if ('error' in broadcast) return res.status(500).json({ error: broadcast.error });
-    updateWithdrawalTx(id, broadcast.txHash);
-    logger.info('Admin', 'Withdrawal approved and sent', { id, txHash: broadcast.txHash });
-    res.json({ ok: true, txHash: broadcast.txHash });
+    const result = await signWithdraw(walletInfo.derivation_index, w.to_address, amountNet);
+    if ('error' in result) return res.status(500).json({ error: result.error });
+    const txHash = result.txHash ?? (result as any).signedTx;
+    if (!txHash) return res.status(500).json({ error: 'Нет txHash' });
+    updateWithdrawalTx(id, txHash);
+    logger.info('Admin', 'Withdrawal approved and sent', { id, txHash });
+    res.json({ ok: true, txHash });
   } catch (e) {
     logger.error('Admin', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });
