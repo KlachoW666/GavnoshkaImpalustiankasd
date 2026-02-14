@@ -48,10 +48,13 @@ interface PerUserAutoState {
   useTestnet: boolean;
   maxPositions: number;
   sizePercent: number;
+  sizeMode: 'percent' | 'risk';
+  riskPct: number;
   leverage: number;
   tpMultiplier: number;
   /** AI-фильтр: мин. вероятность выигрыша (0–1). 0 = выкл. */
   minAiProb: number;
+  fullAuto: boolean;
 }
 const autoAnalyzeByUser = new Map<string, PerUserAutoState>();
 /** Результат последнего исполнения по userId (для отображения на фронте) */
@@ -71,6 +74,20 @@ interface LastExecutionEntry {
   lastExternalAiUsed?: boolean;
 }
 const lastExecutionByUser = new Map<string, LastExecutionEntry>();
+
+function setLastExecutionForUser(
+  userId: string,
+  err?: string,
+  orderId?: string,
+  skipReason?: string
+): void {
+  lastExecutionByUser.set(userId, {
+    lastError: err,
+    lastOrderId: orderId,
+    lastSkipReason: skipReason,
+    at: Date.now()
+  });
+}
 const faFilter = new FundamentalFilter();
 const aggregator = new DataAggregator();
 const candleAnalyzer = new CandleAnalyzer();
@@ -152,6 +169,8 @@ const MTF_LIMITS: Record<string, number> = { '1m': 500, '5m': 600, '15m': 400, '
 
 /** Веса: HTF (1d, 4h) определяют тренд, MTF (1h) — подтверждение, LTF (15m, 5m, 1m) — вход */
 const MTF_WEIGHTS: Record<string, number> = { '1d': 0.25, '4h': 0.20, '1h': 0.20, '15m': 0.15, '5m': 0.10, '1m': 0.10 };
+/** Скальпинг: приоритет краткосрочных ТФ (1m, 5m, 15m) для быстрых сделок */
+const MTF_WEIGHTS_SCALPING: Record<string, number> = { '1d': 0.10, '4h': 0.10, '1h': 0.15, '15m': 0.20, '5m': 0.25, '1m': 0.20 };
 
 /** Рыночная структура: HH/HL = бычий, LH/LL = медвежий. Swing = локальный экстремум в окне 3 */
 function detectMarketStructure(candles: { high: number; low: number; close: number }[]): 'bullish' | 'bearish' | 'neutral' {
@@ -838,6 +857,62 @@ async function runAutoTradingBestCycle(
   });
 }
 
+/** Ручной режим: анализ по парам, при executeOrders — исполнение на OKX по тем же правилам, что и в Авто */
+async function runManualCycle(
+  syms: string[],
+  timeframe: string,
+  mode: string,
+  userId: string,
+  opts: {
+    executeOrders: boolean;
+    useTestnet: boolean;
+    maxPositions: number;
+    sizePercent: number;
+    sizeMode: 'percent' | 'risk';
+    riskPct: number;
+    leverage: number;
+    tpMultiplier: number;
+    minAiProb: number;
+    minConfidence?: number;
+  }
+): Promise<void> {
+  const minConf = Math.max(0.5, Math.min(0.95, opts.minConfidence ?? 0.72));
+  if (opts.executeOrders && !config.autoTradingExecutionEnabled) return;
+  const creds = opts.executeOrders ? getOkxCredentials(userId) : null;
+  const hasCreds = creds && (creds.apiKey ?? '').trim() && (creds.secret ?? '').trim();
+  if (opts.executeOrders && !hasCreds && !config.okx.hasCredentials) return;
+
+  for (const sym of syms) {
+    try {
+      const r = await runAnalysis(sym, timeframe, mode, { userId });
+      const sig = r?.signal;
+      if (!sig || (sig.confidence ?? 0) < minConf || (sig.risk_reward ?? 1) < 1.2) continue;
+      if (!opts.executeOrders || !creds) continue;
+      await executeSignal(
+        sig,
+        {
+          sizePercent: opts.sizePercent,
+          leverage: opts.leverage,
+          maxPositions: opts.maxPositions,
+          useTestnet: opts.useTestnet,
+          tpMultiplier: opts.tpMultiplier,
+          sizeMode: opts.sizeMode,
+          riskPct: opts.riskPct
+        },
+        { apiKey: creds.apiKey, secret: creds.secret, passphrase: creds.passphrase ?? '' }
+      ).then((res) => {
+        if (res.ok) logger.info('runManualCycle', 'Order executed', { symbol: sym, orderId: res.orderId });
+        else setLastExecutionForUser(userId, res.error ?? 'Unknown');
+      }).catch((e) => {
+        setLastExecutionForUser(userId, (e as Error).message);
+      });
+      break; // один ордер за цикл в ручном режиме
+    } catch (e) {
+      logger.error('auto-analyze', (e as Error).message, { sym });
+    }
+  }
+}
+
 export function startAutoAnalyzeForUser(userId: string, body: Record<string, unknown>): { status: string; symbols: string[]; timeframe: string; intervalMs: number; mode: string; fullAuto: boolean; useScanner?: boolean; executeOrders?: boolean; useTestnet?: boolean } {
   const existing = autoAnalyzeByUser.get(userId);
   if (existing?.timer) {
@@ -853,7 +928,7 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   if (syms.length === 0) syms = ['BTC-USDT'];
   const timeframe = (body?.timeframe as string) || '5m';
   const mode = (body?.mode as string) || 'default';
-  const intervalMs = Math.max(30000, Math.min(300000, parseInt(String(body?.intervalMs)) || 30000));
+  const intervalMs = Math.max(15000, Math.min(300000, parseInt(String(body?.intervalMs)) || 30000));
   const fullAuto = Boolean(body?.fullAuto);
   const useScanner = Boolean(body?.useScanner);
   const executeOrders = Boolean(body?.executeOrders);
@@ -866,8 +941,9 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   const minAiProb = Math.max(0, Math.min(1, parseFloat(String(body?.minAiProb)) || 0));
   const sizeMode = body?.sizeMode === 'risk' ? 'risk' : 'percent';
   const riskPct = Math.max(0.01, Math.min(0.03, parseFloat(String(body?.riskPct)) || 0.02));
+  const minConfidence = body?.minConfidence != null ? Math.max(0.5, Math.min(0.95, Number(body.minConfidence))) : undefined;
 
-  autoAnalyzeExecuteOrders = fullAuto && executeOrders;
+  autoAnalyzeExecuteOrders = executeOrders;
   autoAnalyzeUseTestnet = useTestnet;
   autoAnalyzeMaxPositions = maxPositions;
   autoAnalyzeSizePercent = sizePercent;
@@ -891,14 +967,37 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
         minAiProb
       }).catch((e) => logger.error('auto-analyze', (e as Error).message));
     } else {
-      for (const sym of syms) {
-        runAnalysis(sym, timeframe, mode, { userId }).catch((e) => logger.error('auto-analyze', (e as Error).message));
-      }
+      runManualCycle(syms, timeframe, mode, userId, {
+        executeOrders,
+        useTestnet,
+        maxPositions,
+        sizePercent,
+        sizeMode,
+        riskPct,
+        leverage,
+        tpMultiplier,
+        minAiProb,
+        minConfidence
+      }).catch((e) => logger.error('auto-analyze', (e as Error).message));
     }
   };
   const now = Date.now();
   const timer = setInterval(runAll, intervalMs);
-  autoAnalyzeByUser.set(userId, { timer, intervalMs, lastCycleAt: now, executeOrders: fullAuto && executeOrders, useTestnet, maxPositions, sizePercent, leverage, tpMultiplier, minAiProb });
+  autoAnalyzeByUser.set(userId, {
+    timer,
+    intervalMs,
+    lastCycleAt: now,
+    executeOrders,
+    useTestnet,
+    maxPositions,
+    sizePercent,
+    sizeMode,
+    riskPct,
+    leverage,
+    tpMultiplier,
+    minAiProb,
+    fullAuto
+  });
   runAll();
   return {
     status: 'started',

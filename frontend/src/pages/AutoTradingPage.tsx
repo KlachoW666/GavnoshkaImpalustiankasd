@@ -38,24 +38,25 @@ function getClientId(): string {
 const LEVERAGE_MIN = 1;
 const LEVERAGE_MAX = 100;
 const INTERVALS = [
-  { ms: 200, label: '0.2 сек' },
-  { ms: 1000, label: '1 сек' },
-  { ms: 5000, label: '5 сек' },
-  { ms: 10000, label: '10 сек' },
+  { ms: 15000, label: '15 сек' },
   { ms: 30000, label: '30 сек' },
   { ms: 60000, label: '1 мин' },
   { ms: 120000, label: '2 мин' },
   { ms: 300000, label: '5 мин' }
 ];
 
+/** Быстрый скальпинг: малый срок, быстрые сделки, максимальная выгода (узкие TP/SL, частые циклы) */
 const SCALPING_PRESET = {
   timeframe: '5m',
-  intervalMs: 60000,
+  intervalMs: 15000,
   sizePercent: 3,
   leverage: 25,
-  minConfidence: 80,
-  autoCloseTp: 1.5,
-  autoCloseSl: 0.8
+  minConfidence: 82,
+  autoCloseTp: 1.2,
+  autoCloseSl: 0.6,
+  tpMultiplier: 0.75,
+  cooldownSec: 120,
+  maxPositions: 2
 };
 
 /** Стратегия: BTC/USDT 25x, 10% депозита, риск 1–2%, R:R 1:2+, макс 2 сделки, дневной лимит 3–4% */
@@ -135,19 +136,20 @@ const DEFAULT_SETTINGS: AutoTradingSettings = {
 /** Аналитика: SHORT в плюсе, LONG в минусе — для LONG требуем +8% уверенности */
 const LONG_MIN_CONFIDENCE_BONUS = 8;
 
-/** Настройки для полного автомата — система подбирает лучший результат */
+/** Настройки для полного автомата — быстрые сделки, малый срок, макс. выгода */
 const FULL_AUTO_DEFAULTS = {
-  sizePercent: 25,
+  sizePercent: 20,
   leverage: 25,
-  minConfidence: 75,
+  minConfidence: 78,
   useSignalSLTP: true,
   maxPositions: 2,
-  cooldownSec: 600,
-  intervalMs: 30000,
+  cooldownSec: 180,
+  intervalMs: 15000,
   strategy: 'futures25x' as const,
   autoClose: true,
-  autoCloseTp: 2,
-  autoCloseSl: 1,
+  autoCloseTp: 1.5,
+  autoCloseSl: 0.7,
+  tpMultiplier: 0.8,
   maxDailyLossPercent: 0 // Hard Stop отключён
 };
 
@@ -481,7 +483,7 @@ export default function AutoTradingPage() {
 
   const fetchOkxPositionsRef = useRef<() => void>(() => {});
   useEffect(() => {
-    if (!enabled || !settings.fullAuto || !settings.executeOrders) {
+    if (!enabled || !settings.executeOrders) {
       setOkxData(null);
       return;
     }
@@ -499,7 +501,7 @@ export default function AutoTradingPage() {
   }, [enabled, settings.fullAuto, settings.executeOrders, token]);
 
   useEffect(() => {
-    if (!enabled || !settings.fullAuto || !settings.executeOrders || !token) {
+    if (!enabled || !settings.executeOrders || !token) {
       setLastExecution(null);
       return;
     }
@@ -525,7 +527,7 @@ export default function AutoTradingPage() {
     fetchLast();
     const id = setInterval(fetchLast, 10000);
     return () => clearInterval(id);
-  }, [enabled, settings.fullAuto, settings.executeOrders, token]);
+  }, [enabled, settings.executeOrders, token]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -535,29 +537,37 @@ export default function AutoTradingPage() {
     if (syms.length === 0) return;
     const tf = '5m';
     const isFullAuto = settings.fullAuto;
+    const baseManual = {
+      symbols: syms,
+      timeframe: tf,
+      fullAuto: false,
+      intervalMs: settings.intervalMs,
+      mode: settings.strategy === 'futures25x' ? 'futures25x' : settings.scalpingMode ? 'scalping' : 'default',
+      executeOrders: settings.executeOrders === true,
+      useTestnet: false,
+      maxPositions: settings.maxPositions ?? 3,
+      sizePercent: settings.sizePercent ?? 10,
+      sizeMode: settings.sizeMode ?? 'percent',
+      riskPct: Math.max(0.01, Math.min(0.03, (settings.riskPct ?? 2) / 100)),
+      leverage: settings.mode === 'spot' ? 1 : (settings.leverage ?? 25),
+      tpMultiplier: Math.max(0.5, Math.min(1, settings.tpMultiplier ?? 0.85)),
+      minAiProb: Math.max(0, Math.min(1, settings.minAiProb ?? 0)),
+      minConfidence: (settings.minConfidence ?? 72) / 100
+    };
     const payload = isFullAuto
       ? {
-          symbols: syms,
-          timeframe: tf,
+          ...baseManual,
           fullAuto: true,
           intervalMs: FULL_AUTO_DEFAULTS.intervalMs,
           useScanner: settings.useScanner !== false,
           executeOrders: settings.executeOrders === true,
-          useTestnet: false,
           maxPositions: FULL_AUTO_DEFAULTS.maxPositions,
           sizePercent: FULL_AUTO_DEFAULTS.sizePercent,
-          sizeMode: settings.sizeMode ?? 'percent',
-          riskPct: Math.max(1, Math.min(3, (settings.riskPct ?? 2) / 100)),
           leverage: FULL_AUTO_DEFAULTS.leverage,
-          tpMultiplier: Math.max(0.5, Math.min(1, settings.tpMultiplier ?? 0.85)),
-          minAiProb: Math.max(0, Math.min(1, settings.minAiProb ?? 0))
+          tpMultiplier: FULL_AUTO_DEFAULTS.tpMultiplier ?? 0.8,
+          minConfidence: (FULL_AUTO_DEFAULTS.minConfidence ?? 78) / 100
         }
-      : {
-          symbols: syms,
-          timeframe: tf,
-          intervalMs: settings.intervalMs,
-          mode: settings.strategy === 'futures25x' ? 'futures25x' : settings.scalpingMode ? 'scalping' : 'default'
-        };
+      : baseManual;
     fetch(`${API}/market/auto-analyze/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -572,7 +582,7 @@ export default function AutoTradingPage() {
       fetch(`${API}/market/auto-analyze/stop`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } }).catch(() => {});
       setStatus('idle');
     };
-  }, [enabled, symbols, settings.intervalMs, settings.scalpingMode, settings.strategy, settings.fullAuto, settings.useScanner, settings.executeOrders, settings.tpMultiplier, settings.minAiProb, settings.sizeMode, settings.riskPct, token]);
+  }, [enabled, symbols, settings.intervalMs, settings.scalpingMode, settings.strategy, settings.fullAuto, settings.useScanner, settings.executeOrders, settings.tpMultiplier, settings.minAiProb, settings.sizeMode, settings.riskPct, settings.sizePercent, settings.leverage, settings.maxPositions, settings.mode, token]);
 
   useEffect(() => {
     if (!enabled || status !== 'running' || !token) {
@@ -800,7 +810,7 @@ export default function AutoTradingPage() {
             const updated = { ...p, currentPrice: price, highSinceOpen: highSince ?? p.highSinceOpen, lowSinceOpen: lowSince ?? p.lowSinceOpen };
             const openTs = p.openTime instanceof Date ? p.openTime.getTime() : new Date(p.openTime as string).getTime();
             const holdSec = (Date.now() - openTs) / 1000;
-            const minHoldBeforeCloseSec = 120;
+            const minHoldBeforeCloseSec = (settings.scalpingMode || settings.fullAuto) ? 60 : 120;
             let shouldClose = false;
             let closeAt = price;
 
@@ -892,7 +902,7 @@ export default function AutoTradingPage() {
     fetchPrices();
     const id = setInterval(fetchPrices, 1200);
     return () => clearInterval(id);
-  }, [positions.length, settings.autoClose, settings.autoCloseTp, settings.autoCloseSl, settings.useSignalSLTP, settings.trailingStopPercent, settings.fullAuto, settings.maxPositionDurationHours]);
+  }, [positions.length, settings.autoClose, settings.autoCloseTp, settings.autoCloseSl, settings.useSignalSLTP, settings.trailingStopPercent, settings.fullAuto, settings.scalpingMode, settings.maxPositionDurationHours]);
 
   /** При авторизации — метрики из закрытых сделок с сервера (OKX), иначе — локальный баланс и история */
   const statsFromServer = Boolean(token);
@@ -1070,14 +1080,14 @@ export default function AutoTradingPage() {
             )}
             <span className="text-sm px-4 py-2 rounded-xl font-medium" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>{mode === 'spot' ? 'SPOT 1x' : `Futures ${leverage}x`}</span>
           </div>
-        {enabled && settings.fullAuto && !settings.executeOrders && (
+        {enabled && !settings.executeOrders && (
           <div className="mt-4 pt-4 border-t text-sm" style={{ borderColor: 'var(--border)' }}>
             <p className="font-medium" style={{ color: 'var(--warning)' }}>
               Исполнение через OKX выключено — включите в настройках ниже, чтобы открывать позиции по сигналам.
             </p>
           </div>
         )}
-        {enabled && settings.fullAuto && settings.executeOrders && lastExecution && (
+        {enabled && settings.executeOrders && lastExecution && (
           <div className="mt-4 pt-4 border-t text-sm" style={{ borderColor: 'var(--border)' }}>
             {(lastExecution.lastAiProb != null || lastExecution.lastExternalAiUsed) && (
               <div className="mb-3 p-3 rounded-xl" style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)' }}>
@@ -1165,24 +1175,21 @@ export default function AutoTradingPage() {
               <span className="font-medium">Скринер: топ монет по волатильности/объёму</span>
             </label>
           )}
-          {settings.fullAuto && (
+          <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition hover:border-[var(--accent)]/50 shrink-0" style={{ borderColor: settings.executeOrders ? 'var(--accent)' : 'var(--border)', background: settings.executeOrders ? 'var(--accent-dim)' : 'var(--bg-card-solid)' }}>
+            <input
+              type="checkbox"
+              checked={settings.executeOrders === true}
+              onChange={(e) => updateSetting('executeOrders', e.target.checked)}
+              className="rounded w-5 h-5 accent-[var(--accent)]"
+            />
+            <span className="font-medium">Исполнение через OKX (только реальный счёт)</span>
+          </label>
+          {settings.executeOrders && (
             <>
-              <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition hover:border-[var(--accent)]/50 shrink-0" style={{ borderColor: settings.executeOrders ? 'var(--accent)' : 'var(--border)', background: settings.executeOrders ? 'var(--accent-dim)' : 'var(--bg-card-solid)' }}>
-                <input
-                  type="checkbox"
-                  checked={settings.executeOrders === true}
-                  onChange={(e) => updateSetting('executeOrders', e.target.checked)}
-                  className="rounded w-5 h-5 accent-[var(--accent)]"
-                />
-                <span className="font-medium">Исполнение через OKX (только реальный счёт)</span>
-              </label>
-              {settings.executeOrders && (
-                <p className="text-xs mt-1.5 max-w-md" style={{ color: 'var(--text-muted)' }}>
-                  Ордера выставляются на реальном счёте OKX по ключам из профиля. Пополните торговый счёт USDT на okx.com.
-                </p>
-              )}
-              {settings.fullAuto && settings.executeOrders && (
-                <div className="mt-4 space-y-4">
+              <p className="text-xs mt-1.5 max-w-md" style={{ color: 'var(--text-muted)' }}>
+                Ордера выставляются на реальном счёте OKX по ключам из профиля. Пополните торговый счёт USDT на okx.com.
+              </p>
+              <div className="mt-4 space-y-4">
                   <div className="pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
                     <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Быстрый выход (меньше время в позиции)</p>
                     <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>TP ближе к входу — позиция закрывается по профиту раньше. 85% = уже цель, 100% = полный TP сигнала.</p>
@@ -1234,7 +1241,6 @@ export default function AutoTradingPage() {
                     </div>
                   </div>
                 </div>
-              )}
             </>
           )}
         </div>
@@ -1375,7 +1381,7 @@ export default function AutoTradingPage() {
           </div>
         )}
 
-        {settings.fullAuto && settings.executeOrders && (
+        {settings.executeOrders && (
           <div className="mb-6 p-5 rounded-xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
             <p className={sectionTitleClass} style={sectionTitleStyle}>Позиции и баланс OKX</p>
             <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
@@ -1516,8 +1522,8 @@ export default function AutoTradingPage() {
         {!settings.fullAuto && (
         <div className="flex flex-wrap gap-4 mb-6">
           <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
-            <input type="checkbox" checked={settings.scalpingMode} onChange={(e) => { const on = e.target.checked; updateSetting('scalpingMode', on); if (on) { updateSetting('intervalMs', SCALPING_PRESET.intervalMs); updateSetting('sizePercent', SCALPING_PRESET.sizePercent); updateSetting('minConfidence', SCALPING_PRESET.minConfidence); updateSetting('autoCloseTp', SCALPING_PRESET.autoCloseTp); updateSetting('autoCloseSl', SCALPING_PRESET.autoCloseSl); } }} className="rounded w-4 h-4 accent-[var(--accent)]" />
-            <div><span className="font-medium">Скальпинг</span><p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>5m, TP 1.5%, SL 0.8%</p></div>
+            <input type="checkbox" checked={settings.scalpingMode} onChange={(e) => { const on = e.target.checked; updateSetting('scalpingMode', on); if (on) { updateSetting('intervalMs', SCALPING_PRESET.intervalMs); updateSetting('sizePercent', SCALPING_PRESET.sizePercent); updateSetting('minConfidence', SCALPING_PRESET.minConfidence); updateSetting('autoCloseTp', SCALPING_PRESET.autoCloseTp); updateSetting('autoCloseSl', SCALPING_PRESET.autoCloseSl); updateSetting('tpMultiplier', SCALPING_PRESET.tpMultiplier); updateSetting('cooldownSec', SCALPING_PRESET.cooldownSec); updateSetting('maxPositions', SCALPING_PRESET.maxPositions); } }} className="rounded w-4 h-4 accent-[var(--accent)]" />
+            <div><span className="font-medium">Быстрый скальпинг</span><p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>15 сек цикл, TP 1.2%, SL 0.6%, быстрый выход</p></div>
           </label>
           <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
             <input type="checkbox" checked={settings.useSignalSLTP} onChange={(e) => updateSetting('useSignalSLTP', e.target.checked)} className="rounded w-4 h-4 accent-[var(--accent)]" />
@@ -1591,14 +1597,14 @@ export default function AutoTradingPage() {
         <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
           <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Баланс и статистика</h3>
           <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
-            {settings.fullAuto && settings.executeOrders
+            {settings.executeOrders
               ? 'P&L, win rate и метрики по сделкам (реальный счёт OKX)'
               : token
                 ? 'P&L и метрики по закрытым сделкам с сервера (OKX)'
                 : 'P&L, win rate (локальная демо-статистика)'}
           </p>
           <div className="grid grid-cols-2 gap-3">
-            {settings.fullAuto && settings.executeOrders && okxData && !okxData.balanceError && (
+            {settings.executeOrders && okxData && !okxData.balanceError && (
               <div className="p-4 rounded-xl" style={{ background: 'var(--accent-dim)', borderLeft: '3px solid var(--accent)' }}>
                 <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Баланс OKX (реальный счёт)</p>
                 <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>${(okxData.balance ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</p>
@@ -1698,13 +1704,13 @@ export default function AutoTradingPage() {
       <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Открытые позиции</h3>
         <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
-          {settings.fullAuto && settings.executeOrders
+          {settings.executeOrders
             ? `OKX (реальный счёт) · ${okxData?.positions?.length ?? 0} позиций`
-            : settings.fullAuto && !settings.executeOrders
+            : !settings.executeOrders
               ? 'Включите «Исполнение через OKX», чтобы видеть позиции с биржи'
               : 'Локальные позиции (демо) — открыты вручную по сигналам'}
         </p>
-        {settings.fullAuto && settings.executeOrders && (okxData?.positions?.length ?? 0) > 0 ? (
+        {settings.executeOrders && (okxData?.positions?.length ?? 0) > 0 ? (
           <div className="space-y-4">
             <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
               OKX (реальный счёт) — ордера бота
@@ -1785,7 +1791,7 @@ export default function AutoTradingPage() {
           <div className="py-10 px-4 rounded-xl text-center" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px dashed var(--border)' }}>
             <p className="text-sm font-medium">Нет открытых позиций</p>
             <p className="text-xs mt-1">
-              {settings.fullAuto && settings.executeOrders
+              {settings.executeOrders
                 ? 'Позиции по реальному счёту OKX появятся здесь после исполнения ордеров'
                 : !settings.fullAuto
                   ? 'В ручном режиме позиции по сигналам отображаются выше (локальное демо)'
