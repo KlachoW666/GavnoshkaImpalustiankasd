@@ -12,6 +12,7 @@
 
 import { DataAggregator } from './dataAggregator';
 import { CandleAnalyzer } from './candleAnalyzer';
+import { FundingRateMonitor } from './fundingRateMonitor';
 import { logger } from '../lib/logger';
 
 export interface ScanCriteria {
@@ -34,6 +35,7 @@ export interface CoinScore {
     emaAlignment: boolean;   // EMA(9) > EMA(21) > EMA(50)
     rsi: number | null;
     currentPrice: number;
+    fundingRatePct?: number;  // ставка финансирования % (OKX Futures)
   };
 }
 
@@ -51,10 +53,12 @@ const DEFAULT_CRITERIA: ScanCriteria = {
 export class CoinScanner {
   private dataAgg: DataAggregator;
   private analyzer: CandleAnalyzer;
+  private fundingMonitor: FundingRateMonitor;
 
   constructor() {
     this.dataAgg = new DataAggregator();
     this.analyzer = new CandleAnalyzer();
+    this.fundingMonitor = new FundingRateMonitor();
   }
 
   /**
@@ -211,6 +215,21 @@ export class CoinScanner {
       reasons.push(`Strong 24h move ${priceChange24h > 0 ? '+' : ''}${priceChange24h.toFixed(1)}%`);
     }
 
+    // Funding rate (OKX Futures): нейтральный = бонус (предсказуемые условия)
+    let fundingRatePct: number | undefined;
+    try {
+      const funding = await this.fundingMonitor.getFundingRate(symbol);
+      if (funding) {
+        fundingRatePct = funding.rate * 100; // в %
+        if (funding.interpretation === 'neutral') {
+          score += 1;
+          reasons.push('Neutral funding');
+        }
+      }
+    } catch {
+      // ignore — funding не критичен для скоринга
+    }
+
     if (score === 0) return null; // no signals
 
     return {
@@ -225,7 +244,8 @@ export class CoinScanner {
         bbSqueezeStrength,
         emaAlignment,
         rsi,
-        currentPrice: priceLast
+        currentPrice: priceLast,
+        fundingRatePct
       }
     };
   }

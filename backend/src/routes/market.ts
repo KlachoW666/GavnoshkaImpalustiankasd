@@ -24,6 +24,7 @@ import { VOLUME_BREAKOUT_MULTIPLIER, volatilitySizeMultiplier, isPotentialFalseB
 import { FundamentalFilter } from '../services/fundamentalFilter';
 import { adjustConfidence, update as mlUpdate, predict as mlPredict, getStats as mlGetStats, MIN_SAMPLES_FOR_AI_GATE, effectiveProbability } from '../services/onlineMLService';
 import { getExternalAiConfig, hasAnyApiKey as externalAiHasKey, evaluateSignal as externalAiEvaluate } from '../services/externalAiService';
+import { FundingRateMonitor } from '../services/fundingRateMonitor';
 import { calcLiquidationPrice, calcLiquidationPriceSimple } from '../lib/liquidationPrice';
 import { executeSignal } from '../services/autoTrader';
 import { initDb, insertOrder } from '../db';
@@ -753,6 +754,29 @@ async function runAutoTradingBestCycle(
     } catch (e) {
       logger.warn('runAutoTradingBestCycle', 'External AI evaluation failed', { error: (e as Error).message });
     }
+  }
+
+  /** OKX Funding Rate: не открывать LONG при высоком плюсе, SHORT при высоком минусе (MaksBaks Урок 5) */
+  try {
+    const fundingMonitor = new FundingRateMonitor();
+    const funding = await fundingMonitor.getFundingRate(best.signal.symbol ?? '');
+    if (funding) {
+      const isLong = (best.signal.direction ?? 'LONG') === 'LONG';
+      if (isLong && funding.shouldAvoidLong) {
+        const skipReason = `Funding rate ${(funding.rate * 10000).toFixed(2)} bp — неблагоприятно для LONG. Ордер не открыт.`;
+        logger.info('runAutoTradingBestCycle', skipReason, { symbol: best.signal.symbol });
+        setLastExecution(undefined, undefined, skipReason, aiInfoForExecution(externalAiScore ?? undefined, externalAiUsed));
+        return;
+      }
+      if (!isLong && funding.shouldAvoidShort) {
+        const skipReason = `Funding rate ${(funding.rate * 10000).toFixed(2)} bp — неблагоприятно для SHORT. Ордер не открыт.`;
+        logger.info('runAutoTradingBestCycle', skipReason, { symbol: best.signal.symbol });
+        setLastExecution(undefined, undefined, skipReason, aiInfoForExecution(externalAiScore ?? undefined, externalAiUsed));
+        return;
+      }
+    }
+  } catch (e) {
+    logger.warn('runAutoTradingBestCycle', 'Funding rate check failed', { error: (e as Error).message });
   }
 
   executeSignal(best.signal, {
