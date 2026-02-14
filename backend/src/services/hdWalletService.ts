@@ -57,7 +57,7 @@ function getRootWallet(): HDNodeWallet | null {
   const cfg = getConfig();
   if (!cfg) return null;
   try {
-    rootWallet = HDNodeWallet.fromPhrase(cfg.mnemonic);
+    rootWallet = HDNodeWallet.fromPhrase(cfg.mnemonic, BIP44_PATH);
     return rootWallet;
   } catch (e) {
     logger.error('hdWallet', 'Invalid mnemonic', { error: (e as Error).message });
@@ -154,8 +154,7 @@ export async function signWithdraw(
   if (!cfg) return { error: 'HD Wallet not configured' };
 
   try {
-    const path = `${BIP44_PATH}/${userIndex}`;
-    const wallet = root.derivePath(path).connect(
+    const wallet = root.derivePath(String(userIndex)).connect(
       new JsonRpcProvider(cfg.rpcUrl || (cfg.chain === 'bsc' ? BSC_RPC : ETH_RPC))
     );
     const tokenAddr = cfg.chain === 'bsc' ? USDT_BEP20 : USDT_ERC20;
