@@ -36,6 +36,7 @@ import walletRouter from './routes/wallet';
 import { createWebSocketServer, getBroadcastBreakout } from './websocket';
 import { startDepositScanner } from './services/depositScanner';
 import { initDb, getDb, isMemoryStore, getSetting } from './db';
+import { preloadAdminTokens } from './services/adminService';
 import { emotionalFilterInstance } from './services/emotionalFilter';
 import { seedDefaultAdmin } from './db/seed';
 import { notifyBreakoutAlert } from './services/notificationService';
@@ -159,6 +160,7 @@ if (frontendPath) {
 export async function startServer(port: number = config.port): Promise<void> {
   initDb();
   seedDefaultAdmin();
+  preloadAdminTokens();
   const efConfig = getSetting('emotional_filter_config');
   if (efConfig) {
     try {
@@ -177,6 +179,11 @@ export async function startServer(port: number = config.port): Promise<void> {
     });
   });
 }
+
+// Предотвращение падения процесса из‑за необработанных rejections (авто-торговля, внешний ИИ и т.д.)
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Server', `Unhandled rejection: ${reason}`);
+});
 
 // Run standalone if executed directly (npm run start)
 if (require.main === module) {

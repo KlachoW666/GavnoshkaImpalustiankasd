@@ -45,10 +45,26 @@ function loadAdminTokensFromDb(): void {
   } catch {}
 }
 
+/** Предзагрузка токенов при старте сервера (вызывать после initDb) */
+export function preloadAdminTokens(): void {
+  loadAdminTokensFromDb();
+}
+
 export function validateAdminToken(token: string | undefined): boolean {
   if (!token) return false;
   loadAdminTokensFromDb();
-  return inMemoryTokens.has(token);
+  if (inMemoryTokens.has(token)) return true;
+  try {
+    const db = getDb();
+    if (db) {
+      const row = db.prepare('SELECT 1 FROM admin_tokens WHERE token = ?').get(token);
+      if (row) {
+        inMemoryTokens.add(token);
+        return true;
+      }
+    }
+  } catch {}
+  return false;
 }
 
 export interface DashboardData {
