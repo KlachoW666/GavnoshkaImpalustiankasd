@@ -33,10 +33,12 @@ import botRouter from './routes/bot';
 import copyTradingRouter from './routes/copyTrading';
 import socialRouter from './routes/social';
 import { createWebSocketServer, getBroadcastBreakout } from './websocket';
-import { initDb, getDb, isMemoryStore } from './db';
+import { initDb, getDb, isMemoryStore, getSetting } from './db';
+import { emotionalFilterInstance } from './services/emotionalFilter';
 import { seedDefaultAdmin } from './db/seed';
 import { notifyBreakoutAlert } from './services/notificationService';
 import { startBreakoutMonitor } from './services/breakoutMonitor';
+import { startOkxSyncCron } from './services/okxSyncCron';
 import { rateLimit } from './middleware/rateLimit';
 
 const app = express();
@@ -152,12 +154,20 @@ if (frontendPath) {
 export async function startServer(port: number = config.port): Promise<void> {
   initDb();
   seedDefaultAdmin();
+  const efConfig = getSetting('emotional_filter_config');
+  if (efConfig) {
+    try {
+      const c = JSON.parse(efConfig) as { cooldownMinutes?: number; maxLossStreak?: number; maxDailyDrawdownPct?: number };
+      emotionalFilterInstance.setConfig(c);
+    } catch {}
+  }
   logger.info('Server', isMemoryStore() ? 'Database: in-memory (native SQLite unavailable)' : 'Database: SQLite initialized');
   const host = process.env.HOST || '0.0.0.0';
   return new Promise((resolve) => {
     server.listen(port, host, () => {
       logger.info('Server', `API: http://${host}:${port}`);
       logger.info('Server', `WebSocket: ws://${host}:${port}/ws`);
+      startOkxSyncCron();
       resolve();
     });
   });

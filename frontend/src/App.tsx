@@ -21,13 +21,14 @@ const TermsPage = lazy(() => import('./pages/TermsPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const HelpPage = lazy(() => import('./pages/HelpPage'));
 const BacktestPage = lazy(() => import('./pages/BacktestPage'));
+const MyAnalyticsPage = lazy(() => import('./pages/MyAnalyticsPage'));
 const CopyTradingPage = lazy(() => import('./pages/CopyTradingPage'));
 const SocialPage = lazy(() => import('./pages/SocialPage'));
 const TraderProfilePage = lazy(() => import('./pages/TraderProfilePage'));
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { OfflineBanner } from './components/OfflineBanner';
 
-type Page = 'dashboard' | 'signals' | 'chart' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms' | 'help' | 'backtest' | 'copy' | 'social' | 'trader';
+type Page = 'dashboard' | 'signals' | 'chart' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'analytics' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms' | 'help' | 'backtest' | 'copy' | 'social' | 'trader';
 
 const PAGE_PATHS: Record<Page, string> = {
   dashboard: '/',
@@ -37,6 +38,7 @@ const PAGE_PATHS: Record<Page, string> = {
   autotrade: '/auto',
   scanner: '/scanner',
   pnl: '/pnl',
+  analytics: '/analytics',
   settings: '/settings',
   activate: '/activate',
   admin: '/admin',
@@ -102,6 +104,7 @@ const ALL_PAGES: { id: Page; label: string; icon: string }[] = [
   { id: 'autotrade', label: 'Авто', icon: '◇' },
   { id: 'scanner', label: 'Скринер', icon: '▤' },
   { id: 'pnl', label: 'PNL', icon: '💰' },
+  { id: 'analytics', label: 'Аналитика', icon: '📈' },
   { id: 'backtest', label: 'Бэктест', icon: '📊' },
   { id: 'copy', label: 'Копитрейдинг', icon: '📋' },
   { id: 'social', label: 'Социальная', icon: '👥' },
@@ -189,6 +192,7 @@ export default function App() {
       set.add('backtest');
       set.add('copy');
       set.add('social');
+      set.add('analytics');
     }
     if (set.has('social') || set.has('copy')) set.add('trader');
     if (set.has('admin')) set.add('trader');
@@ -539,6 +543,9 @@ export default function App() {
         </div>
         <div className={safePage === 'pnl' ? 'block' : 'hidden'}>
           <PnlCalculatorPage />
+        </div>
+        <div className={safePage === 'analytics' ? 'block' : 'hidden'}>
+          <MyAnalyticsPage />
         </div>
         <div className={safePage === 'backtest' ? 'block' : 'hidden'}>
           <BacktestPage />

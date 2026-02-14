@@ -113,6 +113,23 @@ export class EmotionalFilter {
     if (this.state.dayKey !== this.dayKeyNow()) this.state.dayStartBalance = balance;
   }
 
+  /** Обновить пороги (cooldown мин, maxLossStreak, maxDailyDrawdown %) */
+  setConfig(config: { cooldownMinutes?: number; maxLossStreak?: number; maxDailyDrawdownPct?: number }): void {
+    if (config.cooldownMinutes != null) this.cooldownMs = Math.max(1, Math.min(120, config.cooldownMinutes)) * 60 * 1000;
+    if (config.maxLossStreak != null) this.maxLossStreak = Math.max(1, Math.min(10, config.maxLossStreak));
+    if (config.maxDailyDrawdownPct != null) this.maxDailyDrawdownPct = Math.max(1, Math.min(50, config.maxDailyDrawdownPct));
+  }
+
+  /** Текущие пороги */
+  getConfig(): { cooldownMs: number; cooldownMinutes: number; maxLossStreak: number; maxDailyDrawdownPct: number } {
+    return {
+      cooldownMs: this.cooldownMs,
+      cooldownMinutes: Math.round(this.cooldownMs / 60000),
+      maxLossStreak: this.maxLossStreak,
+      maxDailyDrawdownPct: this.maxDailyDrawdownPct
+    };
+  }
+
   /** Сброс состояния (для тестов или ручного сброса) */
   reset(): void {
     this.state = {

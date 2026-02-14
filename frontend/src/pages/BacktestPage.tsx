@@ -12,7 +12,11 @@ interface BacktestResult {
   finalBalance: number;
   totalPnl: number;
   totalPnlPct: number;
-  trades: Array<{ entryPrice: number; exitPrice: number; direction: string; pnl: number; win: boolean }>;
+  useUsdtMode?: boolean;
+  initialBalanceUsdt?: number;
+  finalBalanceUsdt?: number;
+  totalPnlUsdt?: number;
+  trades: Array<{ entryPrice: number; exitPrice: number; direction: string; pnl: number; pnlUsdt?: number; win: boolean }>;
   totalTrades: number;
   wins: number;
   losses: number;
@@ -29,7 +33,11 @@ export default function BacktestPage() {
   const [symbol, setSymbol] = useState('BTC-USDT');
   const [timeframe, setTimeframe] = useState('15m');
   const [limit, setLimit] = useState(500);
-  const [initialBalance, setInitialBalance] = useState(100);
+  const [useUsdtMode, setUseUsdtMode] = useState(true);
+  const [initialBalance, setInitialBalance] = useState(10000);
+  const [sizePercent, setSizePercent] = useState(5);
+  const [leverage, setLeverage] = useState(10);
+  const [commissionPct, setCommissionPct] = useState(0.05);
   const [minConfidence, setMinConfidence] = useState(85);
   const [riskRewardRatio, setRiskRewardRatio] = useState(2);
   const [loading, setLoading] = useState(false);
@@ -60,6 +68,10 @@ export default function BacktestPage() {
         timeframe,
         limit,
         initialBalance,
+        useUsdtMode,
+        sizePercent,
+        leverage,
+        commissionPct,
         minConfidence: minConfidence / 100,
         riskRewardRatio
       }, { headers })
@@ -114,8 +126,12 @@ export default function BacktestPage() {
               style={{ borderColor: 'var(--border)' }}
             />
           </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="usdt" checked={useUsdtMode} onChange={(e) => setUseUsdtMode(e.target.checked)} className="rounded" />
+            <label htmlFor="usdt" className="text-xs" style={{ color: 'var(--text-muted)' }}>Режим USDT (баланс, плечо, комиссии)</label>
+          </div>
           <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Начальный баланс $</label>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>{useUsdtMode ? 'Начальный баланс USDT' : 'Начальный баланс'}</label>
             <input
               type="number"
               min={10}
@@ -125,6 +141,47 @@ export default function BacktestPage() {
               style={{ borderColor: 'var(--border)' }}
             />
           </div>
+          {useUsdtMode && (
+            <>
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Размер %</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={sizePercent}
+                  onChange={(e) => setSizePercent(Math.min(100, Math.max(1, Number(e.target.value) || 5)))}
+                  className="w-full px-3 py-2 rounded-lg border bg-black/20"
+                  style={{ borderColor: 'var(--border)' }}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Плечо</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={125}
+                  value={leverage}
+                  onChange={(e) => setLeverage(Math.min(125, Math.max(1, Number(e.target.value) || 10)))}
+                  className="w-full px-3 py-2 rounded-lg border bg-black/20"
+                  style={{ borderColor: 'var(--border)' }}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Комиссия %</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={commissionPct}
+                  onChange={(e) => setCommissionPct(Math.min(1, Math.max(0, Number(e.target.value) || 0.05)))}
+                  className="w-full px-3 py-2 rounded-lg border bg-black/20"
+                  style={{ borderColor: 'var(--border)' }}
+                />
+              </div>
+            </>
+          )}
           <div>
             <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Мин. уверенность %</label>
             <input
@@ -197,8 +254,11 @@ export default function BacktestPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             <div className="p-3 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Итог PnL</p>
-              <p className={`font-bold ${result.totalPnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                {result.totalPnl >= 0 ? '+' : ''}{result.totalPnl.toFixed(2)} $ ({result.totalPnlPct >= 0 ? '+' : ''}{result.totalPnlPct.toFixed(1)}%)
+              <p className={`font-bold ${(result.totalPnlUsdt ?? result.totalPnl) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                {result.useUsdtMode && result.totalPnlUsdt != null
+                  ? `${result.totalPnlUsdt >= 0 ? '+' : ''}${result.totalPnlUsdt.toFixed(2)} USDT`
+                  : `${result.totalPnl >= 0 ? '+' : ''}${result.totalPnl.toFixed(2)} (${result.totalPnlPct >= 0 ? '+' : ''}${result.totalPnlPct.toFixed(1)}%)`
+                }
               </p>
             </div>
             <div className="p-3 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
@@ -235,7 +295,9 @@ export default function BacktestPage() {
                       <td className="py-2 px-2">{t.direction}</td>
                       <td className="text-right py-2 px-2 tabular-nums">{t.entryPrice.toLocaleString('ru-RU')}</td>
                       <td className="text-right py-2 px-2 tabular-nums">{t.exitPrice.toLocaleString('ru-RU')}</td>
-                      <td className={`text-right py-2 px-2 ${t.pnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{t.pnl >= 0 ? '+' : ''}{t.pnl.toFixed(2)}</td>
+                      <td className={`text-right py-2 px-2 ${(t.pnlUsdt ?? t.pnl) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                        {(t as { pnlUsdt?: number }).pnlUsdt != null ? `${(t as { pnlUsdt: number }).pnlUsdt >= 0 ? '+' : ''}${(t as { pnlUsdt: number }).pnlUsdt.toFixed(2)}` : `${t.pnl >= 0 ? '+' : ''}${t.pnl.toFixed(2)}`}
+                      </td>
                       <td className="text-center py-2 px-2">{t.win ? '✓' : '✗'}</td>
                     </tr>
                   ))}

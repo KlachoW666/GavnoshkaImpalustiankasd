@@ -9,7 +9,9 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 import { config } from '../config';
 import { getDashboardData, validateAdminPassword, createAdminToken, validateAdminToken } from '../services/adminService';
 import { stopAutoAnalyze, getAutoAnalyzeStatus, startAutoAnalyzeForUser } from './market';
-import { initDb, listOrders } from '../db';
+import { initDb, listOrders, getSetting, setSetting } from '../db';
+import { computeAnalytics } from '../services/analyticsService';
+import { emotionalFilterInstance } from '../services/emotionalFilter';
 import {
   listUsers,
   listGroups,
@@ -185,6 +187,39 @@ router.post('/trading/emergency', requireAdmin, (_req: Request, res: Response) =
   }
 });
 
+const EMOTIONAL_FILTER_CONFIG_KEY = 'emotional_filter_config';
+
+/** GET /api/admin/emotional-filter — пороги Emotional Filter */
+router.get('/emotional-filter', requireAdmin, (_req: Request, res: Response) => {
+  try {
+    const cfg = emotionalFilterInstance.getConfig();
+    res.json(cfg);
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** PUT /api/admin/emotional-filter — обновить пороги */
+router.put('/emotional-filter', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const body = req.body as { cooldownMinutes?: number; maxLossStreak?: number; maxDailyDrawdownPct?: number };
+    const c = {
+      cooldownMinutes: body.cooldownMinutes != null ? Math.max(1, Math.min(120, body.cooldownMinutes)) : undefined,
+      maxLossStreak: body.maxLossStreak != null ? Math.max(1, Math.min(10, body.maxLossStreak)) : undefined,
+      maxDailyDrawdownPct: body.maxDailyDrawdownPct != null ? Math.max(1, Math.min(50, body.maxDailyDrawdownPct)) : undefined
+    };
+    emotionalFilterInstance.setConfig(c);
+    const stored = getSetting(EMOTIONAL_FILTER_CONFIG_KEY);
+    const merged = stored ? { ...JSON.parse(stored), ...c } : c;
+    setSetting(EMOTIONAL_FILTER_CONFIG_KEY, JSON.stringify(merged));
+    res.json(emotionalFilterInstance.getConfig());
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
 /** GET /api/admin/trades/history — история сделок из БД */
 router.get('/trades/history', requireAdmin, (req: Request, res: Response) => {
   try {
@@ -235,110 +270,9 @@ router.get('/analytics', requireAdmin, (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 500;
     const clientId = (req.query.clientId as string)?.trim() || undefined;
     const orders = listOrders({ status: 'closed', limit: Math.min(limit, 5000), clientId });
-    const withPnl = orders.filter((o) => o.close_price != null && o.close_price > 0 && o.pnl != null);
-    const wins = withPnl.filter((o) => (o.pnl ?? 0) > 0);
-    const losses = withPnl.filter((o) => (o.pnl ?? 0) < 0);
-    const totalPnl = withPnl.reduce((s, o) => s + (o.pnl ?? 0), 0);
-    const totalTrades = withPnl.length;
-    const winRate = totalTrades > 0 ? (wins.length / totalTrades) * 100 : 0;
-    const grossProfit = wins.reduce((s, o) => s + (o.pnl ?? 0), 0);
-    const grossLoss = Math.abs(losses.reduce((s, o) => s + (o.pnl ?? 0), 0));
-    const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? 999 : 0;
-    const bestTrade = withPnl.length ? Math.max(...withPnl.map((o) => o.pnl ?? 0)) : 0;
-    const worstTrade = withPnl.length ? Math.min(...withPnl.map((o) => o.pnl ?? 0)) : 0;
-
-    // Equity curve: сортировка по close_time asc для хронологии
-    const sorted = [...withPnl].sort((a, b) => (a.close_time ?? '').localeCompare(b.close_time ?? ''));
-    let cumulative = 0;
-    const equityCurve: Array<{ date: string; pnl: number; cumulative: number }> = [];
-    for (const o of sorted) {
-      cumulative += o.pnl ?? 0;
-      equityCurve.push({
-        date: (o.close_time ?? o.open_time ?? '').slice(0, 10),
-        pnl: o.pnl ?? 0,
-        cumulative: Math.round(cumulative * 100) / 100
-      });
-    }
-
-    // Max Drawdown (в USDT и %)
-    let peak = 0;
-    let maxDrawdownUsdt = 0;
-    let maxDrawdownPct = 0;
-    for (const p of equityCurve) {
-      if (p.cumulative > peak) peak = p.cumulative;
-      const dd = peak - p.cumulative;
-      if (dd > maxDrawdownUsdt) maxDrawdownUsdt = dd;
-      const ddPct = peak > 0 ? (dd / peak) * 100 : 0;
-      if (ddPct > maxDrawdownPct) maxDrawdownPct = ddPct;
-    }
-
-    // Sharpe Ratio: дневные returns (PnL по дням), annualized
-    const byDayMap = new Map<string, number>();
-    for (const o of withPnl) {
-      const day = (o.close_time ?? o.open_time ?? '').slice(0, 10);
-      if (!day) continue;
-      byDayMap.set(day, (byDayMap.get(day) ?? 0) + (o.pnl ?? 0));
-    }
-    const dailyReturns = Array.from(byDayMap.values());
-    const avgReturn = dailyReturns.length > 0 ? dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length : 0;
-    const variance = dailyReturns.length > 1
-      ? dailyReturns.reduce((s, r) => s + (r - avgReturn) ** 2, 0) / (dailyReturns.length - 1)
-      : 0;
-    const stdReturn = Math.sqrt(variance);
-    const sharpeRatio = stdReturn > 0 ? (avgReturn / stdReturn) * Math.sqrt(365) : 0; // annualized
-
-    // Разбивка по дням
-    const byDay: Array<{ date: string; pnl: number; trades: number; wins: number; winRate: number }> = [];
-    const byDayTrades = new Map<string, typeof withPnl>();
-    for (const o of withPnl) {
-      const day = (o.close_time ?? o.open_time ?? '').slice(0, 10);
-      if (!day) continue;
-      const list = byDayTrades.get(day) ?? [];
-      list.push(o);
-      byDayTrades.set(day, list);
-    }
-    for (const [day, list] of Array.from(byDayTrades.entries()).sort((a, b) => a[0].localeCompare(b[0])).reverse().slice(0, 30)) {
-      const dayPnl = list.reduce((s, o) => s + (o.pnl ?? 0), 0);
-      const dayWins = list.filter((o) => (o.pnl ?? 0) > 0).length;
-      byDay.push({
-        date: day,
-        pnl: Math.round(dayPnl * 100) / 100,
-        trades: list.length,
-        wins: dayWins,
-        winRate: list.length > 0 ? (dayWins / list.length) * 100 : 0
-      });
-    }
-
-    // Среднее время удержания (минуты)
-    let totalHoldMs = 0;
-    let holdCount = 0;
-    for (const o of withPnl) {
-      const openMs = new Date(o.open_time).getTime();
-      const closeMs = o.close_time ? new Date(o.close_time).getTime() : 0;
-      if (closeMs > openMs) {
-        totalHoldMs += closeMs - openMs;
-        holdCount++;
-      }
-    }
-    const avgHoldTimeMinutes = holdCount > 0 ? Math.round(totalHoldMs / holdCount / 60000) : 0;
-
+    const result = computeAnalytics(orders, clientId);
     res.json({
-      totalTrades,
-      wins: wins.length,
-      losses: losses.length,
-      winRate,
-      totalPnl,
-      grossProfit,
-      grossLoss,
-      profitFactor,
-      bestTrade,
-      worstTrade,
-      equityCurve,
-      maxDrawdownUsdt: Math.round(maxDrawdownUsdt * 100) / 100,
-      maxDrawdownPct: Math.round(maxDrawdownPct * 10) / 10,
-      sharpeRatio: Math.round(sharpeRatio * 100) / 100,
-      byDay,
-      avgHoldTimeMinutes,
+      ...result,
       clientId: clientId || undefined
     });
   } catch (e) {
@@ -347,13 +281,23 @@ router.get('/analytics', requireAdmin, (req: Request, res: Response) => {
   }
 });
 
-/** GET /api/admin/analytics/export — экспорт истории сделок в CSV. ?clientId= — фильтр. */
+/** GET /api/admin/analytics/export — экспорт истории сделок в CSV. ?clientId= & ?since= & ?until= (YYYY-MM-DD). */
 router.get('/analytics/export', requireAdmin, (req: Request, res: Response) => {
   try {
     initDb();
-    const limit = Math.min(parseInt(req.query.limit as string) || 1000, 5000);
+    const limit = Math.min(parseInt(req.query.limit as string) || 5000, 10000);
     const clientId = (req.query.clientId as string)?.trim() || undefined;
-    const orders = listOrders({ status: 'closed', limit, clientId });
+    let orders = listOrders({ status: 'closed', limit, clientId });
+    const since = (req.query.since as string)?.trim();
+    const until = (req.query.until as string)?.trim();
+    if (since) {
+      const sinceDate = since + 'T00:00:00.000Z';
+      orders = orders.filter((o) => (o.close_time ?? o.open_time ?? '') >= sinceDate);
+    }
+    if (until) {
+      const untilDate = until + 'T23:59:59.999Z';
+      orders = orders.filter((o) => (o.close_time ?? o.open_time ?? '') <= untilDate);
+    }
     const headers = ['id', 'clientId', 'pair', 'direction', 'size', 'leverage', 'openPrice', 'closePrice', 'pnl', 'pnlPercent', 'openTime', 'closeTime'];
     const rows = orders.map((o) => [
       o.id,

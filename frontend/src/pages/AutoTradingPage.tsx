@@ -100,6 +100,8 @@ interface AutoTradingSettings {
   tpMultiplier: number;
   /** AI-фильтр: мин. вероятность выигрыша 0–1 (0 = выкл). Ордер не открывается, если ML-оценка ниже. */
   minAiProb: number;
+  sizeMode?: 'percent' | 'risk';
+  riskPct?: number;
 }
 
 const DEFAULT_SETTINGS: AutoTradingSettings = {
@@ -125,7 +127,9 @@ const DEFAULT_SETTINGS: AutoTradingSettings = {
   useScanner: true,
   executeOrders: false,
   tpMultiplier: 0.85,
-  minAiProb: 0
+  minAiProb: 0,
+  sizeMode: 'percent' as const,
+  riskPct: 2
 };
 
 /** Аналитика: SHORT в плюсе, LONG в минусе — для LONG требуем +8% уверенности */
@@ -542,6 +546,8 @@ export default function AutoTradingPage() {
           useTestnet: false,
           maxPositions: FULL_AUTO_DEFAULTS.maxPositions,
           sizePercent: FULL_AUTO_DEFAULTS.sizePercent,
+          sizeMode: settings.sizeMode ?? 'percent',
+          riskPct: Math.max(1, Math.min(3, (settings.riskPct ?? 2) / 100)),
           leverage: FULL_AUTO_DEFAULTS.leverage,
           tpMultiplier: Math.max(0.5, Math.min(1, settings.tpMultiplier ?? 0.85)),
           minAiProb: Math.max(0, Math.min(1, settings.minAiProb ?? 0))
@@ -566,7 +572,7 @@ export default function AutoTradingPage() {
       fetch(`${API}/market/auto-analyze/stop`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } }).catch(() => {});
       setStatus('idle');
     };
-  }, [enabled, symbols, settings.intervalMs, settings.scalpingMode, settings.strategy, settings.fullAuto, settings.useScanner, settings.executeOrders, settings.tpMultiplier, settings.minAiProb, token]);
+  }, [enabled, symbols, settings.intervalMs, settings.scalpingMode, settings.strategy, settings.fullAuto, settings.useScanner, settings.executeOrders, settings.tpMultiplier, settings.minAiProb, settings.sizeMode, settings.riskPct, token]);
 
   useEffect(() => {
     if (!enabled || status !== 'running' || !token) {
@@ -1191,6 +1197,22 @@ export default function AutoTradingPage() {
                         className="slider-track max-w-[200px]"
                       />
                       <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{Math.round((settings.tpMultiplier ?? 0.85) * 100)}%</span>
+                    </div>
+                  </div>
+                  <div className="pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+                    <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Размер позиции</p>
+                    <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>percent = доля баланса; risk = по стопу (размер из riskPct баланса на сделку).</p>
+                    <div className="flex flex-wrap items-center gap-4">
+                      <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
+                        <button type="button" onClick={() => updateSetting('sizeMode', 'percent')} className={`px-3 py-2 text-sm ${(settings.sizeMode ?? 'percent') === 'percent' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-card-solid)] hover:bg-[var(--bg-hover)]'}`}>% баланса</button>
+                        <button type="button" onClick={() => updateSetting('sizeMode', 'risk')} className={`px-3 py-2 text-sm ${(settings.sizeMode ?? 'percent') === 'risk' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-card-solid)] hover:bg-[var(--bg-hover)]'}`}>По риску</button>
+                      </div>
+                      {(settings.sizeMode ?? 'percent') === 'risk' && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Риск %:</span>
+                          <input type="number" min={1} max={3} step={0.5} value={settings.riskPct ?? 2} onChange={(e) => updateSetting('riskPct', Math.max(1, Math.min(3, parseFloat(e.target.value) || 2)))} className="w-16 px-2 py-1 rounded border text-sm" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }} />
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="pt-4 border-t" style={{ borderColor: 'var(--border)' }}>

@@ -1,10 +1,19 @@
 import { useState, useEffect } from 'react';
 import { adminApi } from '../../utils/adminApi';
 
+interface EmotionalFilterConfig {
+  cooldownMs: number;
+  cooldownMinutes: number;
+  maxLossStreak: number;
+  maxDailyDrawdownPct: number;
+}
+
 export default function AdminTrading() {
   const [loading, setLoading] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState<{ running: boolean } | null>(null);
+  const [efConfig, setEfConfig] = useState<EmotionalFilterConfig | null>(null);
+  const [efForm, setEfForm] = useState({ cooldownMinutes: 30, maxLossStreak: 3, maxDailyDrawdownPct: 5 });
 
   const fetchStatus = () => {
     adminApi.get<{ running: boolean }>('/admin/trading/status').then(setStatus).catch(() => setStatus(null));
@@ -15,6 +24,25 @@ export default function AdminTrading() {
     const t = setInterval(fetchStatus, 10000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    adminApi.get<EmotionalFilterConfig>('/admin/emotional-filter')
+      .then((c) => {
+        setEfConfig(c);
+        setEfForm({ cooldownMinutes: c.cooldownMinutes, maxLossStreak: c.maxLossStreak, maxDailyDrawdownPct: c.maxDailyDrawdownPct });
+      })
+      .catch(() => setEfConfig(null));
+  }, []);
+
+  const saveEfConfig = async () => {
+    try {
+      const c = await adminApi.put<EmotionalFilterConfig>('/admin/emotional-filter', efForm);
+      setEfConfig(c);
+      setMessage('Emotional Filter обновлён.');
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Ошибка');
+    }
+  };
 
   const stopTrading = async () => {
     setLoading('stop');
@@ -133,6 +161,32 @@ export default function AdminTrading() {
           </button>
         </div>
       </section>
+      {efConfig && (
+        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--warning)' }}>
+          <div className="flex items-center gap-3 mb-5">
+            <span className="text-2xl">😤</span>
+            <div>
+              <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Emotional Filter</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Cooldown после убытков, дневной drawdown</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Cooldown (мин)</label>
+              <input type="number" min={1} max={120} value={efForm.cooldownMinutes} onChange={(e) => setEfForm((p) => ({ ...p, cooldownMinutes: Math.max(1, Math.min(120, parseInt(e.target.value) || 30)) }))} className="w-full px-3 py-2 rounded border text-sm" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Max убытков подряд</label>
+              <input type="number" min={1} max={10} value={efForm.maxLossStreak} onChange={(e) => setEfForm((p) => ({ ...p, maxLossStreak: Math.max(1, Math.min(10, parseInt(e.target.value) || 3)) }))} className="w-full px-3 py-2 rounded border text-sm" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Дневной drawdown %</label>
+              <input type="number" min={1} max={50} value={efForm.maxDailyDrawdownPct} onChange={(e) => setEfForm((p) => ({ ...p, maxDailyDrawdownPct: Math.max(1, Math.min(50, parseInt(e.target.value) || 5)) }))} className="w-full px-3 py-2 rounded border text-sm" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }} />
+            </div>
+          </div>
+          <button onClick={saveEfConfig} className="px-4 py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: 'white' }}>Сохранить</button>
+        </section>
+      )}
     </div>
   );
 }

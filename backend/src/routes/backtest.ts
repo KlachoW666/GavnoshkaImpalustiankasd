@@ -35,6 +35,10 @@ router.post('/run', backtestRunLimit, async (req: Request, res: Response) => {
       timeframe?: string;
       limit?: number;
       initialBalance?: number;
+      useUsdtMode?: boolean;
+      sizePercent?: number;
+      leverage?: number;
+      commissionPct?: number;
       minConfidence?: number;
       riskRewardRatio?: number;
       atrSlMultiplier?: number;
@@ -53,6 +57,10 @@ router.post('/run', backtestRunLimit, async (req: Request, res: Response) => {
       symbol,
       timeframe,
       initialBalance: body.initialBalance,
+      useUsdtMode: body.useUsdtMode,
+      sizePercent: body.sizePercent,
+      leverage: body.leverage,
+      commissionPct: body.commissionPct,
       minConfidence: body.minConfidence,
       riskRewardRatio: body.riskRewardRatio,
       atrSlMultiplier: body.atrSlMultiplier

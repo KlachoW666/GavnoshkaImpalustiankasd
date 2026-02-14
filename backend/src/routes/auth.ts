@@ -23,6 +23,7 @@ import {
   updateUserPassword
 } from '../db/authDb';
 import { initDb, listOrders } from '../db';
+import { getAnalyticsForClient } from '../services/analyticsService';
 import { logger } from '../lib/logger';
 import { getMaintenanceMode } from '../lib/maintenanceMode';
 import { rateLimit } from '../middleware/rateLimit';
@@ -241,6 +242,48 @@ router.get('/me/stats', requireAuth, (req: Request, res: Response) => {
       orders: { total: 0, wins: 0, losses: 0, openCount: 0 },
       volumeEarned: 0
     });
+  }
+});
+
+/** GET /api/auth/me/analytics — аналитика по сделкам текущего пользователя (как Admin Analytics, но по userId) */
+router.get('/me/analytics', requireAuth, (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    initDb();
+    const limit = Math.min(parseInt((req.query.limit as string) || '500'), 2000);
+    const result = getAnalyticsForClient(userId, limit);
+    res.json(result);
+  } catch (e) {
+    logger.error('Auth', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** GET /api/auth/me/alerts — алерты по drawdown, серии убытков и т.д. */
+router.get('/me/alerts', requireAuth, (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    initDb();
+    const limit = Math.min(parseInt((req.query.limit as string) || '100'), 500);
+    const result = getAnalyticsForClient(userId, limit);
+    const alerts: Array<{ type: string; message: string }> = [];
+    const drawdownThresh = 15;
+    const lossStreakThresh = 4;
+    if (result.maxDrawdownPct >= drawdownThresh) {
+      alerts.push({ type: 'drawdown', message: `Макс. просадка ${result.maxDrawdownPct.toFixed(1)}% превышает порог ${drawdownThresh}%` });
+    }
+    const recent = result.equityCurve.slice(-lossStreakThresh);
+    if (recent.length >= lossStreakThresh) {
+      let streak = 0;
+      for (let i = recent.length - 1; i >= 0 && recent[i].pnl < 0; i--) streak++;
+      if (streak >= lossStreakThresh) {
+        alerts.push({ type: 'loss_streak', message: `Серия из ${streak} убыточных сделок подряд` });
+      }
+    }
+    res.json({ alerts });
+  } catch (e) {
+    logger.error('Auth', (e as Error).message);
+    res.status(500).json({ alerts: [] });
   }
 });
 

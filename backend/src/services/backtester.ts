@@ -12,8 +12,16 @@ export interface BacktestParams {
   timeframe: string;
   /** Количество свечей (или передать candles напрямую) */
   limit?: number;
-  /** Начальный баланс (виртуальный) */
+  /** Начальный баланс (виртуальный или USDT) */
   initialBalance?: number;
+  /** Режим USDT: баланс в USDT, sizePercent, leverage, комиссии */
+  useUsdtMode?: boolean;
+  /** Доля баланса на сделку (1–100) при useUsdtMode */
+  sizePercent?: number;
+  /** Плечо при useUsdtMode */
+  leverage?: number;
+  /** Комиссия за сделку в % (0.05 = 0.05% maker+taker) при useUsdtMode */
+  commissionPct?: number;
   /** Мин. confidence для входа (0–1) */
   minConfidence?: number;
   /** R:R для TP (множитель к риску) */
@@ -32,6 +40,7 @@ export interface BacktestTrade {
   tp: number;
   pnl: number;
   pnlPct: number;
+  pnlUsdt?: number;
   win: boolean;
 }
 
@@ -43,6 +52,10 @@ export interface BacktestResult {
   finalBalance: number;
   totalPnl: number;
   totalPnlPct: number;
+  useUsdtMode?: boolean;
+  initialBalanceUsdt?: number;
+  finalBalanceUsdt?: number;
+  totalPnlUsdt?: number;
   trades: BacktestTrade[];
   totalTrades: number;
   wins: number;
@@ -63,7 +76,11 @@ export async function runBacktest(
   const minConfidence = params.minConfidence ?? 0.6;
   const riskRewardRatio = params.riskRewardRatio ?? 2;
   const atrSlMultiplier = params.atrSlMultiplier ?? 1.5;
-  const initialBalance = params.initialBalance ?? 100;
+  const useUsdtMode = params.useUsdtMode ?? false;
+  const sizePercent = Math.min(100, Math.max(1, params.sizePercent ?? 5)) / 100;
+  const leverage = Math.min(125, Math.max(1, params.leverage ?? 10));
+  const commissionPct = (params.commissionPct ?? 0.05) / 100;
+  const initialBalance = params.initialBalance ?? (useUsdtMode ? 10000 : 100);
 
   const trades: BacktestTrade[] = [];
   let balance = initialBalance;
@@ -141,9 +158,23 @@ export async function runBacktest(
         } else continue;
       }
 
-      const pnl = direction === 'LONG' ? exitPrice - entryPrice : entryPrice - exitPrice;
-      const pnlPct = (pnl / entryPrice) * 100;
-      balance += pnl;
+      const pnlPct = direction === 'LONG'
+        ? ((exitPrice - entryPrice) / entryPrice) * 100
+        : ((entryPrice - exitPrice) / entryPrice) * 100;
+
+      let pnl: number;
+      let pnlUsdt: number | undefined;
+      if (useUsdtMode) {
+        const positionSizeUsdt = balance * sizePercent * leverage;
+        const pnlGrossUsdt = (pnlPct / 100) * positionSizeUsdt / leverage;
+        const commission = positionSizeUsdt * commissionPct * 2;
+        pnlUsdt = pnlGrossUsdt - commission;
+        pnl = pnlUsdt;
+        balance += pnlUsdt;
+      } else {
+        pnl = direction === 'LONG' ? exitPrice - entryPrice : entryPrice - exitPrice;
+        balance += pnl;
+      }
       equityCurve.push(balance);
       if (balance > peak) peak = balance;
       const dd = peak - balance;
@@ -161,6 +192,7 @@ export async function runBacktest(
         tp,
         pnl,
         pnlPct,
+        pnlUsdt,
         win
       });
       break;
@@ -175,6 +207,8 @@ export async function runBacktest(
   const totalPnl = balance - initialBalance;
   const totalPnlPct = initialBalance > 0 ? (totalPnl / initialBalance) * 100 : 0;
 
+  const totalPnlUsdt = useUsdtMode ? balance - initialBalance : undefined;
+
   return {
     symbol: params.symbol ?? 'unknown',
     timeframe: params.timeframe ?? '15m',
@@ -183,6 +217,10 @@ export async function runBacktest(
     finalBalance: balance,
     totalPnl,
     totalPnlPct,
+    useUsdtMode: useUsdtMode || undefined,
+    initialBalanceUsdt: useUsdtMode ? initialBalance : undefined,
+    finalBalanceUsdt: useUsdtMode ? balance : undefined,
+    totalPnlUsdt,
     trades,
     totalTrades: trades.length,
     wins,

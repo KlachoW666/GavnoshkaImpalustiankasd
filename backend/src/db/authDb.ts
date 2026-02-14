@@ -747,6 +747,16 @@ export function getTotalUsersCount(): number {
   return row?.cnt ?? 0;
 }
 
+/** Список user_id с сохранёнными OKX ключами (для cron sync). */
+export function listUserIdsWithOkxCredentials(): string[] {
+  ensureAuthTables();
+  if (isMemoryStore()) return Array.from(memoryOkxConnections.keys());
+  const db = getDb();
+  if (!db) return [];
+  const rows = db.prepare('SELECT user_id FROM user_okx_connections').all() as { user_id: string }[];
+  return rows.map((r) => r.user_id);
+}
+
 /** OKX ключи пользователя (для отображения баланса в админке). */
 export function getOkxCredentials(userId: string): { apiKey: string; secret: string; passphrase: string } | null {
   ensureAuthTables();

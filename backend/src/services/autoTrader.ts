@@ -41,6 +41,8 @@ export interface ExecuteOptions {
   sizeMode?: 'percent' | 'risk';
   /** Риск на сделку (0.01–0.03) при sizeMode=risk */
   riskPct?: number;
+  /** Мин. Open Interest в USDT — пропустить вход, если ликвидность ниже (0 = не проверять) */
+  minOpenInterestUsdt?: number;
 }
 
 export interface ExecuteResult {
@@ -193,6 +195,20 @@ export async function executeSignal(
   const symbol = normalizeSymbol(signal.symbol);
   const ccxtSymbol = toOkxCcxtSymbol(symbol) || 'BTC/USDT:USDT';
   const entryPrice = signal.entry_price ?? 0;
+
+  // Open Interest фильтр (опционально)
+  const minOi = options.minOpenInterestUsdt ?? 0;
+  if (minOi > 0) {
+    try {
+      const oiData = await exchange.fetchOpenInterest(ccxtSymbol);
+      const oiUsdt = (oiData as any).openInterestValue ?? (oiData as any).value ?? 0;
+      if (typeof oiUsdt === 'number' && oiUsdt < minOi) {
+        return { ok: false, error: `Open Interest ${oiUsdt.toFixed(0)} USDT ниже порога ${minOi}. Пропуск входа.` };
+      }
+    } catch (e) {
+      logger.warn('AutoTrader', 'fetchOpenInterest failed, skipping OI filter', { symbol: ccxtSymbol, error: (e as Error).message });
+    }
+  }
   const isLong = signal.direction === 'LONG';
   let stopLoss = signal.stop_loss ?? 0;
   let takeProfit1 = Array.isArray(signal.take_profit) && signal.take_profit.length
