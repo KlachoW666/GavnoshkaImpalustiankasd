@@ -1061,6 +1061,7 @@ router.put('/external-ai', requireAdmin, (req: Request, res: Response) => {
     if (body.provider === 'openai' || body.provider === 'claude' || body.provider === 'glm') patch.provider = body.provider;
     if (typeof body.useAllProviders === 'boolean') patch.useAllProviders = body.useAllProviders;
     if (typeof body.minScore === 'number') patch.minScore = Math.max(0, Math.min(1, body.minScore));
+    if (typeof body.blockOnLowScore === 'boolean') patch.blockOnLowScore = body.blockOnLowScore;
     if (typeof body.openaiModel === 'string') patch.openaiModel = body.openaiModel.trim();
     if (typeof body.claudeModel === 'string') patch.claudeModel = body.claudeModel.trim();
     if (typeof body.glmModel === 'string') patch.glmModel = body.glmModel.trim();

@@ -34,6 +34,8 @@ export interface ExternalAiConfig {
   /** true = вызывать все провайдеры с ключами и усреднять оценку */
   useAllProviders: boolean;
   minScore: number;
+  /** false = внешний ИИ только для логов, не блокирует ордера при низкой оценке */
+  blockOnLowScore: boolean;
   /** Модель OpenAI (gpt-5, gpt-4o, gpt-4o-mini и т.д.) */
   openaiModel: string;
   /** Модель Claude (claude-3-5-sonnet, claude-3-5-haiku и т.д.) */
@@ -46,7 +48,8 @@ const DEFAULT_CONFIG: ExternalAiConfig = {
   enabled: false,
   provider: 'openai',
   useAllProviders: false,
-  minScore: 0.6,
+  minScore: 0.5,
+  blockOnLowScore: false,
   openaiModel: 'gpt-5.2',
   claudeModel: 'claude-3-5-haiku-20241022',
   glmModel: 'glm-5'
@@ -71,6 +74,7 @@ function parseConfig(raw: string | null): ExternalAiConfig {
       provider: parsed.provider === 'claude' ? 'claude' : parsed.provider === 'glm' ? 'glm' : 'openai',
       useAllProviders: Boolean(parsed.useAllProviders),
       minScore: Math.max(0, Math.min(1, Number(parsed.minScore) ?? DEFAULT_CONFIG.minScore)),
+      blockOnLowScore: parsed.blockOnLowScore === true,
       openaiModel: String(parsed.openaiModel || DEFAULT_CONFIG.openaiModel).trim() || DEFAULT_CONFIG.openaiModel,
       claudeModel,
       glmModel: String(parsed.glmModel || DEFAULT_CONFIG.glmModel).trim() || DEFAULT_CONFIG.glmModel
@@ -91,6 +95,7 @@ export function setExternalAiConfig(patch: Partial<ExternalAiConfig>): ExternalA
     ...current,
     ...patch,
     minScore: patch.minScore != null ? Math.max(0, Math.min(1, patch.minScore)) : current.minScore,
+    blockOnLowScore: patch.blockOnLowScore !== undefined ? Boolean(patch.blockOnLowScore) : current.blockOnLowScore,
     openaiModel: patch.openaiModel != null ? String(patch.openaiModel).trim() || current.openaiModel : current.openaiModel,
     claudeModel: patch.claudeModel != null ? String(patch.claudeModel).trim() || current.claudeModel : current.claudeModel,
     glmModel: patch.glmModel != null ? String(patch.glmModel).trim() || current.glmModel : current.glmModel

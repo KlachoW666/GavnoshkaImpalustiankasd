@@ -37,12 +37,23 @@ interface Trc20Tx {
 
 /** Сканировать TRC20 транзакции на адрес через TronGrid */
 async function fetchTrc20Transfers(toAddress: string, minTs?: number): Promise<Trc20Tx[]> {
+  const apiKey = process.env.TRONGRID_API_KEY?.trim();
+  const headers: Record<string, string> = {};
+  if (apiKey) headers['TRON-PRO-API-KEY'] = apiKey;
   const url = `${TRONGRID_API}/v1/accounts/${toAddress}/transactions/trc20?limit=50&only_confirmed=true`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`TronGrid ${res.status}`);
-  const data = (await res.json()) as { data?: Trc20Tx[] };
-  const list = data.data ?? [];
-  return list.filter((t) => t.token_info?.address === USDT_TRC20 && t.to === toAddress && (!minTs || t.block_timestamp >= minTs));
+  try {
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      if (res.status === 429) throw new Error('TronGrid rate limit');
+      if (res.status >= 500) throw new Error(`TronGrid ${res.status}`);
+      return [];
+    }
+    const data = (await res.json()) as { data?: Trc20Tx[] };
+    const list = data.data ?? [];
+    return list.filter((t) => t.token_info?.address === USDT_TRC20 && t.to === toAddress && (!minTs || t.block_timestamp >= minTs));
+  } catch (e) {
+    throw e;
+  }
 }
 
 /** Сканировать депозиты USDT TRC20 */

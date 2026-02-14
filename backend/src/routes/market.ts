@@ -603,10 +603,10 @@ router.post('/analyze/:symbol', async (req, res) => {
 });
 
 const MAX_SYMBOLS = 10;
-/** Сигналы 75%+ — порог для авто-цикла (0.75 = больше сигналов, 0.83 = строже) */
-const AUTO_MIN_CONFIDENCE = 0.75;
-/** Минимальный risk/reward для открытия ордера в полном автомате — отсекает слабые R:R. 100% в плюс недостижимо, снижаем долю убыточных. */
-const AUTO_MIN_RISK_REWARD = 1.5;  // выше R:R — меньше сделок, лучше средний PnL после комиссий
+/** Сигналы 70%+ — порог для авто-цикла (снижен для стабильного потока сделок) */
+const AUTO_MIN_CONFIDENCE = 0.70;
+/** Минимальный risk/reward для открытия ордера в полном автомате */
+const AUTO_MIN_RISK_REWARD = 1.2;
 const AUTO_SCORE_WEIGHTS = { confidence: 0.4, riskReward: 0.35, confluence: 0.1, aiProb: 0.15 }; // выше вес R:R — предпочитаем сделки с большим потенциалом
 
 /** Преобразовать символ из скринера (BTC/USDT:USDT) в формат runAnalysis (BTC-USDT) */
@@ -661,6 +661,7 @@ async function runAutoTradingBestCycle(
   const riskPct = execOpts?.riskPct ?? 0.02;
 
   const results: Array<{ signal: Awaited<ReturnType<typeof runAnalysis>>['signal']; breakdown: any; score: number }> = [];
+  const rejected: Array<{ sym: string; conf: number; rr: number; minVolOk: boolean }> = [];
   await Promise.all(
     syms.map(async (sym) => {
       try {
@@ -672,21 +673,27 @@ async function runAutoTradingBestCycle(
         const confluenceBonus = Math.min(1.2, 0.9 + alignCount * 0.06);
         const aiProb = sig.aiWinProbability ?? 0.5;
         const atrPct = (r.breakdown as any)?.atrPct as number | undefined;
-        const minVolOk = atrPct == null || atrPct >= 0.002; // мин. волатильность 0.2% — иначе сделки часто в нуле
+        const minVolOk = atrPct == null || atrPct >= 0.001; // мин. волатильность 0.1% ATR
         if (conf >= AUTO_MIN_CONFIDENCE && rr >= AUTO_MIN_RISK_REWARD && minVolOk) {
           const score =
             conf * AUTO_SCORE_WEIGHTS.confidence +
-            Math.min(rr / 2.5, 1) * AUTO_SCORE_WEIGHTS.riskReward +  // rr 2.5+ получает макс. балл — приоритет качественным R:R
+            Math.min(rr / 2.5, 1) * AUTO_SCORE_WEIGHTS.riskReward +
             confluenceBonus * AUTO_SCORE_WEIGHTS.confluence +
             aiProb * AUTO_SCORE_WEIGHTS.aiProb;
           results.push({ signal: sig, breakdown: r.breakdown, score });
+        } else if (conf >= 0.5) {
+          rejected.push({ sym, conf, rr, minVolOk });
         }
       } catch (e) {
         logger.warn('runAutoTradingBestCycle', (e as Error).message, { symbol: sym });
       }
     })
   );
-  if (results.length === 0) return;
+  if (results.length === 0) {
+    const top = rejected.sort((a, b) => b.conf - a.conf).slice(0, 3);
+    logger.info('runAutoTradingBestCycle', `No signals passed filter (conf>=${AUTO_MIN_CONFIDENCE * 100}%, rr>=${AUTO_MIN_RISK_REWARD}). Top rejected: ${top.map((t) => `${t.sym} conf=${(t.conf * 100).toFixed(0)}% rr=${t.rr.toFixed(2)}`).join('; ')}`, { analyzed: syms.length });
+    return;
+  }
   results.sort((a, b) => b.score - a.score);
   const best = results[0];
   addSignal(best.signal);
@@ -766,14 +773,14 @@ async function runAutoTradingBestCycle(
     }
   }
 
-  /** Внешний платный ИИ (OpenAI/Claude/GLM): дополнительная оценка. Модели работают вместе при useAllProviders. */
+  /** Внешний платный ИИ (OpenAI/Claude/GLM): дополнительная оценка. При blockOnLowScore=false не блокирует ордера. */
   const extAi = getExternalAiConfig();
   if (extAi.enabled && externalAiHasKey(extAi)) {
     externalAiUsed = true;
     try {
       const evalResult = await externalAiEvaluate(best.signal);
       if (evalResult != null) externalAiScore = evalResult.score;
-      if (evalResult != null && evalResult.score < extAi.minScore) {
+      if (extAi.blockOnLowScore && evalResult != null && evalResult.score < extAi.minScore) {
         const provLabel = evalResult.providers?.length ? evalResult.providers.join(' + ') : extAi.provider;
         const skipReason = `Внешний ИИ (${provLabel}): оценка ${(evalResult.score * 100).toFixed(0)}% ниже порога ${(extAi.minScore * 100).toFixed(0)}%. Ордер не открыт.`;
         logger.info('runAutoTradingBestCycle', skipReason, { symbol: best.signal.symbol, score: evalResult.score, minScore: extAi.minScore });

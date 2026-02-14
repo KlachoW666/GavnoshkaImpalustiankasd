@@ -146,6 +146,14 @@ export function initDb(): any {
     } catch {}
     try {
       db.exec(`
+        CREATE TABLE IF NOT EXISTS admin_tokens (
+          token TEXT PRIMARY KEY,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
+    } catch {}
+    try {
+      db.exec(`
         CREATE TABLE IF NOT EXISTS copy_subscriptions (
           provider_id TEXT NOT NULL,
           subscriber_id TEXT NOT NULL,

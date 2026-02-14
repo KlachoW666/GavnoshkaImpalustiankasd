@@ -6,6 +6,7 @@ interface ExternalAiState {
   provider: 'openai' | 'claude' | 'glm';
   useAllProviders: boolean;
   minScore: number;
+  blockOnLowScore?: boolean;
   openaiModel?: string;
   claudeModel?: string;
   glmModel?: string;
@@ -59,6 +60,7 @@ export default function AdminExternalAi() {
         provider: patch.provider ?? config?.provider,
         useAllProviders: patch.useAllProviders ?? config?.useAllProviders,
         minScore: patch.minScore ?? config?.minScore,
+        blockOnLowScore: patch.blockOnLowScore ?? config?.blockOnLowScore,
         openaiModel: patch.openaiModel ?? config?.openaiModel ?? DEFAULT_OPENAI,
         claudeModel: patch.claudeModel ?? config?.claudeModel ?? DEFAULT_CLAUDE,
         glmModel: patch.glmModel ?? config?.glmModel ?? DEFAULT_GLM
@@ -159,6 +161,17 @@ export default function AdminExternalAi() {
             />
             <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
               Все провайдеры вместе (усреднять оценки)
+            </span>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer ml-6">
+            <input
+              type="checkbox"
+              checked={config.blockOnLowScore === true}
+              onChange={(e) => save({ blockOnLowScore: e.target.checked })}
+              className="rounded w-5 h-5 accent-[var(--accent)]"
+            />
+            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+              Блокировать ордер при низкой оценке ИИ (выкл = только логи, ордера открываются)
             </span>
           </label>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>

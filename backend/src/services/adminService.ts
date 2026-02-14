@@ -3,7 +3,7 @@
  */
 
 import { getAutoAnalyzeStatus } from '../routes/market';
-import { initDb, listOrders, isMemoryStore } from '../db';
+import { initDb, getDb, listOrders, isMemoryStore } from '../db';
 import { listActivationKeys, listUsers, getOnlineUserIds } from '../db/authDb';
 import { emotionalFilterInstance } from './emotionalFilter';
 import { config } from '../config';
@@ -12,7 +12,7 @@ import { logger } from '../lib/logger';
 const emotionalFilter = emotionalFilterInstance;
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Qqwdsaqe2123!fade!CryptoSignalPro228';
-const adminTokens = new Set<string>();
+const inMemoryTokens = new Set<string>();
 
 export function validateAdminPassword(password: string): boolean {
   return password === ADMIN_PASSWORD;
@@ -20,13 +20,35 @@ export function validateAdminPassword(password: string): boolean {
 
 export function createAdminToken(): string {
   const token = 'admin_' + Date.now() + '_' + Math.random().toString(36).slice(2, 15);
-  adminTokens.add(token);
+  inMemoryTokens.add(token);
+  try {
+    initDb();
+    const db = getDb();
+    if (db) {
+      db.prepare('INSERT OR REPLACE INTO admin_tokens (token) VALUES (?)').run(token);
+    }
+  } catch {}
   return token;
+}
+
+let adminTokensLoaded = false;
+function loadAdminTokensFromDb(): void {
+  if (adminTokensLoaded) return;
+  adminTokensLoaded = true;
+  try {
+    initDb();
+    const db = getDb();
+    if (db) {
+      const rows = db.prepare('SELECT token FROM admin_tokens').all() as { token: string }[];
+      for (const r of rows) inMemoryTokens.add(r.token);
+    }
+  } catch {}
 }
 
 export function validateAdminToken(token: string | undefined): boolean {
   if (!token) return false;
-  return adminTokens.has(token);
+  loadAdminTokensFromDb();
+  return inMemoryTokens.has(token);
 }
 
 export interface DashboardData {
