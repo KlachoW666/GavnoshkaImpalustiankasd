@@ -135,7 +135,7 @@ const LONG_MIN_CONFIDENCE_BONUS = 8;
 const FULL_AUTO_DEFAULTS = {
   sizePercent: 25,
   leverage: 25,
-  minConfidence: 82,
+  minConfidence: 75,
   useSignalSLTP: true,
   maxPositions: 2,
   cooldownSec: 600,

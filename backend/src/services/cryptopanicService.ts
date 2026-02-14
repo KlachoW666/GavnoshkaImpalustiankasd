@@ -2,19 +2,14 @@
  * CryptoPanic API — новости и сентимент для криптовалют.
  * https://cryptopanic.com/developers/api/
  * Используется в анализе перед открытием ордера (контекст для внешнего ИИ).
+ * Запросы без прокси — CryptoPanic доступен без ограничений по региону.
  */
 
-import { fetch as undiciFetch, ProxyAgent } from 'undici';
-import { config } from '../config';
-import { getProxy } from '../db/proxies';
+import { fetch as undiciFetch } from 'undici';
 import { logger } from '../lib/logger';
 
-function getProxyUrl(): string {
-  return getProxy(config.proxyList) || config.proxy || '';
-}
-
 const CRYPTOPANIC_BASE = 'https://api.cryptopanic.com/v1/posts/';
-const REQUEST_TIMEOUT_MS = 25000;
+const REQUEST_TIMEOUT_MS = 40000;
 
 export interface CryptoPanicPost {
   title: string;
@@ -47,8 +42,6 @@ export async function fetchNewsContext(
 ): Promise<string | null> {
   if (!apiKey?.trim()) return null;
   const currency = symbolToCurrency(symbol);
-  const proxyUrl = getProxyUrl();
-  const dispatcher = proxyUrl && proxyUrl.startsWith('http') ? new ProxyAgent(proxyUrl) : undefined;
 
   const params = new URLSearchParams({
     auth_token: apiKey.trim(),
@@ -65,8 +58,7 @@ export async function fetchNewsContext(
     const res = await undiciFetch(url, {
       method: 'GET',
       headers: { 'User-Agent': 'TradingBot/1.0 (https://cryptopanic.com)' },
-      signal: controller.signal,
-      ...(dispatcher ? { dispatcher } : {})
+      signal: controller.signal
     });
     clearTimeout(timeout);
 

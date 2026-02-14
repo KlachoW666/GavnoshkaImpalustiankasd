@@ -478,7 +478,8 @@ async function fetchBalanceAndPositions(exchange: Exchange): Promise<{ balance: 
   const usdt = (balanceRes as any).USDT ?? balanceRes?.usdt;
   const total = usdt?.total ?? 0;
   const free = usdt?.free ?? total;
-  const balance = typeof free === 'number' ? free : 0;
+  /** total = equity (вся стоимость), free = доступно. Показываем total — пользователь ожидает полный баланс. */
+  const balance = typeof total === 'number' && total > 0 ? total : (typeof free === 'number' ? free : 0);
   const positions = positionsRes
     .filter((p: any) => {
       const sz = Number(p.contracts ?? p.info?.pos ?? 0);
