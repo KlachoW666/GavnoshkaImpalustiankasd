@@ -32,7 +32,9 @@ import adminRouter from './routes/admin';
 import botRouter from './routes/bot';
 import copyTradingRouter from './routes/copyTrading';
 import socialRouter from './routes/social';
+import walletRouter from './routes/wallet';
 import { createWebSocketServer, getBroadcastBreakout } from './websocket';
+import { startDepositScanner } from './services/depositScanner';
 import { initDb, getDb, isMemoryStore, getSetting } from './db';
 import { emotionalFilterInstance } from './services/emotionalFilter';
 import { seedDefaultAdmin } from './db/seed';
@@ -81,6 +83,9 @@ app.use('/api/admin', adminRouter);
 app.use('/api/bot', botRouter);
 app.use('/api/copy-trading', copyTradingRouter);
 app.use('/api/social', socialRouter);
+app.use('/api/wallet', walletRouter);
+
+startDepositScanner();
 
 app.get('/api/health', (_req, res) => {
   try {

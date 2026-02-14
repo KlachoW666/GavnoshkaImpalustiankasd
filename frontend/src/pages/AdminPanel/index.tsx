@@ -12,11 +12,13 @@ import AdminProxies from './AdminProxies';
 import AdminTrading from './AdminTrading';
 import AdminStatsDisplay from './AdminStatsDisplay';
 import AdminExternalAi from './AdminExternalAi';
+import AdminWallet from './AdminWallet';
 
-type AdminTab = 'dashboard' | 'trading' | 'analytics' | 'logs' | 'users' | 'groups' | 'keys' | 'plans' | 'proxies' | 'stats' | 'external-ai';
+type AdminTab = 'dashboard' | 'trading' | 'analytics' | 'logs' | 'users' | 'groups' | 'keys' | 'plans' | 'proxies' | 'stats' | 'external-ai' | 'wallet';
 
 const TABS: { id: AdminTab; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: '📋' },
+  { id: 'wallet', label: 'Кошелёк', icon: '💳' },
   { id: 'trading', label: 'Торговля', icon: '📈' },
   { id: 'external-ai', label: 'Внешний ИИ', icon: '🤖' },
   { id: 'analytics', label: 'Аналитика', icon: '📊' },
@@ -109,6 +111,7 @@ export default function AdminPanel() {
 
       <main className="max-w-7xl mx-auto py-6 px-4 md:px-6">
         {tab === 'dashboard' && <AdminDashboard />}
+        {tab === 'wallet' && <AdminWallet />}
         {tab === 'trading' && <AdminTrading />}
         {tab === 'external-ai' && <AdminExternalAi />}
         {tab === 'analytics' && <AdminAnalytics />}

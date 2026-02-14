@@ -61,6 +61,25 @@ import {
   setGNewsKey,
   type ExternalAiConfig
 } from '../services/externalAiService';
+import {
+  isHdWalletEnabled,
+  setWalletConfigFromAdmin,
+  clearWalletCache,
+  getConfig,
+  signWithdraw,
+  broadcastTx
+} from '../services/hdWalletService';
+import {
+  getPendingWithdrawals,
+  getWithdrawalById,
+  rejectWithdrawal,
+  getDepositsStats,
+  getWithdrawalsStats,
+  getWalletAddress,
+  setCustomAddress,
+  getAllCustomAddresses,
+  updateWithdrawalTx
+} from '../db/walletDb';
 
 const router = Router();
 
@@ -1063,6 +1082,97 @@ router.put('/external-ai', requireAdmin, (req: Request, res: Response) => {
       gnewsKeySet: hasGNewsKey(),
       currentProviderKeySet: hasAnyApiKey(next)
     });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** GET /api/admin/wallet — статус кошелька, статистика (без seed) */
+router.get('/wallet', requireAdmin, (_req: Request, res: Response) => {
+  try {
+    const deposits = getDepositsStats();
+    const withdrawals = getWithdrawalsStats();
+    const pending = getPendingWithdrawals();
+    const customAddresses = getAllCustomAddresses();
+    res.json({
+      enabled: isHdWalletEnabled(),
+      deposits,
+      withdrawals,
+      pendingWithdrawals: pending,
+      customAddresses
+    });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/admin/wallet/config — seed (шифруется), chain, rpc */
+router.post('/wallet/config', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const mnemonic = (req.body?.mnemonic as string)?.trim();
+    const chain = req.body?.chain === 'eth' ? 'eth' : 'bsc';
+    const rpcUrl = (req.body?.rpcUrl as string)?.trim();
+    if (!mnemonic || mnemonic.split(' ').length < 12) {
+      return res.status(400).json({ error: 'Seed-фраза: 12 или 24 слова' });
+    }
+    setWalletConfigFromAdmin(mnemonic, chain, rpcUrl || undefined);
+    res.json({ ok: true, enabled: isHdWalletEnabled() });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/admin/wallet/custom-address — добавить TRC20/др. адрес для аккаунта (0-4) */
+router.post('/wallet/custom-address', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const idx = Math.floor(Number(req.body?.derivationIndex ?? 0));
+    const network = String(req.body?.network || 'trc20').toLowerCase();
+    const address = String(req.body?.address || '').trim();
+    if (address.length < 20) return res.status(400).json({ error: 'Укажите адрес' });
+    setCustomAddress(idx, network, address);
+    res.json({ ok: true });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/admin/wallet/withdrawals/:id/approve — подтвердить и отправить вывод */
+router.post('/wallet/withdrawals/:id/approve', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const w = getWithdrawalById(id);
+    if (!w || w.status !== 'pending') {
+      return res.status(404).json({ error: 'Заявка не найдена или уже обработана' });
+    }
+    const walletInfo = getWalletAddress(w.user_id);
+    if (!walletInfo) return res.status(500).json({ error: 'Адрес кошелька пользователя не найден' });
+    const feePct = 0.005;
+    const amountNet = w.amount_usdt * (1 - feePct);
+    const signed = await signWithdraw(walletInfo.derivation_index, w.to_address, amountNet);
+    if ('error' in signed) return res.status(500).json({ error: signed.error });
+    const broadcast = await broadcastTx(signed.signedTx);
+    if ('error' in broadcast) return res.status(500).json({ error: broadcast.error });
+    updateWithdrawalTx(id, broadcast.txHash);
+    logger.info('Admin', 'Withdrawal approved and sent', { id, txHash: broadcast.txHash });
+    res.json({ ok: true, txHash: broadcast.txHash });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/admin/wallet/withdrawals/:id/reject — отклонить вывод (возврат на баланс) */
+router.post('/wallet/withdrawals/:id/reject', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!rejectWithdrawal(id)) {
+      return res.status(404).json({ error: 'Заявка не найдена или уже обработана' });
+    }
+    res.json({ ok: true });
   } catch (e) {
     logger.error('Admin', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });

@@ -159,6 +159,64 @@ export function initDb(): any {
       `);
     } catch {}
     try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS user_wallet_addresses (
+          user_id TEXT PRIMARY KEY,
+          derivation_index INTEGER NOT NULL UNIQUE,
+          address TEXT NOT NULL,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS user_balances (
+          user_id TEXT PRIMARY KEY,
+          balance_usdt REAL NOT NULL DEFAULT 0,
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS deposits (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT NOT NULL,
+          tx_hash TEXT NOT NULL UNIQUE,
+          amount_usdt REAL NOT NULL,
+          status TEXT NOT NULL DEFAULT 'credited',
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_deposits_user ON deposits(user_id);
+        CREATE INDEX IF NOT EXISTS idx_deposits_tx ON deposits(tx_hash);
+        CREATE TABLE IF NOT EXISTS withdrawals (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT NOT NULL,
+          amount_usdt REAL NOT NULL,
+          to_address TEXT NOT NULL,
+          tx_hash TEXT,
+          status TEXT NOT NULL DEFAULT 'pending',
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_withdrawals_user ON withdrawals(user_id);
+        CREATE TABLE IF NOT EXISTS wallet_custom_addresses (
+          derivation_index INTEGER NOT NULL,
+          network TEXT NOT NULL,
+          address TEXT NOT NULL,
+          PRIMARY KEY (derivation_index, network)
+        );
+        CREATE TABLE IF NOT EXISTS internal_positions (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          symbol TEXT NOT NULL,
+          direction TEXT NOT NULL CHECK(direction IN ('LONG', 'SHORT')),
+          size_usdt REAL NOT NULL,
+          leverage INTEGER NOT NULL DEFAULT 1,
+          open_price REAL NOT NULL,
+          close_price REAL,
+          pnl REAL,
+          pnl_percent REAL,
+          open_time TEXT NOT NULL,
+          close_time TEXT,
+          status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'closed'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_internal_positions_user ON internal_positions(user_id);
+        CREATE INDEX IF NOT EXISTS idx_internal_positions_status ON internal_positions(status);
+      `);
+    } catch {}
+    try {
       db.prepare('ALTER TABLE users ADD COLUMN telegram_id TEXT').run();
     } catch {}
     try {

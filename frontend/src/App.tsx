@@ -25,10 +25,11 @@ const MyAnalyticsPage = lazy(() => import('./pages/MyAnalyticsPage'));
 const CopyTradingPage = lazy(() => import('./pages/CopyTradingPage'));
 const SocialPage = lazy(() => import('./pages/SocialPage'));
 const TraderProfilePage = lazy(() => import('./pages/TraderProfilePage'));
+const WalletPage = lazy(() => import('./pages/WalletPage'));
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { OfflineBanner } from './components/OfflineBanner';
 
-type Page = 'dashboard' | 'signals' | 'chart' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'analytics' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms' | 'help' | 'backtest' | 'copy' | 'social' | 'trader';
+type Page = 'dashboard' | 'signals' | 'chart' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'analytics' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms' | 'help' | 'backtest' | 'copy' | 'social' | 'trader' | 'wallet';
 
 const PAGE_PATHS: Record<Page, string> = {
   dashboard: '/',
@@ -49,7 +50,8 @@ const PAGE_PATHS: Record<Page, string> = {
   backtest: '/backtest',
   copy: '/copy',
   social: '/social',
-  trader: '/trader'
+  trader: '/trader',
+  wallet: '/wallet'
 };
 
 const PATH_TO_PAGE: Record<string, Page> = Object.entries(PAGE_PATHS).reduce(
@@ -188,6 +190,7 @@ export default function App() {
     set.add('terms' as Page);
     set.add('profile' as Page);
     set.add('help' as Page);
+    set.add('wallet' as Page);
     if (set.has('autotrade')) {
       set.add('backtest');
       set.add('copy');
@@ -575,6 +578,9 @@ export default function App() {
         </div>
         <div className={safePage === 'profile' ? 'block' : 'hidden'}>
           <ProfilePage />
+        </div>
+        <div className={safePage === 'wallet' ? 'block' : 'hidden'}>
+          <WalletPage />
         </div>
         <div className={safePage === 'help' ? 'block' : 'hidden'}>
           <HelpPage />
