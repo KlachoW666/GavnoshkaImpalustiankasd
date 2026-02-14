@@ -27,8 +27,12 @@ err() { echo -e "${RED}[CLABX][update][ERROR]${NC} $*" >&2; }
 
 # npm install с повторами при сетевых ошибках (ETIMEDOUT и т.д.)
 npm_install_retry() {
-  local max=3
+  local max=5
   local n=1
+  local delay=30
+  # Увеличен таймаут fetch для медленных сетей (VPS, прокси)
+  export npm_config_fetch_timeout=120000
+  export npm_config_fetch_retries=5
   while true; do
     if npm install "$@"; then
       return 0
@@ -36,8 +40,8 @@ npm_install_retry() {
     if [ $n -ge $max ]; then
       return 1
     fi
-    warn "npm install не удался (попытка $n/$max), повтор через 20 сек..."
-    sleep 20
+    warn "npm install не удался (попытка $n/$max), повтор через ${delay} сек..."
+    sleep $delay
     n=$((n+1))
   done
 }
@@ -198,8 +202,9 @@ log "Новый коммит: ${NEW_COMMIT:0:8}"
 
 if [ "$CURRENT_COMMIT" = "$NEW_COMMIT" ]; then
   success "Уже установлена последняя версия"
-  log "Пересборка backend (чтобы подхватить изменения при ручном pull)..."
+  log "Пересборка backend и frontend (чтобы подхватить изменения при ручном pull)..."
   (cd backend && npm run build 2>/dev/null) || warn "Backend build пропущен или не удался"
+  (cd frontend && npm run build 2>/dev/null) || warn "Frontend build пропущен или не удался"
   if [ "$NO_RESTART" = false ]; then
     if command -v pm2 &>/dev/null; then
       if [ -f "$PM2_ECOSYSTEM" ]; then
@@ -257,6 +262,9 @@ done
 
 # Устанавливаем зависимости и собираем проект (как в install.sh)
 export NODE_ENV=development
+# Сетевые настройки npm для VPS с нестабильным интернетом
+export npm_config_fetch_timeout=120000
+export npm_config_fetch_retries=5
 log "Устанавливаем зависимости (корень)..."
 npm_install_retry --no-fund --no-audit
 
