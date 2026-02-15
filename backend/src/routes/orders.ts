@@ -5,6 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import { initDb, insertOrder, updateOrderClose, listOrders, getOrderById } from '../db';
+import { feedOrderToML } from '../services/onlineMLService';
 import { syncClosedOrdersFromOkx } from '../services/autoTrader';
 import { getOkxCredentials } from '../db/authDb';
 import { logger } from '../lib/logger';
@@ -35,13 +36,15 @@ router.post('/', optionalAuth, (req: Request, res: Response) => {
       if (order && order.client_id !== clientId) {
         return res.status(403).json({ error: 'Ордер принадлежит другому пользователю' });
       }
+      const pnl = Number(body.pnl) || 0;
       updateOrderClose({
         id,
         closePrice: Number(body.closePrice),
-        pnl: Number(body.pnl) || 0,
+        pnl,
         pnlPercent: Number(body.pnlPercent) || 0,
         closeTime: typeof body.closeTime === 'string' ? body.closeTime : new Date().toISOString()
       });
+      if (order) feedOrderToML(order, pnl);
       return res.json({ ok: true, updated: true });
     }
     insertOrder({
@@ -91,13 +94,15 @@ router.patch('/:id', optionalAuth, (req: Request, res: Response) => {
     if (order && order.client_id !== clientId) {
       return res.status(403).json({ error: 'Ордер принадлежит другому пользователю' });
     }
+    const pnlVal = pnl ?? 0;
     updateOrderClose({
       id,
       closePrice,
-      pnl: pnl ?? 0,
+      pnl: pnlVal,
       pnlPercent: pnlPercent ?? 0,
       closeTime: closeTime ?? new Date().toISOString()
     });
+    if (order) feedOrderToML(order, pnlVal);
     res.json({ ok: true });
   } catch (e) {
     logger.error('Orders', (e as Error).message);

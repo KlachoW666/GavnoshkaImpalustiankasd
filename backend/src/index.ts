@@ -35,9 +35,10 @@ import socialRouter from './routes/social';
 import walletRouter from './routes/wallet';
 import { createWebSocketServer, getBroadcastBreakout } from './websocket';
 import { startDepositScanner } from './services/depositScanner';
-import { initDb, getDb, isMemoryStore, getSetting } from './db';
+import { initDb, getDb, isMemoryStore, getSetting, listOrders } from './db';
 import { preloadAdminTokens } from './services/adminService';
 import { restoreAutoTradingState } from './routes/market';
+import { loadModel as loadMLModel, warmUpFromDb as mlWarmUp } from './services/onlineMLService';
 import { emotionalFilterInstance } from './services/emotionalFilter';
 import { seedDefaultAdmin } from './db/seed';
 import { notifyBreakoutAlert } from './services/notificationService';
@@ -170,6 +171,11 @@ export async function startServer(port: number = config.port): Promise<void> {
     } catch {}
   }
   logger.info('Server', isMemoryStore() ? 'Database: in-memory (native SQLite unavailable)' : 'Database: SQLite initialized');
+  loadMLModel();
+  mlWarmUp((opts) => listOrders(opts) as any);
+  logger.info('Server', config.autoTradingExecutionEnabled
+    ? 'Auto-trading execution: ENABLED (AUTO_TRADING_EXECUTION_ENABLED=1)'
+    : 'Auto-trading execution: DISABLED. Добавьте AUTO_TRADING_EXECUTION_ENABLED=1 в .env для открытия ордеров.');
   restoreAutoTradingState();
   const host = process.env.HOST || '0.0.0.0';
   return new Promise((resolve) => {

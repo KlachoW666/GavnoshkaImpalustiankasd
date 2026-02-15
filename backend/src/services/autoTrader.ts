@@ -8,6 +8,7 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 import { config } from '../config';
 import { getProxy } from '../db/proxies';
 import { listOrders, updateOrderClose } from '../db';
+import { feedOrderToML } from './onlineMLService';
 import { toOkxCcxtSymbol } from '../lib/symbol';
 import { normalizeSymbol } from '../lib/symbol';
 import { MIN_TP_DISTANCE_PCT } from '../lib/tradingPrinciples';
@@ -456,6 +457,7 @@ export async function syncClosedOrdersFromOkx(
         pnlPercent,
         closeTime
       });
+      feedOrderToML(row, pnl);
       synced++;
       logger.info('AutoTrader', 'Synced closed order from OKX', { id: row.id, pair: row.pair, pnl });
     } catch (e) {

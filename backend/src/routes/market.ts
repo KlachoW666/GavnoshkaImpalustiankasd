@@ -604,10 +604,10 @@ router.post('/analyze/:symbol', async (req, res) => {
 });
 
 const MAX_SYMBOLS = 10;
-/** Сигналы 70%+ — порог для авто-цикла (снижен для стабильного потока сделок) */
-const AUTO_MIN_CONFIDENCE = 0.70;
+/** Сигналы 65%+ — порог для авто-цикла (снижен для стабильного потока сделок) */
+const AUTO_MIN_CONFIDENCE = 0.65;
 /** Минимальный risk/reward для открытия ордера в полном автомате */
-const AUTO_MIN_RISK_REWARD = 1.2;
+const AUTO_MIN_RISK_REWARD = 1.1;
 const AUTO_SCORE_WEIGHTS = { confidence: 0.4, riskReward: 0.35, confluence: 0.1, aiProb: 0.15 }; // выше вес R:R — предпочитаем сделки с большим потенциалом
 
 /** Преобразовать символ из скринера (BTC/USDT:USDT) в формат runAnalysis (BTC-USDT) */
@@ -778,6 +778,7 @@ async function runAutoTradingBestCycle(
   const extAi = getExternalAiConfig();
   if (extAi.enabled && externalAiHasKey(extAi)) {
     externalAiUsed = true;
+    logger.info('runAutoTradingBestCycle', 'External AI evaluation started', { symbol: best.signal.symbol });
     try {
       const evalResult = await externalAiEvaluate(best.signal);
       if (evalResult != null) externalAiScore = evalResult.score;
