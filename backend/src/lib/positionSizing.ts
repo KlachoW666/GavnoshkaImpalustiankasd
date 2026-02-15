@@ -1,11 +1,28 @@
 /**
- * Расчёт размера позиции по риску (Schwager)
+ * Расчёт размера позиции по риску (Schwager) или Kelly (курсы риск-менеджмента)
  * size = riskUsd / stopPct, ограничено долей баланса
  */
+
+import { kellyFraction } from './tradingPrinciples';
 
 const RISK_PCT_DEFAULT = 0.02;
 const RISK_MAX_PCT = 0.03;
 const MAX_SINGLE_ASSET_PCT = 0.25;
+
+/**
+ * Kelly-based size: доля баланса = kellyFraction(winRate, avgWin, avgLoss).
+ * Используется когда есть статистика по прошлым сделкам.
+ */
+export function getPositionSizeKelly(
+  balance: number,
+  winRate: number,
+  avgWin: number,
+  avgLoss: number
+): number {
+  const frac = kellyFraction(winRate, avgWin, avgLoss);
+  if (frac <= 0) return balance * 0.02;
+  return Math.min(balance * frac, balance * MAX_SINGLE_ASSET_PCT);
+}
 
 export function getPositionSize(
   balance: number,

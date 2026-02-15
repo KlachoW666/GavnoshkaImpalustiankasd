@@ -393,6 +393,7 @@ const PATTERN_WEIGHTS: Record<string, { bull: number; bear: number }> = {
   piercing_line: { bull: 2, bear: 0 },
   dark_cloud_cover: { bull: 0, bear: 2 },
   doji: { bull: 1, bear: 1 },
+  spinning_top: { bull: 1, bear: 1 },
   // Freqtrade-strategies: BinHV45, Cluc, HLHB, VolatilitySystem, Supertrend
   binhv45_lower_bb_reversal: { bull: 2, bear: 0 },
   cluc_low_volume_dip: { bull: 2, bear: 0 },

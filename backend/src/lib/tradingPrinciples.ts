@@ -86,6 +86,28 @@ export const VOLUME_BREAKOUT_MULTIPLIER = 1.2;  // объём при пробо�
 /** Burniske: диверсификация — не более X% в один актив */
 export const MAX_SINGLE_ASSET_PCT = 0.25;  // 25% макс на один актив
 
+/** Kelly Criterion (курсы риск-менеджмента): оптимальная доля капитала f* = (p*b - q) / b. Используем половинный Kelly (0.5) для снижения риска. */
+export const KELLY_FRACTION = 0.5;
+
+/**
+ * Kelly Criterion: оптимальный размер ставки по winRate и avgWin/avgLoss.
+ * f* = (p*b - q) / b, где p=winRate, q=1-p, b=avgWin/avgLoss.
+ * Возвращает долю 0–1; умножаем на KELLY_FRACTION для консервативности.
+ */
+export function kellyFraction(
+  winRate: number,
+  avgWin: number,
+  avgLoss: number
+): number {
+  if (winRate <= 0 || winRate >= 1 || avgLoss <= 0) return 0;
+  const p = winRate;
+  const q = 1 - p;
+  const b = avgWin / avgLoss;
+  const kelly = (p * b - q) / b;
+  if (kelly <= 0) return 0;
+  return Math.min(KELLY_FRACTION * kelly, MAX_SINGLE_ASSET_PCT);
+}
+
 /** Sinclair (Volatility Trading): при высокой волатильности — уменьшить размер позиции */
 export const VOLATILITY_REDUCTION_THRESHOLD = 1.5;  // ATR/avgATR > 1.5 = высокая волатильность
 export const VOLATILITY_SIZE_MULTIPLIER = 0.7;     // при высокой волатильности × 0.7
