@@ -413,6 +413,77 @@ export function insertOrder(order: {
   });
 }
 
+/** Вставка/обновление ордера из OKX (в т.ч. полностью закрытого) — для синхронизации истории с биржей */
+export function upsertOrderFromOkx(order: {
+  id: string;
+  clientId: string;
+  pair: string;
+  direction: 'LONG' | 'SHORT';
+  size: number;
+  leverage: number;
+  openPrice: number;
+  closePrice?: number;
+  pnl?: number;
+  pnlPercent?: number;
+  openTime: string;
+  closeTime?: string;
+  status: 'open' | 'closed';
+  autoOpened?: boolean;
+}): void {
+  if (!initAttempted) initDb();
+  if (useMemoryStore) {
+    const row: MemoryOrderRow = {
+      id: order.id,
+      client_id: order.clientId,
+      pair: order.pair,
+      direction: order.direction,
+      size: order.size,
+      leverage: order.leverage,
+      open_price: order.openPrice,
+      close_price: order.closePrice ?? null,
+      stop_loss: null,
+      take_profit: null,
+      pnl: order.pnl ?? null,
+      pnl_percent: order.pnlPercent ?? null,
+      open_time: order.openTime,
+      close_time: order.closeTime ?? null,
+      status: order.status,
+      auto_opened: order.autoOpened ? 1 : 0,
+      confidence_at_open: null,
+      created_at: new Date().toISOString()
+    };
+    const i = memoryOrders.findIndex((o) => o.id === order.id);
+    if (i >= 0) memoryOrders[i] = row;
+    else memoryOrders.unshift(row);
+    return;
+  }
+  const d = getDb();
+  if (!d) return;
+  const stmt = d.prepare(`
+    INSERT OR REPLACE INTO orders (id, client_id, pair, direction, size, leverage, open_price, close_price, stop_loss, take_profit, pnl, pnl_percent, open_time, close_time, status, auto_opened, confidence_at_open)
+    VALUES (@id, @clientId, @pair, @direction, @size, @leverage, @openPrice, @closePrice, @stopLoss, @takeProfit, @pnl, @pnlPercent, @openTime, @closeTime, @status, @autoOpened, @confidenceAtOpen)
+  `);
+  stmt.run({
+    id: order.id,
+    clientId: order.clientId,
+    pair: order.pair,
+    direction: order.direction,
+    size: order.size,
+    leverage: order.leverage,
+    openPrice: order.openPrice,
+    closePrice: order.closePrice ?? null,
+    stopLoss: null,
+    takeProfit: null,
+    pnl: order.pnl ?? null,
+    pnlPercent: order.pnlPercent ?? null,
+    openTime: order.openTime,
+    closeTime: order.closeTime ?? null,
+    status: order.status,
+    autoOpened: order.autoOpened ? 1 : 0,
+    confidenceAtOpen: null
+  });
+}
+
 export function updateOrderClose(order: {
   id: string;
   closePrice: number;
@@ -444,6 +515,24 @@ export function updateOrderClose(order: {
     pnlPercent: order.pnlPercent,
     closeTime: order.closeTime
   });
+}
+
+/** Проверка: есть ли уже ордер с данным OKX ordId (id форматов okx-{ordId} или okx-{ordId}-...) */
+export function orderExistsWithOkxOrdId(ordId: string, clientId?: string): boolean {
+  if (!initAttempted) initDb();
+  const prefix = `okx-${ordId}`;
+  const prefixDash = `${prefix}-`;
+  if (useMemoryStore) {
+    return memoryOrders.some((o) => {
+      if (o.id !== prefix && !o.id.startsWith(prefixDash)) return false;
+      return clientId == null || o.client_id === clientId;
+    });
+  }
+  const d = getDb();
+  if (!d) return false;
+  const list = d.prepare('SELECT id, client_id FROM orders WHERE id = ? OR id LIKE ?').all(prefix, `${prefixDash}%`) as Array<{ id: string; client_id: string }>;
+  if (clientId == null) return list.length > 0;
+  return list.some((r) => r.client_id === clientId);
 }
 
 export function getOrderById(id: string): OrderRow | null {

@@ -603,7 +603,7 @@ router.post('/analyze/:symbol', async (req, res) => {
   }
 });
 
-const MAX_SYMBOLS = 10;
+const MAX_SYMBOLS = 18;
 /** Сигналы 65%+ — порог для авто-цикла (снижен для стабильного потока сделок) */
 const AUTO_MIN_CONFIDENCE = 0.65;
 /** Минимальный risk/reward для открытия ордера в полном автомате */
@@ -635,8 +635,8 @@ async function runAutoTradingBestCycle(
       const scanner = new CoinScanner();
       const defaultSymbols = CoinScanner.getDefaultSymbols();
       const topCoins = await scanner.getTopCandidates(defaultSymbols, MAX_SYMBOLS, {
-        minVolume24h: 500_000,
-        minVolatility24h: 4,
+        minVolume24h: 300_000,
+        minVolatility24h: 3.5,
         checkBBSqueeze: true,
         checkMomentum: true
       });
@@ -661,8 +661,9 @@ async function runAutoTradingBestCycle(
   const sizeMode = execOpts?.sizeMode ?? 'percent';
   const riskPct = execOpts?.riskPct ?? 0.02;
 
+  const mlSamples = mlGetStats().samples;
   const results: Array<{ signal: Awaited<ReturnType<typeof runAnalysis>>['signal']; breakdown: any; score: number }> = [];
-  const rejected: Array<{ sym: string; conf: number; rr: number; minVolOk: boolean }> = [];
+  const rejected: Array<{ sym: string; conf: number; rr: number; minVolOk: boolean; effectiveAiProb?: number }> = [];
   await Promise.all(
     syms.map(async (sym) => {
       try {
@@ -673,9 +674,11 @@ async function runAutoTradingBestCycle(
         const alignCount = (r.breakdown as any)?.multiTF?.alignCount ?? 0;
         const confluenceBonus = Math.min(1.2, 0.9 + alignCount * 0.06);
         const aiProb = sig.aiWinProbability ?? 0.5;
+        const effectiveAiProb = effectiveProbability(aiProb, mlSamples);
         const atrPct = (r.breakdown as any)?.atrPct as number | undefined;
         const minVolOk = atrPct == null || atrPct >= 0.001; // мин. волатильность 0.1% ATR
-        if (conf >= AUTO_MIN_CONFIDENCE && rr >= AUTO_MIN_RISK_REWARD && minVolOk) {
+        const aiGateOk = minAiProb <= 0 || mlSamples < MIN_SAMPLES_FOR_AI_GATE || effectiveAiProb >= minAiProb;
+        if (conf >= AUTO_MIN_CONFIDENCE && rr >= AUTO_MIN_RISK_REWARD && minVolOk && aiGateOk) {
           const score =
             conf * AUTO_SCORE_WEIGHTS.confidence +
             Math.min(rr / 2.5, 1) * AUTO_SCORE_WEIGHTS.riskReward +
@@ -683,7 +686,7 @@ async function runAutoTradingBestCycle(
             aiProb * AUTO_SCORE_WEIGHTS.aiProb;
           results.push({ signal: sig, breakdown: r.breakdown, score });
         } else if (conf >= 0.5) {
-          rejected.push({ sym, conf, rr, minVolOk });
+          rejected.push({ sym, conf, rr, minVolOk, effectiveAiProb });
         }
       } catch (e) {
         logger.warn('runAutoTradingBestCycle', (e as Error).message, { symbol: sym });
@@ -691,8 +694,9 @@ async function runAutoTradingBestCycle(
     })
   );
   if (results.length === 0) {
-    const top = rejected.sort((a, b) => b.conf - a.conf).slice(0, 3);
-    logger.info('runAutoTradingBestCycle', `No signals passed filter (conf>=${AUTO_MIN_CONFIDENCE * 100}%, rr>=${AUTO_MIN_RISK_REWARD}). Top rejected: ${top.map((t) => `${t.sym} conf=${(t.conf * 100).toFixed(0)}% rr=${t.rr.toFixed(2)}`).join('; ')}`, { analyzed: syms.length });
+    const top = rejected.sort((a, b) => b.conf - a.conf).slice(0, 5);
+    const aiHint = minAiProb > 0 && mlSamples >= MIN_SAMPLES_FOR_AI_GATE ? `, aiProb>=${(minAiProb * 100).toFixed(0)}%` : '';
+    logger.info('runAutoTradingBestCycle', `No signals passed filter (conf>=${AUTO_MIN_CONFIDENCE * 100}%, rr>=${AUTO_MIN_RISK_REWARD}${aiHint}). Top rejected: ${top.map((t) => `${t.sym} conf=${(t.conf * 100).toFixed(0)}% rr=${t.rr.toFixed(2)}${t.effectiveAiProb != null ? ` ai=${(t.effectiveAiProb * 100).toFixed(1)}%` : ''}`).join('; ')}`, { analyzed: syms.length });
     return;
   }
   results.sort((a, b) => b.score - a.score);
@@ -750,7 +754,6 @@ async function runAutoTradingBestCycle(
   /** Risk/Reward: не открывать при слабом R:R (чаще убытки). 100% в плюс невозможно — отсекаем худшие по R:R. */
   const rr = best.signal.risk_reward ?? 0;
   const aiProb = best.signal.aiWinProbability ?? 0;
-  const mlSamples = mlGetStats().samples;
   const effectiveAiProb = effectiveProbability(aiProb, mlSamples);
   let externalAiScore: number | null = null;
   let externalAiUsed = false;

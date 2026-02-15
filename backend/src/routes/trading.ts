@@ -5,7 +5,7 @@
 import { Router, Request, Response } from 'express';
 import { emotionalFilterInstance } from '../services/emotionalFilter';
 import { setNotificationConfig, getNotificationConfig } from '../services/notificationService';
-import { getPositionsAndBalanceForApi, syncClosedOrdersFromOkx } from '../services/autoTrader';
+import { getPositionsAndBalanceForApi, syncClosedOrdersFromOkx, pullClosedOrdersFromOkx } from '../services/autoTrader';
 import { getBearerToken } from './auth';
 import { findSessionUserId } from '../db/authDb';
 import { getOkxCredentials } from '../db/authDb';
@@ -121,9 +121,14 @@ router.get('/positions', async (req: Request, res: Response) => {
     }
     const { positions, balance, openCount, balanceError } = await getPositionsAndBalanceForApi(useTestnet, hasCreds ? userCreds : undefined);
     if (userId && hasCreds) {
-      syncClosedOrdersFromOkx(useTestnet, userCreds, userId).then((r) => {
-        if (r.synced > 0) logger.info('Trading', 'Synced closed orders from OKX', { userId, synced: r.synced });
-      }).catch((e) => logger.warn('Trading', 'syncClosedOrdersFromOkx failed', { error: (e as Error).message }));
+      Promise.all([
+        syncClosedOrdersFromOkx(useTestnet, userCreds, userId),
+        pullClosedOrdersFromOkx(useTestnet, userCreds, userId)
+      ]).then(([r1, r2]) => {
+        if (r1.synced > 0 || r2.pulled > 0) {
+          logger.info('Trading', 'OKX sync', { userId, synced: r1.synced, pulled: r2.pulled });
+        }
+      }).catch((e) => logger.warn('Trading', 'OKX sync failed', { error: (e as Error).message }));
     }
     res.json({
       positions,

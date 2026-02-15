@@ -7,7 +7,7 @@ import ccxt, { Exchange } from 'ccxt';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { config } from '../config';
 import { getProxy } from '../db/proxies';
-import { listOrders, updateOrderClose } from '../db';
+import { listOrders, updateOrderClose, orderExistsWithOkxOrdId, upsertOrderFromOkx } from '../db';
 import { feedOrderToML, feedOkxClosedOrderToML } from './onlineMLService';
 import { toOkxCcxtSymbol } from '../lib/symbol';
 import { normalizeSymbol } from '../lib/symbol';
@@ -469,7 +469,75 @@ export async function syncClosedOrdersFromOkx(
   return { synced };
 }
 
-const SYMBOLS_FOR_ML_SYNC = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'XRP-USDT', 'DOGE-USDT', 'MATIC-USDT', 'ADA-USDT', 'DOT-USDT', 'AVAX-USDT', 'UNI-USDT'];
+const SYMBOLS_FOR_ML_SYNC = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'XRP-USDT', 'DOGE-USDT', 'MATIC-USDT', 'ADA-USDT', 'DOT-USDT', 'AVAX-USDT', 'UNI-USDT', 'LINK-USDT', 'LTC-USDT', 'ATOM-USDT', 'NEAR-USDT', 'APT-USDT', 'ARB-USDT', 'OP-USDT', 'SUI-USDT', 'PEPE-USDT'];
+
+/**
+ * Подтягивание ВСЕХ закрытых ордеров с OKX в БД — ордера, открытые/закрытые на бирже (в т.ч. вручную),
+ * чтобы история на сайте совпадала с OKX.
+ */
+export async function pullClosedOrdersFromOkx(
+  useTestnet: boolean,
+  userCreds: UserOkxCreds | null,
+  clientId: string
+): Promise<{ pulled: number }> {
+  const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
+  if (!useUserCreds && !config.okx.hasCredentials) return { pulled: 0 };
+  const exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
+  const since = Date.now() - 90 * 24 * 60 * 60 * 1000; // 90 дней
+  let pulled = 0;
+  try {
+    for (const sym of SYMBOLS_FOR_ML_SYNC) {
+      const ccxtSym = toOkxCcxtSymbol(sym) || `${sym.replace('-', '/')}:USDT`;
+      try {
+        const orders = await exchange.fetchClosedOrders(ccxtSym, since, 100);
+        for (const o of orders) {
+          const info = (o as any).info ?? {};
+          const ordId = String(o.id ?? info.ordId ?? info.clOrdId ?? '');
+          if (!ordId) continue;
+          if (orderExistsWithOkxOrdId(ordId, clientId)) continue; // уже в БД
+          const dbId = `okx-${ordId}-${clientId}`;
+          const pnl = Number(info.realizedPnl ?? info.pnl ?? 0);
+          const avgPx = Number((o as any).average ?? info.avgPx ?? o.price ?? 0);
+          const filled = Number((o as any).filled ?? info.fillSz ?? 0);
+          const side = String((o as any).side ?? info.side ?? 'buy').toLowerCase();
+          const direction = side === 'sell' ? 'SHORT' : 'LONG';
+          const pair = normalizeSymbol((o.symbol ?? sym).replace(/\/.*|:.*/, '').replace('/', '-') + '-USDT') || sym;
+          const sizeUsdt = filled > 0 && avgPx > 0 ? filled * avgPx : 0;
+          if (sizeUsdt <= 0) continue;
+          const closeTime = (o.datetime ? new Date(o.datetime) : info.uTime ? new Date(Number(info.uTime)) : new Date()).toISOString();
+          const openPrice = avgPx;
+          const closePrice = avgPx;
+          const pnlPercent = openPrice > 0
+            ? (direction === 'LONG' ? (closePrice - openPrice) / openPrice : (openPrice - closePrice) / openPrice) * 100
+            : 0;
+          upsertOrderFromOkx({
+            id: dbId,
+            clientId,
+            pair,
+            direction,
+            size: sizeUsdt,
+            leverage: 1,
+            openPrice,
+            closePrice,
+            pnl: Number.isFinite(pnl) ? pnl : 0,
+            pnlPercent,
+            openTime: closeTime, // у close-order нет openTime — используем close
+            closeTime,
+            status: 'closed',
+            autoOpened: false
+          });
+          pulled++;
+        }
+      } catch (e) {
+        logger.debug('AutoTrader', 'pullClosedOrders fetch skip', { symbol: sym, error: (e as Error).message });
+      }
+    }
+    if (pulled > 0) logger.info('AutoTrader', 'Pulled closed orders from OKX', { clientId, pulled });
+  } catch (e) {
+    logger.warn('AutoTrader', 'pullClosedOrdersFromOkx failed', { error: (e as Error).message });
+  }
+  return { pulled };
+}
 
 /**
  * Подгрузка закрытых ордеров с OKX для обучения ML.

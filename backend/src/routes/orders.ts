@@ -6,7 +6,7 @@
 import { Router, Request, Response } from 'express';
 import { initDb, insertOrder, updateOrderClose, listOrders, getOrderById } from '../db';
 import { feedOrderToML } from '../services/onlineMLService';
-import { syncClosedOrdersFromOkx } from '../services/autoTrader';
+import { syncClosedOrdersFromOkx, pullClosedOrdersFromOkx } from '../services/autoTrader';
 import { getOkxCredentials } from '../db/authDb';
 import { logger } from '../lib/logger';
 import { optionalAuth } from './auth';
@@ -124,6 +124,7 @@ router.get('/', optionalAuth, async (req: Request, res: Response) => {
         const userCreds = getOkxCredentials(userId);
         if (userCreds?.apiKey && userCreds?.secret) {
           await syncClosedOrdersFromOkx(useTestnet, userCreds, clientId);
+          await pullClosedOrdersFromOkx(useTestnet, userCreds, clientId);
         }
       } catch (_) { /* ignore */ }
     }

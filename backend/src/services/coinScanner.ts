@@ -251,41 +251,68 @@ export class CoinScanner {
   }
 
   /**
-   * Получить список популярных монет для сканирования
-   * TODO: динамическая загрузка с биржи через API
+   * Получить список популярных и волатильных монет для сканирования.
+   * В приоритете: мемкоины, AI, L2, Gaming, DeFi — высокая волатильность.
    */
   static getDefaultSymbols(): string[] {
     return [
+      // Топ по капитализации
       'BTC/USDT:USDT',
       'ETH/USDT:USDT',
       'SOL/USDT:USDT',
       'BNB/USDT:USDT',
       'XRP/USDT:USDT',
-      'ADA/USDT:USDT',
       'DOGE/USDT:USDT',
+      'ADA/USDT:USDT',
       'AVAX/USDT:USDT',
+      'LINK/USDT:USDT',
       'DOT/USDT:USDT',
       'MATIC/USDT:USDT',
-      'LINK/USDT:USDT',
       'UNI/USDT:USDT',
       'ATOM/USDT:USDT',
       'LTC/USDT:USDT',
+      // L2 / смарт-контракты
       'APT/USDT:USDT',
       'ARB/USDT:USDT',
       'OP/USDT:USDT',
       'SUI/USDT:USDT',
-      'TIA/USDT:USDT',
       'SEI/USDT:USDT',
-      'INJ/USDT:USDT',
+      'TIA/USDT:USDT',
+      'STRK/USDT:USDT',
+      'IMX/USDT:USDT',
+      'METIS/USDT:USDT',
+      'MNT/USDT:USDT',
+      // AI
       'FET/USDT:USDT',
+      'RENDER/USDT:USDT',
+      'WLD/USDT:USDT',
+      'ARKM/USDT:USDT',
+      'TAO/USDT:USDT',
+      // Мемкоины (высокая волатильность)
+      'PEPE/USDT:USDT',
+      'WIF/USDT:USDT',
+      'BONK/USDT:USDT',
+      'FLOKI/USDT:USDT',
+      'BRETT/USDT:USDT',
+      // Gaming
+      'GALA/USDT:USDT',
+      'AXS/USDT:USDT',
+      'PIXEL/USDT:USDT',
+      'PORTAL/USDT:USDT',
+      'NOT/USDT:USDT',
+      'XAI/USDT:USDT',
+      // DeFi / остальное
+      'INJ/USDT:USDT',
       'NEAR/USDT:USDT',
       'RUNE/USDT:USDT',
       'FTM/USDT:USDT',
-      'GALA/USDT:USDT',
       'SAND/USDT:USDT',
       'MANA/USDT:USDT',
-      'AXS/USDT:USDT',
-      'APE/USDT:USDT'
+      'APE/USDT:USDT',
+      'PYTH/USDT:USDT',
+      'JUP/USDT:USDT',
+      'ORDI/USDT:USDT',
+      'STX/USDT:USDT'
     ];
   }
 }

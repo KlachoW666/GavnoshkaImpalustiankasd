@@ -4,7 +4,7 @@
  */
 
 import { listUserIdsWithOkxCredentials, getOkxCredentials } from '../db/authDb';
-import { syncClosedOrdersFromOkx, syncOkxClosedOrdersForML } from './autoTrader';
+import { syncClosedOrdersFromOkx, pullClosedOrdersFromOkx, syncOkxClosedOrdersForML } from './autoTrader';
 import { config } from '../config';
 import { logger } from '../lib/logger';
 
@@ -28,8 +28,14 @@ async function runSync(): Promise<void> {
         passphrase: creds.passphrase ?? ''
       }, userId);
 
-      if (synced > 0) {
-        logger.info('OkxSyncCron', `Synced ${synced} order(s) for user ${userId}`);
+      const { pulled } = await pullClosedOrdersFromOkx(false, {
+        apiKey: creds.apiKey,
+        secret: creds.secret,
+        passphrase: creds.passphrase ?? ''
+      }, userId);
+
+      if (synced > 0 || pulled > 0) {
+        logger.info('OkxSyncCron', `OKX sync: ${synced} updated, ${pulled} pulled for user ${userId}`);
       }
 
       const { fed } = await syncOkxClosedOrdersForML({
