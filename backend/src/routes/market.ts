@@ -677,7 +677,8 @@ async function runAutoTradingBestCycle(
         const effectiveAiProb = effectiveProbability(aiProb, mlSamples);
         const atrPct = (r.breakdown as any)?.atrPct as number | undefined;
         const minVolOk = atrPct == null || atrPct >= 0.001; // мин. волатильность 0.1% ATR
-        const aiGateOk = minAiProb <= 0 || mlSamples < MIN_SAMPLES_FOR_AI_GATE || effectiveAiProb >= minAiProb;
+        const techOverride = conf >= 0.80 && rr >= 2.0;
+        const aiGateOk = minAiProb <= 0 || mlSamples < MIN_SAMPLES_FOR_AI_GATE || effectiveAiProb >= minAiProb || techOverride;
         if (conf >= AUTO_MIN_CONFIDENCE && rr >= AUTO_MIN_RISK_REWARD && minVolOk && aiGateOk) {
           const score =
             conf * AUTO_SCORE_WEIGHTS.confidence +
@@ -766,7 +767,8 @@ async function runAutoTradingBestCycle(
   }
 
   /** AI-анализ перед открытием: консервативная оценка при малом числе примеров; порог не блокирует при холодной модели. */
-  if (minAiProb > 0) {
+  const techOverride = rr >= 2.0 && (best.signal.confidence ?? 0) >= 0.80;
+  if (minAiProb > 0 && !techOverride) {
     if (mlSamples < MIN_SAMPLES_FOR_AI_GATE) {
       logger.info('runAutoTradingBestCycle', `AI gate skipped: model cold (samples ${mlSamples} < ${MIN_SAMPLES_FOR_AI_GATE}). Порог minAiProb не применяется до накопления примеров.`, { symbol: best.signal.symbol, samples: mlSamples });
     } else if (effectiveAiProb < minAiProb) {
@@ -775,6 +777,8 @@ async function runAutoTradingBestCycle(
       setLastExecution(undefined, undefined, skipReason, aiInfoForExecution(undefined, false));
       return;
     }
+  } else if (techOverride && effectiveAiProb < minAiProb) {
+    logger.info('runAutoTradingBestCycle', 'AI gate bypassed: strong technical (conf>=80%, rr>=2)', { symbol: best.signal.symbol, conf: (best.signal.confidence ?? 0) * 100, rr, effectiveAiProb: effectiveAiProb * 100 });
   }
 
   /** Внешний платный ИИ (OpenAI/Claude/GLM): дополнительная оценка. При blockOnLowScore=false не блокирует ордера. */
