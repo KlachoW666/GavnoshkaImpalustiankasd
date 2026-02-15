@@ -555,11 +555,16 @@ export async function fetchPositionsForApi(useTestnet: boolean): Promise<Array<{
 }
 
 async function fetchBalanceAndPositions(exchange: Exchange): Promise<{ balance: number; positions: any[] }> {
-  const [balanceRes, positionsRes] = await Promise.all([
+  const [balanceSettled, positionsSettled] = await Promise.allSettled([
     exchange.fetchBalance(),
     exchange.fetchPositions()
   ]);
-  const usdt = (balanceRes as any).USDT ?? balanceRes?.usdt;
+  const balanceRes = balanceSettled.status === 'fulfilled' ? balanceSettled.value : {};
+  const positionsRes: any[] = positionsSettled.status === 'fulfilled' ? (positionsSettled.value || []) : [];
+  if (balanceSettled.status === 'rejected') {
+    logger.debug('AutoTrader', 'fetchBalance failed (positions may be ok)', { error: (balanceSettled.reason as Error)?.message });
+  }
+  const usdt = (balanceRes as any)?.USDT ?? (balanceRes as any)?.usdt;
   const total = usdt?.total ?? 0;
   const free = usdt?.free ?? total;
   /** total = equity (вся стоимость), free = доступно. Показываем total — пользователь ожидает полный баланс. */
