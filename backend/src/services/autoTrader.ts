@@ -8,7 +8,7 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 import { config } from '../config';
 import { getProxy } from '../db/proxies';
 import { listOrders, updateOrderClose } from '../db';
-import { feedOrderToML } from './onlineMLService';
+import { feedOrderToML, feedOkxClosedOrderToML } from './onlineMLService';
 import { toOkxCcxtSymbol } from '../lib/symbol';
 import { normalizeSymbol } from '../lib/symbol';
 import { MIN_TP_DISTANCE_PCT } from '../lib/tradingPrinciples';
@@ -67,6 +67,7 @@ function buildExchange(useTestnet: boolean): Exchange {
     enableRateLimit: true,
     options: {
       defaultType: 'swap',
+      fetchMarkets: ['swap'],
       sandboxMode: useTestnet
     },
     timeout: config.okx.timeout
@@ -86,6 +87,7 @@ function buildExchangeFromCreds(creds: UserOkxCreds, useTestnet: boolean): Excha
     enableRateLimit: true,
     options: {
       defaultType: 'swap',
+      fetchMarkets: ['swap'],
       sandboxMode: useTestnet
     },
     timeout: config.okx.timeout
@@ -465,6 +467,55 @@ export async function syncClosedOrdersFromOkx(
     }
   }
   return { synced };
+}
+
+const SYMBOLS_FOR_ML_SYNC = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'XRP-USDT', 'DOGE-USDT', 'MATIC-USDT', 'ADA-USDT', 'DOT-USDT', 'AVAX-USDT', 'UNI-USDT'];
+
+/**
+ * Подгрузка закрытых ордеров с OKX для обучения ML.
+ * Вызывается из okxSyncCron. Использует ключи пользователя или глобальные из .env.
+ */
+export async function syncOkxClosedOrdersForML(
+  userCreds?: UserOkxCreds | null,
+  userId?: string | null
+): Promise<{ fed: number }> {
+  const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
+  if (!useUserCreds && !config.okx.hasCredentials) return { fed: 0 };
+  const exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, false) : buildExchange(false);
+  const since = Date.now() - 7 * 24 * 60 * 60 * 1000; // последние 7 дней
+  let fed = 0;
+  try {
+    for (const sym of SYMBOLS_FOR_ML_SYNC) {
+      const ccxtSym = toOkxCcxtSymbol(sym) || `${sym.replace('-', '/')}:USDT`;
+      try {
+        const orders = await exchange.fetchClosedOrders(ccxtSym, since, 30);
+        for (const o of orders) {
+          const info = (o as any).info ?? {};
+          const pnl = Number(info.realizedPnl ?? info.pnl ?? 0);
+          if (!Number.isFinite(pnl)) continue;
+          const orderId = (o.id ?? info.ordId ?? info.clOrdId ?? '') + (userId ? `-${userId}` : '');
+          if (!orderId) continue;
+          const mlId = `okx-ml-${orderId}`;
+          const side = String((o as any).side ?? info.side ?? 'buy').toLowerCase();
+          feedOkxClosedOrderToML({
+            id: mlId,
+            symbol: (o as any).symbol ?? sym,
+            side,
+            pnl,
+            average: Number((o as any).average ?? info.avgPx ?? 0),
+            price: Number((o as any).price ?? info.px ?? 0)
+          });
+          fed++;
+        }
+      } catch (e) {
+        logger.debug('AutoTrader', 'fetchClosedOrders for ML skip', { symbol: sym, error: (e as Error).message });
+      }
+    }
+    if (fed > 0) logger.info('AutoTrader', `OKX ML sync: fed ${fed} closed orders`);
+  } catch (e) {
+    logger.warn('AutoTrader', 'syncOkxClosedOrdersForML failed', { error: (e as Error).message });
+  }
+  return { fed };
 }
 
 /**

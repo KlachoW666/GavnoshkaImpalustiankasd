@@ -421,14 +421,14 @@ async function fetchOkxBalanceForUser(userId: string): Promise<{ okxBalance: num
       password: creds.passphrase || undefined,
       enableRateLimit: true,
       timeout: okxTimeout,
-      options: { defaultType: 'swap' }
+      options: { defaultType: 'swap', fetchMarkets: ['swap'] }
     };
     if (proxyUrl) baseOpts.httpsProxy = proxyUrl;
     const agent = proxyUrl ? okxProxyAgent(proxyUrl) : undefined;
     if (agent) baseOpts.agent = agent;
     for (const sandboxMode of [false, true]) {
       try {
-        const exchange = new ccxt.okx({ ...baseOpts, options: { defaultType: 'swap', sandboxMode } });
+        const exchange = new ccxt.okx({ ...baseOpts, options: { defaultType: 'swap', fetchMarkets: ['swap'], sandboxMode } });
         const balance = await exchange.fetchBalance();
         const usdt = (balance as any).USDT ?? balance?.usdt;
         const total = usdt?.total ?? 0;
@@ -940,7 +940,7 @@ async function checkProxyOne(url: string): Promise<{ ok: boolean; error?: string
   try {
     const ex = new ccxt.okx({
       enableRateLimit: true,
-      options: { defaultType: 'swap' },
+      options: { defaultType: 'swap', fetchMarkets: ['swap'] },
       timeout: 12000,
       httpsProxy: url
     });

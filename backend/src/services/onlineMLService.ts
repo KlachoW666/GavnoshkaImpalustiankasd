@@ -237,6 +237,33 @@ function computeRiskReward(order: {
 }
 
 /**
+ * Передать закрытый ордер из OKX (не из нашей БД) в ML для обучения.
+ * Используется при синхронизации истории OKX. id должен быть уникальным (напр. okx-ml-{ordId}).
+ */
+export function feedOkxClosedOrderToML(order: {
+  id: string;
+  symbol: string;
+  side: string;
+  pnl: number;
+  average?: number;
+  price?: number;
+}): void {
+  if (fedOrderIds.has(order.id)) return;
+  const win = order.pnl > 0;
+  const direction = (order.side || 'buy').toLowerCase() === 'buy' ? 'LONG' : 'SHORT';
+  const features: MLFeatures = {
+    confidence: 0.7,
+    direction: direction === 'LONG' ? 1 : 0,
+    riskReward: 1.5,
+    triggersCount: 2,
+    rsiBucket: 0,
+    volumeConfirm: 0.5
+  };
+  update(features, win, order.id);
+  logger.info('onlineML', 'Fed OKX closed order to ML', { id: order.id, symbol: order.symbol, win, pnl: order.pnl.toFixed(2), samples: sampleCount });
+}
+
+/**
  * Передать закрытый ордер из БД в ML для обучения. Вызывать после updateOrderClose.
  * pnlOverride — итоговый PnL (если order.pnl ещё не обновлён в объекте)
  */

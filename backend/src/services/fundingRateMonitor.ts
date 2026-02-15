@@ -29,7 +29,10 @@ export class FundingRateMonitor {
   constructor() {
     const opts: Record<string, unknown> = {
       enableRateLimit: true,
-      options: { defaultType: 'swap' },
+      options: {
+        defaultType: 'swap',
+        fetchMarkets: ['swap']
+      },
       timeout: 15000
     };
     if (config.okx.hasCredentials) {

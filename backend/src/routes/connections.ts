@@ -9,7 +9,7 @@ function okxOpts(proxyOverride?: string | null, extra: Record<string, unknown> =
   const proxyUrl = (proxyOverride && proxyOverride.trim()) || getProxy(config.proxyList) || config.proxy;
   const opts: Record<string, unknown> = {
     enableRateLimit: true,
-    options: { defaultType: 'swap' },
+    options: { defaultType: 'swap', fetchMarkets: ['swap'] },
     timeout: 30000, // OKX иногда медленно отвечает, особенно /asset/currencies
     ...extra
   };

@@ -4,7 +4,8 @@
  */
 
 import { listUserIdsWithOkxCredentials, getOkxCredentials } from '../db/authDb';
-import { syncClosedOrdersFromOkx } from './autoTrader';
+import { syncClosedOrdersFromOkx, syncOkxClosedOrdersForML } from './autoTrader';
+import { config } from '../config';
 import { logger } from '../lib/logger';
 
 const INTERVAL_MS = 6 * 60 * 1000; // 6 минут
@@ -13,8 +14,9 @@ let intervalId: ReturnType<typeof setInterval> | null = null;
 
 async function runSync(): Promise<void> {
   const userIds = listUserIdsWithOkxCredentials();
-  if (userIds.length === 0) return;
+  const hasUsers = userIds.length > 0;
 
+  if (hasUsers) {
   for (const userId of userIds) {
     try {
       const creds = getOkxCredentials(userId);
@@ -29,8 +31,27 @@ async function runSync(): Promise<void> {
       if (synced > 0) {
         logger.info('OkxSyncCron', `Synced ${synced} order(s) for user ${userId}`);
       }
+
+      const { fed } = await syncOkxClosedOrdersForML({
+        apiKey: creds.apiKey,
+        secret: creds.secret,
+        passphrase: creds.passphrase ?? ''
+      }, userId);
+      if (fed > 0) {
+        logger.info('OkxSyncCron', `ML: fed ${fed} OKX closed orders for user ${userId}`);
+      }
     } catch (e) {
       logger.warn('OkxSyncCron', `Sync failed for user ${userId}`, { error: (e as Error).message });
+    }
+  }
+  }
+
+  if (!hasUsers && config.okx.hasCredentials) {
+    try {
+      const { fed } = await syncOkxClosedOrdersForML(null, null);
+      if (fed > 0) logger.info('OkxSyncCron', `ML: fed ${fed} OKX closed orders (global keys)`);
+    } catch (e) {
+      logger.warn('OkxSyncCron', 'ML sync (global) failed', { error: (e as Error).message });
     }
   }
 }

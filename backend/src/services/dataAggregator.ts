@@ -20,7 +20,11 @@ export class DataAggregator {
       secret: okx.hasCredentials ? okx.secret : undefined,
       password: okx.hasCredentials && okx.passphrase ? okx.passphrase : undefined,
       enableRateLimit: true,
-      options: { defaultType: 'swap' },
+      options: {
+        defaultType: 'swap',
+        /** Загружать только SWAP, не OPTION — из‑за OKX api/v5/public/instruments?instType=OPTION сбоев */
+        fetchMarkets: ['swap']
+      },
       timeout: config.okx.timeout
     };
     if (url) opts.httpsProxy = url;
