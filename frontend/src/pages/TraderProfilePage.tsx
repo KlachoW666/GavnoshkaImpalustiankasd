@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import { useNavigation } from '../contexts/NavigationContext';
 
 const cardStyle = {
   background: 'var(--bg-card)',
@@ -24,6 +25,7 @@ interface TraderProfilePageProps {
 }
 
 export default function TraderProfilePage({ traderId, onBackToSocial }: TraderProfilePageProps) {
+  const { navigateTo } = useNavigation();
   const [profile, setProfile] = useState<TraderProfile | null>(null);
   const [loading, setLoading] = useState(!!traderId);
   const [error, setError] = useState('');
@@ -142,7 +144,7 @@ export default function TraderProfilePage({ traderId, onBackToSocial }: TraderPr
           <div className="mt-6 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
             <button
               type="button"
-              onClick={() => (window as any).__navigateTo?.('copy')}
+              onClick={() => navigateTo('copy')}
               className="px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
               style={{ background: 'var(--accent)' }}
             >

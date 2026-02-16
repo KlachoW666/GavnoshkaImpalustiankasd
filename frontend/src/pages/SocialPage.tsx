@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { SkeletonTable } from '../components/Skeleton';
 import { useTableSort } from '../utils/useTableSort';
 import { SortableTh } from '../components/SortableTh';
+import { useNavigation } from '../contexts/NavigationContext';
 
 const cardStyle = { background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' };
 
@@ -20,7 +21,8 @@ interface LeaderboardEntry {
 
 export default function SocialPage() {
   const { token } = useAuth();
-  const navigateToCopy = () => (window as any).__navigateTo?.('copy');
+  const { navigateTo, navigateToTrader } = useNavigation();
+  const navigateToCopy = () => navigateTo('copy');
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('all');
@@ -93,7 +95,7 @@ export default function SocialPage() {
                     <td className="py-3 px-2">
                       <button
                         type="button"
-                        onClick={() => (window as any).__navigateToTrader?.(e.userId)}
+                        onClick={() => navigateToTrader(e.userId)}
                         className="font-medium text-left hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset rounded"
                         style={{ color: 'var(--accent)' }}
                       >

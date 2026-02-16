@@ -7,6 +7,7 @@ import bcrypt from 'bcrypt';
 import ccxt from 'ccxt';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { config } from '../config';
+import { rateLimit } from '../middleware/rateLimit';
 import { getDashboardData, validateAdminPassword, createAdminToken, validateAdminToken } from '../services/adminService';
 import { stopAutoAnalyze, getAutoAnalyzeStatus, startAutoAnalyzeForUser } from './market';
 import { initDb, listOrders, getSetting, setSetting } from '../db';
@@ -93,7 +94,7 @@ function requireAdmin(req: Request, res: Response, next: () => void) {
 const ADMIN_GROUP_ID = 3;
 
 /** POST /api/admin/login — вход по логину+паролю (админ из БД) или по общему паролю (ADMIN_PASSWORD) */
-router.post('/login', (req: Request, res: Response) => {
+router.post('/login', rateLimit({ windowMs: 60_000, max: 20 }), (req: Request, res: Response) => {
   try {
     const username = (req.body?.username as string)?.trim();
     const password = (req.body?.password as string) || '';

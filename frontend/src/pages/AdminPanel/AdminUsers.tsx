@@ -504,6 +504,7 @@ export default function AdminUsers() {
         </div>
       )}
 
+      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
       <div className="rounded-2xl overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <table className="w-full text-sm">
           <thead>
@@ -588,6 +589,7 @@ export default function AdminUsers() {
         {users.length === 0 && (
           <p className="p-6 text-center" style={{ color: 'var(--text-muted)' }}>Нет пользователей</p>
         )}
+      </div>
       </div>
       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Нажмите на логин, чтобы открыть профиль и редактировать пользователя.</p>
     </div>

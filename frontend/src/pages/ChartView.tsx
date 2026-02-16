@@ -4,6 +4,7 @@ import { OHLCVCandle } from '../types/signal';
 import { fetchPrice, normSymbol } from '../utils/fetchPrice';
 import { getSettings, updateSettings } from '../store/settingsStore';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigation } from '../contexts/NavigationContext';
 
 const API = '/api';
 const PLATFORMS = [{ id: 'okx', label: 'OKX', exchange: 'okx' }];
@@ -164,6 +165,7 @@ function OrderbookDepthChart({ bids, asks }: { bids: [number, number][]; asks: [
 }
 
 export default function ChartView() {
+  const { navigateTo } = useNavigation();
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -547,8 +549,8 @@ export default function ChartView() {
           onClick={() => {
             if (typeof window !== 'undefined') {
               window.history.pushState({}, '', '/signals');
-              (window as any).__navigateTo?.('signals');
             }
+            navigateTo('signals');
           }}
           className="px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
           style={{ background: 'var(--bg-hover)', color: 'var(--accent)' }}

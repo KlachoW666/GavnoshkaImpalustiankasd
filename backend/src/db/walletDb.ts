@@ -3,6 +3,7 @@
  */
 
 import { getDb, initDb } from './index';
+import { logger } from '../lib/logger';
 
 export function getOrCreateWalletIndex(userId: string): number | null {
   initDb();
@@ -26,7 +27,7 @@ export function updateWalletAddress(userId: string, derivationIndex: number, add
   if (!db) return;
   try {
     db.prepare('UPDATE user_wallet_addresses SET address = ? WHERE user_id = ? AND derivation_index = ?').run(address, userId, derivationIndex);
-  } catch {}
+  } catch (err) { logger.warn('WalletDB', (err as Error).message); }
 }
 
 export function getWalletAddress(userId: string): { address: string; derivation_index: number } | null {
@@ -36,7 +37,8 @@ export function getWalletAddress(userId: string): { address: string; derivation_
   try {
     const row = db.prepare('SELECT address, derivation_index FROM user_wallet_addresses WHERE user_id = ?').get(userId) as { address: string; derivation_index: number } | undefined;
     return row ?? null;
-  } catch {
+  } catch (err) {
+    logger.warn('WalletDB', `getWalletAddress failed: ${(err as Error).message}`);
     return null;
   }
 }
@@ -48,7 +50,8 @@ export function getBalance(userId: string): number {
   try {
     const row = db.prepare('SELECT balance_usdt FROM user_balances WHERE user_id = ?').get(userId) as { balance_usdt: number } | undefined;
     return row?.balance_usdt ?? 0;
-  } catch {
+  } catch (err) {
+    logger.warn('WalletDB', `getBalance failed: ${(err as Error).message}`);
     return 0;
   }
 }
@@ -65,7 +68,7 @@ export function creditBalance(userId: string, amountUsdt: number): void {
         balance_usdt = balance_usdt + excluded.balance_usdt,
         updated_at = datetime('now')
     `).run(userId, amountUsdt);
-  } catch {}
+  } catch (err) { logger.warn('WalletDB', (err as Error).message); }
 }
 
 export function debitBalance(userId: string, amountUsdt: number): boolean {
@@ -150,7 +153,8 @@ export function createWithdrawal(userId: string, amountUsdt: number, toAddress: 
   try {
     const res = db.prepare('INSERT INTO withdrawals (user_id, amount_usdt, to_address, status) VALUES (?, ?, ?, ?)').run(userId, amountUsdt, toAddress, 'pending');
     return res.lastInsertRowid as number;
-  } catch {
+  } catch (err) {
+    logger.warn('WalletDB', `createWithdrawal failed: ${(err as Error).message}`);
     return null;
   }
 }
@@ -161,7 +165,7 @@ export function updateWithdrawalTx(id: number, txHash: string): void {
   if (!db) return;
   try {
     db.prepare('UPDATE withdrawals SET tx_hash = ?, status = ? WHERE id = ?').run(txHash, 'sent', id);
-  } catch {}
+  } catch (err) { logger.warn('WalletDB', (err as Error).message); }
 }
 
 export function getPendingWithdrawals(): Array<{ id: number; user_id: string; amount_usdt: number; to_address: string; created_at: string }> {
@@ -238,7 +242,8 @@ export function getCustomAddress(derivationIndex: number, network: string): stri
   try {
     const row = db.prepare('SELECT address FROM wallet_custom_addresses WHERE derivation_index = ? AND network = ?').get(derivationIndex, network) as { address: string } | undefined;
     return row?.address ?? null;
-  } catch {
+  } catch (err) {
+    logger.warn('WalletDB', `getCustomAddress failed: ${(err as Error).message}`);
     return null;
   }
 }
@@ -249,7 +254,7 @@ export function setCustomAddress(derivationIndex: number, network: string, addre
   if (!db) return;
   try {
     db.prepare('INSERT OR REPLACE INTO wallet_custom_addresses (derivation_index, network, address) VALUES (?, ?, ?)').run(derivationIndex, network, address.trim());
-  } catch {}
+  } catch (err) { logger.warn('WalletDB', (err as Error).message); }
 }
 
 export function getAllCustomAddresses(): Array<{ derivation_index: number; network: string; address: string }> {

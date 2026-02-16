@@ -109,7 +109,15 @@ export default function CopyTradingPage() {
       <section className="rounded-2xl p-6" style={cardStyle}>
         <h2 className="text-lg font-semibold mb-4">Провайдеры (топ по PnL)</h2>
         {loading ? (
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Загрузка…</p>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-xl p-5 animate-pulse" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+                <div className="h-4 rounded w-1/3 mb-3" style={{ background: 'var(--bg-hover)' }} />
+                <div className="h-3 rounded w-2/3 mb-2" style={{ background: 'var(--bg-hover)' }} />
+                <div className="h-3 rounded w-1/2" style={{ background: 'var(--bg-hover)' }} />
+              </div>
+            ))}
+          </div>
         ) : providers.length === 0 ? (
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Пока нет провайдеров с подписчиками. Станьте первым — включите авто-торговлю, и другие смогут копировать ваши сделки.</p>
         ) : (

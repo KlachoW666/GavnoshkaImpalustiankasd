@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { adminApi, clearAdminToken } from '../../utils/adminApi';
 import { api } from '../../utils/api';
 import { formatNum4, formatNum4Signed } from '../../utils/formatNum';
+import { useNavigation } from '../../contexts/NavigationContext';
 
 interface DashboardData {
   system: {
@@ -52,6 +53,7 @@ function formatUptime(sec: number): string {
 }
 
 export default function AdminDashboard() {
+  const { navigateToTrader } = useNavigation();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -361,7 +363,7 @@ export default function AdminDashboard() {
                     <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--accent)', color: 'white' }}>{i + 1}</span>
                     <button
                       type="button"
-                      onClick={() => (window as any).__navigateToTrader?.(u.userId)}
+                      onClick={() => navigateToTrader(u.userId)}
                       className="font-medium truncate text-left hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset rounded"
                       style={{ color: 'var(--accent)' }}
                     >

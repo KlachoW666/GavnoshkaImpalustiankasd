@@ -5,8 +5,10 @@ import { fetchPrice, normSymbol } from '../utils/fetchPrice';
 import { useAuth } from '../contexts/AuthContext';
 import { useTableSort } from '../utils/useTableSort';
 import { SortableTh } from '../components/SortableTh';
+import { api } from '../utils/api';
 
 const API = '/api';
+const DEMO_STORAGE_KEY = 'demoTradingState';
 
 const LEVERAGES = [3, 5, 10, 20] as const;
 
@@ -48,12 +50,37 @@ interface HistoryEntry {
   autoOpened?: boolean;
 }
 
+function loadDemoState(): { balance: number; history: HistoryEntry[] } {
+  try {
+    const raw = localStorage.getItem(DEMO_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        balance: typeof parsed.balance === 'number' ? parsed.balance : 10000,
+        history: Array.isArray(parsed.history) ? parsed.history.map((h: any) => ({
+          ...h,
+          openTime: new Date(h.openTime),
+          closeTime: new Date(h.closeTime)
+        })) : []
+      };
+    }
+  } catch {}
+  return { balance: 10000, history: [] };
+}
+
+function saveDemoState(balance: number, history: HistoryEntry[]) {
+  try {
+    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ balance, history }));
+  } catch {}
+}
+
 export default function DemoPage() {
-  const [balance, setBalance] = useState(10000);
+  const saved = loadDemoState();
+  const [balance, setBalance] = useState(saved.balance);
   const [initialBalance] = useState(10000);
   const [positions, setPositions] = useState<DemoPosition[]>([]);
   const [signals, setSignals] = useState<TradingSignal[]>([]);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [history, setHistory] = useState<HistoryEntry[]>(saved.history);
   const [analyzeSymbol, setAnalyzeSymbol] = useState('BTC-USDT');
   const [analyzing, setAnalyzing] = useState(false);
   const [autoOpen, setAutoOpen] = useState(false);
@@ -68,6 +95,10 @@ export default function DemoPage() {
   const closePositionRef = useRef<(pos: DemoPosition, price?: number) => void>(() => {});
   const closingIdsRef = useRef<Set<string>>(new Set());
   const { token } = useAuth();
+
+  useEffect(() => {
+    saveDemoState(balance, history);
+  }, [balance, history]);
 
   useEffect(() => {
     const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
@@ -99,13 +130,8 @@ export default function DemoPage() {
     if (analyzing) return;
     setAnalyzing(true);
     const sym = analyzeSymbol.replace(/_/g, '-').toUpperCase() || 'BTC-USDT';
-    fetch(`${API}/market/analyze/${encodeURIComponent(sym)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ timeframe: '5m' })
-    })
-      .then((r) => r.json())
-      .then((data) => {
+    api.post(`/market/analyze/${encodeURIComponent(sym)}`, { timeframe: '5m' })
+      .then((data: any) => {
         if (data?.signal) {
           const norm = (s: TradingSignal) => s.symbol?.replace('/', '-') || '';
           setSignals((prev) => [data.signal, ...prev.filter((s) => norm(s) !== norm(data.signal))]);
@@ -116,9 +142,8 @@ export default function DemoPage() {
   };
 
   useEffect(() => {
-    fetch(`${API}/signals?limit=20`)
-      .then((r) => r.json())
-      .then(setSignals)
+    api.get('/signals?limit=20')
+      .then((data: any) => { if (Array.isArray(data)) setSignals(data); })
       .catch(() => {});
   }, []);
 
@@ -200,11 +225,11 @@ export default function DemoPage() {
   const closePosition = (pos: DemoPosition, usePrice?: number) => {
     const price = usePrice ?? pos.currentPrice;
     const lev = pos.leverage || 1;
-    // size = номинал в USDT; PnL в USDT = (priceChg%) × size (плечо не входит)
-    const pnl = pos.signal.direction === 'LONG'
-      ? ((price - pos.openPrice) / pos.openPrice) * pos.size
-      : ((pos.openPrice - price) / pos.openPrice) * pos.size;
-    const pnlPercent = pos.size > 0 ? (pnl / pos.size) * 100 : 0;
+    const rawPct = pos.signal.direction === 'LONG'
+      ? ((price - pos.openPrice) / pos.openPrice)
+      : ((pos.openPrice - price) / pos.openPrice);
+    const pnl = rawPct * pos.size * lev;
+    const pnlPercent = rawPct * 100 * lev;
     const entry: HistoryEntry = {
       id: pos.id,
       pair: pos.signal.symbol,
@@ -370,8 +395,8 @@ export default function DemoPage() {
                 const rawPct = pos.signal.direction === 'LONG'
                   ? ((pos.currentPrice - pos.openPrice) / pos.openPrice) * 100
                   : ((pos.openPrice - pos.currentPrice) / pos.openPrice) * 100;
-                const pnlPct = rawPct * lev; // % на маржу (для отображения)
-                const pnl = pos.size * (rawPct / 100); // PnL в USDT без × lev
+                const pnlPct = rawPct * lev;
+                const pnl = pos.size * (rawPct / 100) * lev;
                 const sl = getSL(pos);
                 const tp = getTP(pos);
                 return (

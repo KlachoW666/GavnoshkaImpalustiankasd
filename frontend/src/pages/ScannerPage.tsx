@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { api } from '../utils/api';
 import { useTableSort } from '../utils/useTableSort';
 import { SortableTh } from '../components/SortableTh';
+import { useNavigation } from '../contexts/NavigationContext';
 
 interface CoinScore {
   symbol: string;
@@ -115,6 +116,7 @@ function levelTypeLabel(type: string): string {
 }
 
 export default function ScannerPage() {
+  const { navigateTo } = useNavigation();
   const [topCoins, setTopCoins] = useState<CoinScore[]>([]);
   const [analysis, setAnalysis] = useState<FullAnalysisItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -158,12 +160,10 @@ export default function ScannerPage() {
 
   const goToChart = (symbol: string) => {
     const p = symbolForChart(symbol);
-    if ((window as any).__navigateTo) {
-      (window as any).__navigateTo('chart');
-      const path = `/chart?symbol=${encodeURIComponent(p)}`;
-      if (typeof window !== 'undefined' && window.history) {
-        window.history.pushState({}, '', path);
-      }
+    navigateTo('chart');
+    const path = `/chart?symbol=${encodeURIComponent(p)}`;
+    if (typeof window !== 'undefined' && window.history) {
+      window.history.pushState({}, '', path);
     }
   };
 
@@ -250,8 +250,14 @@ export default function ScannerPage() {
         </div>
 
         {loading ? (
-          <div className="py-12 rounded-xl text-center" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
-            Загрузка…
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-xl p-5 animate-pulse" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+                <div className="h-4 rounded w-1/3 mb-3" style={{ background: 'var(--bg-hover)' }} />
+                <div className="h-3 rounded w-2/3 mb-2" style={{ background: 'var(--bg-hover)' }} />
+                <div className="h-3 rounded w-1/2" style={{ background: 'var(--bg-hover)' }} />
+              </div>
+            ))}
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>

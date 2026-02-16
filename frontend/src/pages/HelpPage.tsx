@@ -1,8 +1,4 @@
-declare global {
-  interface Window {
-    __navigateTo?: (page: string) => void;
-  }
-}
+import { useNavigation } from '../contexts/NavigationContext';
 
 const cardStyle: React.CSSProperties = {
   background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
@@ -21,7 +17,8 @@ function NavLink({
   page: string;
   label?: string;
 }) {
-  const go = () => window.__navigateTo?.(page);
+  const { navigateTo } = useNavigation();
+  const go = () => navigateTo(page as any);
   return (
     <button
       type="button"

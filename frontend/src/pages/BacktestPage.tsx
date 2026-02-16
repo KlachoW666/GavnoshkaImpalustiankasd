@@ -218,6 +218,18 @@ export default function BacktestPage() {
         </button>
       </section>
 
+      {loading && (
+        <div className="space-y-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-xl p-5 animate-pulse" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+              <div className="h-4 rounded w-1/3 mb-3" style={{ background: 'var(--bg-hover)' }} />
+              <div className="h-3 rounded w-2/3 mb-2" style={{ background: 'var(--bg-hover)' }} />
+              <div className="h-3 rounded w-1/2" style={{ background: 'var(--bg-hover)' }} />
+            </div>
+          ))}
+        </div>
+      )}
+
       {error && (
         <div className="p-4 rounded-xl" style={{ background: 'var(--danger)', color: 'white', opacity: 0.9 }}>
           {error}

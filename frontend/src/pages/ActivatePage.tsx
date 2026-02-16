@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../utils/api';
+import { useNavigation } from '../contexts/NavigationContext';
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -10,6 +11,7 @@ function formatDate(iso: string): string {
 
 export default function ActivatePage() {
   const { token, user, fetchMe } = useAuth();
+  const { navigateTo } = useNavigation();
   const [key, setKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -42,9 +44,7 @@ export default function ActivatePage() {
         setSuccess(res.activationExpiresAt ? `Активировано до: ${formatDate(res.activationExpiresAt)}` : 'Активировано');
         setKey('');
         await fetchMe();
-        try {
-          (window as any).__navigateTo?.('dashboard');
-        } catch {}
+        navigateTo('dashboard');
       } else {
         setError((res as any).error || 'Ошибка активации');
       }

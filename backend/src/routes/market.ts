@@ -15,13 +15,19 @@ import {
   analyzeTape,
   analyzeCandles,
   computeSignal,
-  buildAnalysisBreakdown
+  buildAnalysisBreakdown,
+  detectAbsorption,
+  detectIceberg,
+  detectConsolidation
 } from '../services/marketAnalysis';
 import { config } from '../config';
 import { normalizeSymbol } from '../lib/symbol';
 import { logger } from '../lib/logger';
 import { VOLUME_BREAKOUT_MULTIPLIER, volatilitySizeMultiplier, isPotentialFalseBreakout } from '../lib/tradingPrinciples';
+import { buildVolumeProfile } from '../services/clusterAnalyzer';
 import { FundamentalFilter } from '../services/fundamentalFilter';
+import { Semaphore } from '../lib/semaphore';
+import { TtlCache } from '../lib/ttlCache';
 import { adjustConfidence, update as mlUpdate, predict as mlPredict, getStats as mlGetStats, MIN_SAMPLES_FOR_AI_GATE, effectiveProbability } from '../services/onlineMLService';
 import { getExternalAiConfig, hasAnyApiKey as externalAiHasKey, evaluateSignal as externalAiEvaluate } from '../services/externalAiService';
 import { FundingRateMonitor } from '../services/fundingRateMonitor';
@@ -301,6 +307,10 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
   }));
   const tapeSignal = analyzeTape(tradesMapped);
 
+  // Order Flow: absorption & iceberg detection
+  const absorptionResult = detectAbsorption({ bids: orderBook.bids || [], asks: orderBook.asks || [] }, tradesMapped);
+  const icebergResult = detectIceberg(tradesMapped, entryPrice);
+
   const now = Date.now();
   const TAPE_WINDOWS_MS = { '1m': 60000, '5m': 300000, '15m': 900000, '1h': 3600000 } as const;
   const TAPE_WEIGHTS = { '1m': 0.25, '5m': 0.35, '15m': 0.25, '1h': 0.15 } as const;
@@ -385,12 +395,14 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
   const highVolatility = lastC5 && lastC5.close > 0
     ? (lastC5.high - lastC5.low) / lastC5.close > 0.03
     : false;
+  const bbWidthData = candleAnalyzer.getBollingerBandsWidth(candles5m.map((c) => c.close));
+  const bbSqueezeDetected = bbWidthData != null && bbWidthData.avgWidth > 0 && bbWidthData.width < bbWidthData.avgWidth * 0.8;
   const candlesSignal = {
     direction: mtfDir !== 'NEUTRAL' ? mtfDir : (Object.values(mtfResults)[0]?.direction as 'LONG' | 'SHORT') ?? 'NEUTRAL',
     score: mtfScore,
     volumeConfirm: candles5m.length >= 20 &&
       (candles5m[candles5m.length - 1]?.volume ?? 0) > candles5m.slice(-20).reduce((s, c) => s + (c.volume ?? 0), 0) / 20 * VOLUME_BREAKOUT_MULTIPLIER,
-    bbSqueeze: false,
+    bbSqueeze: bbSqueezeDetected,
     patterns,
     rsi,
     emaTrend: null as 'bullish' | 'bearish' | null,
@@ -405,6 +417,18 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
   const falseBreakoutHint = patterns.some((p) => p.includes('engulfing') || p.includes('breakout'))
     ? isPotentialFalseBreakout(currVol, avgVol20, true)
     : false;
+
+  // Cluster analysis (Volume Profile, POC, HVN/LVN)
+  let clusterData: { poc: number; hvnZones: [number, number][]; lvnZones: [number, number][]; totalDelta: number } | null = null;
+  if (tradesMapped.length >= 20 && entryPrice > 0) {
+    const priceStep = entryPrice * 0.001;
+    const vp = buildVolumeProfile(tradesMapped, priceStep, entryPrice);
+    const totalDelta = vp.clusters.reduce((s, c) => s + c.delta, 0);
+    clusterData = { poc: vp.poc, hvnZones: vp.hvnZones, lvnZones: vp.lvnZones, totalDelta };
+  }
+
+  // Consolidation / Range detector for breakout strategy
+  const consolidation = detectConsolidation(candles5m);
 
   // Layer 2: Fundamental Filter (generate-complete-guide, Burniske) — блок при слабом рынке
   if (!faFilter.isValid(obSignal.spreadPct)) {
@@ -426,6 +450,13 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
   const tapeForSignal = tapeWindowDir !== 'NEUTRAL'
     ? { ...tapeSignal, direction: tapeWindowDir as 'LONG' | 'SHORT' }
     : tapeSignal;
+
+  // Determine trading mode for adaptive weights
+  const detectedTradingMode: import('../services/marketAnalysis').TradingMode =
+    (bbSqueezeDetected && consolidation.isConsolidating) ? 'breakout'
+      : (timeframe === '1m' || timeframe === '5m') ? 'scalping'
+        : 'standard';
+
   const signalResult = computeSignal(
     {
       candles: { direction: candlesSignal.direction, score: candlesSignal.score },
@@ -441,7 +472,8 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
       obDomScore: obSignal.domScore,
       cvdDivergence: tapeSignal.cvdDivergence,
       highVolatility: candlesSignal.highVolatility,
-      falseBreakoutHint
+      falseBreakoutHint,
+      tradingMode: detectedTradingMode
     }
   );
   const { direction: confluentDir, confidence: confluentConf, confluence } = signalResult;
@@ -471,6 +503,32 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
     if (volBreakout === direction) confidence = Math.min(0.96, confidence + 0.03);
     if (supertrendDir === (direction === 'LONG' ? 'up' : 'down')) confidence = Math.min(0.95, confidence + 0.02);
     if (adx != null && adx > 30) confidence = Math.min(0.94, confidence + 0.02);
+    // Cluster delta alignment bonus — POC/delta from Volume Profile
+    if (clusterData) {
+      const clusterAlign = (direction === 'LONG' && clusterData.totalDelta > 0) ||
+        (direction === 'SHORT' && clusterData.totalDelta < 0);
+      if (clusterAlign) confidence = Math.min(0.95, confidence + 0.03);
+    }
+    // Absorption detection bonus — крупный игрок поглощает
+    if (absorptionResult.detected && absorptionResult.direction === direction) {
+      confidence = Math.min(0.96, confidence + 0.05);
+    }
+    // Iceberg detection bonus — скрытый крупный ордер
+    if (icebergResult.detected && icebergResult.direction === direction) {
+      confidence = Math.min(0.95, confidence + 0.04);
+    }
+    // Breakout confirmation: require 2/3 conditions in breakout mode
+    if (detectedTradingMode === 'breakout') {
+      const breakoutVolumeOk = currVol > avgVol20 * 1.5;
+      const breakoutDomOk = Math.abs(obSignal.domScore) > 0.15;
+      const breakoutDeltaOk = Math.abs(tapeSignal.delta) > 0.20;
+      const breakoutConfirmations = [breakoutVolumeOk, breakoutDomOk, breakoutDeltaOk].filter(Boolean).length;
+      if (breakoutConfirmations >= 2) {
+        confidence = Math.min(0.96, confidence + 0.05);
+      } else {
+        confidence = Math.max(0.52, confidence - 0.08);
+      }
+    }
   }
 
   let fallbackReason: string | undefined;
@@ -483,10 +541,15 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
     if (volBreakout === 'LONG') longCount += 0.5; else if (volBreakout === 'SHORT') shortCount += 0.5;
     const hasConflict = (longCount > 0 && shortCount > 0);
     if (hasConflict) {
-      // Аналитика: при конфликте снижаем уверенность — такие сделки чаще убыточны
       direction = shortCount >= longCount ? 'SHORT' : 'LONG';
-      confidence = 0.55;
-      fallbackReason = `Конфликт компонентов — направление по большинству (${direction}), уверенность снижена. Не рекомендуется к авто-входу.`;
+      const conflictStrength = Math.min(longCount, shortCount) / Math.max(longCount, shortCount);
+      if (conflictStrength > 0.8) {
+        confidence = 0.45;
+        fallbackReason = `Сильный конфликт компонентов — направления почти равны, сигнал ненадёжен. Пропуск.`;
+      } else {
+        confidence = 0.50;
+        fallbackReason = `Конфликт компонентов — направление по большинству (${direction}), conf ≤ 50%. Не рекомендуется к авто-входу.`;
+      }
     } else if (shortCount > longCount) {
       direction = 'SHORT';
       confidence = Math.min(0.75, 0.6 + shortCount * 0.04);
@@ -504,6 +567,19 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
   (breakdown as any).tapeWindows = tapeWindowResults;
   (breakdown as any).volatilityMultiplier = volatilityMultiplier; // Sinclair: уменьшить размер при высокой волатильности
   (breakdown as any).atrPct = atr != null && entryPrice > 0 ? atr / entryPrice : undefined; // для фильтра мин. волатильности в авто-цикле
+  if (clusterData) {
+    (breakdown as any).cluster = clusterData;
+  }
+  if (absorptionResult.detected) {
+    (breakdown as any).absorption = absorptionResult;
+  }
+  if (icebergResult.detected) {
+    (breakdown as any).iceberg = icebergResult;
+  }
+  if (consolidation.isConsolidating) {
+    (breakdown as any).consolidation = consolidation;
+  }
+  (breakdown as any).tradingMode = detectedTradingMode;
 
   const macd = candles5m.length ? candleAnalyzer.getMACD(candles5m.map((c) => c.close)) : null;
   const bb = candles5m.length ? candleAnalyzer.getBollingerBands(candles5m.map((c) => c.close)) : null;
@@ -621,7 +697,37 @@ function scannerSymbolToMarket(s: string): string {
  * Если useScanner === true — сначала получаем топ монет из скринера (волатильность, объём, BB squeeze).
  * TP/SL, leverage, mode — определяются по анализу (ATR, волатильность, confluence).
  */
+const userCycleLocks = new Map<string, Promise<void>>();
+const analysisSemaphore = new Semaphore(5);
+const analysisCache = new TtlCache<Awaited<ReturnType<typeof runAnalysis>>>(15_000);
+
 async function runAutoTradingBestCycle(
+  symbols: string[],
+  timeframe = '5m',
+  useScanner = false,
+  userId?: string,
+  execOpts?: { executeOrders: boolean; useTestnet: boolean; maxPositions: number; sizePercent: number; sizeMode?: 'percent' | 'risk'; riskPct?: number; leverage: number; tpMultiplier?: number; minAiProb?: number }
+): Promise<void> {
+  const lockKey = userId ?? '__global__';
+  const existing = userCycleLocks.get(lockKey);
+  if (existing) {
+    logger.info('runAutoTradingBestCycle', `Cycle already running for ${lockKey}, skipping`);
+    return;
+  }
+
+  let releaseLock: () => void = () => {};
+  const lockPromise = new Promise<void>((resolve) => { releaseLock = resolve; });
+  userCycleLocks.set(lockKey, lockPromise);
+
+  try {
+    await runAutoTradingBestCycleInner(symbols, timeframe, useScanner, userId, execOpts);
+  } finally {
+    userCycleLocks.delete(lockKey);
+    releaseLock();
+  }
+}
+
+async function runAutoTradingBestCycleInner(
   symbols: string[],
   timeframe = '5m',
   useScanner = false,
@@ -667,7 +773,10 @@ async function runAutoTradingBestCycle(
   await Promise.all(
     syms.map(async (sym) => {
       try {
-        const r = await runAnalysis(sym, timeframe, 'futures25x', { silent: true, userId });
+        const cacheKey = `${sym}:${timeframe}:${userId ?? ''}`;
+        const cached = analysisCache.get(cacheKey);
+        const r = cached ?? await analysisSemaphore.run(() => runAnalysis(sym, timeframe, 'futures25x', { silent: true, userId }));
+        if (!cached) analysisCache.set(cacheKey, r);
         const sig = r.signal;
         const conf = sig.confidence ?? 0;
         const rr = sig.risk_reward ?? 1;
@@ -1037,12 +1146,12 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
     if (raw) {
       try {
         sessions = JSON.parse(raw);
-      } catch {}
+      } catch (err) { logger.warn('AutoAnalyzeState', (err as Error).message); }
     }
     sessions = sessions.filter((s) => s.userId !== userId);
     sessions.push({ userId, body: bodyToPersist });
     setSetting(AUTO_ANALYZE_STATE_KEY, JSON.stringify(sessions));
-  } catch {}
+  } catch (err) { logger.warn('AutoAnalyzeState', (err as Error).message); }
 
   const runAll = () => {
     const state = autoAnalyzeByUser.get(userId);
@@ -1130,13 +1239,13 @@ export function stopAutoAnalyze(userId?: string): void {
         const sessions = (JSON.parse(raw) as Array<{ userId: string; body: Record<string, unknown> }>).filter((s) => s.userId !== userId);
         setSetting(AUTO_ANALYZE_STATE_KEY, JSON.stringify(sessions));
       }
-    } catch {}
+    } catch (err) { logger.warn('AutoAnalyzeState', (err as Error).message); }
   } else {
     autoAnalyzeByUser.forEach((state) => clearInterval(state.timer));
     autoAnalyzeByUser.clear();
     try {
       setSetting(AUTO_ANALYZE_STATE_KEY, '[]');
-    } catch {}
+    } catch (err) { logger.warn('AutoAnalyzeState', (err as Error).message); }
   }
 }
 

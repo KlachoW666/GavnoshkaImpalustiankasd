@@ -3,6 +3,7 @@ import { TradingSignal } from '../types/signal';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../utils/api';
 import { SkeletonCard } from '../components/Skeleton';
+import { useNavigation, type Page } from '../contexts/NavigationContext';
 
 type DirectionFilter = 'all' | 'LONG' | 'SHORT';
 type SortBy = 'time' | 'confidence' | 'rr';
@@ -21,17 +22,18 @@ function formatPrice(n: number | undefined): string {
   return n.toFixed(6);
 }
 
-function goToChart(symbol: string, timeframe: string) {
+function goToChart(symbol: string, timeframe: string, navigateTo: (page: Page) => void) {
   const sym = (symbol || '').replace(/\//g, '-').trim() || 'BTC-USDT';
   const tf = (timeframe || '5m').toLowerCase();
   if (typeof window !== 'undefined') {
     const path = `/chart?symbol=${encodeURIComponent(sym)}&timeframe=${encodeURIComponent(tf)}`;
     window.history.pushState({}, '', path);
-    (window as any).__navigateTo?.('chart');
+    navigateTo('chart');
   }
 }
 
 export default function SignalFeed() {
+  const { navigateTo } = useNavigation();
   const [signals, setSignals] = useState<TradingSignal[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<DirectionFilter>('all');
@@ -235,7 +237,7 @@ export default function SignalFeed() {
           </p>
           <button
             type="button"
-            onClick={() => (window as any).__navigateTo?.('chart')}
+            onClick={() => navigateTo('chart')}
             className="px-4 py-2 rounded-xl text-sm font-medium"
             style={{ background: 'var(--accent)', color: 'white' }}
           >
@@ -281,7 +283,7 @@ export default function SignalFeed() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => goToChart(s.symbol, s.timeframe)}
+                    onClick={() => goToChart(s.symbol, s.timeframe, navigateTo)}
                     className="px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-90"
                     style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}
                   >

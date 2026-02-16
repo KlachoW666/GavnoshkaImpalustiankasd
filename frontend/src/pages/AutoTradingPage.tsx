@@ -10,8 +10,9 @@ import AnalysisBreakdown, { AnalysisBreakdown as BreakdownType } from '../compon
 import PositionChart from '../components/PositionChart';
 import TradingAnalytics from '../components/TradingAnalytics';
 import { RiskDisclaimer } from '../components/RiskDisclaimer';
-import { useTableSort } from '../utils/useTableSort';
-import { SortableTh } from '../components/SortableTh';
+import { useNavigation } from '../contexts/NavigationContext';
+import PositionsTable, { PositionItem } from '../components/AutoTrading/PositionsTable';
+import TradeHistory, { HistoryEntry as TradeHistoryEntry } from '../components/AutoTrading/TradeHistory';
 
 const API = '/api';
 /** Партнёрская ссылка на регистрацию OKX (можно заменить в одном месте) */
@@ -374,6 +375,7 @@ function getInitialTradingState() {
 }
 
 export default function AutoTradingPage() {
+  const { navigateTo } = useNavigation();
   const [settings, setSettings] = useState<AutoTradingSettings>(loadSettings);
   const [enabled, setEnabled] = useState(false);
   const [tradingState, setTradingState] = useState(getInitialTradingState);
@@ -418,15 +420,6 @@ export default function AutoTradingPage() {
 
   /** История для отображения: при авторизации — с сервера (OKX/ордера по userId), иначе локальная. */
   const displayHistory = token ? serverHistory : history;
-
-  const historyCompare = useMemo(() => ({
-    pair: (a: HistoryEntry, b: HistoryEntry) => (a.pair || '').localeCompare(b.pair || ''),
-    direction: (a: HistoryEntry, b: HistoryEntry) => (a.direction || '').localeCompare(b.direction || ''),
-    size: (a: HistoryEntry, b: HistoryEntry) => (a.size ?? 0) - (b.size ?? 0),
-    pnl: (a: HistoryEntry, b: HistoryEntry) => (a.pnl ?? 0) - (b.pnl ?? 0),
-    closeTime: (a: HistoryEntry, b: HistoryEntry) => new Date(a.closeTime).getTime() - new Date(b.closeTime).getTime()
-  }), []);
-  const { sortedItems: sortedHistory, sortKey: historySortKey, sortDir: historySortDir, toggleSort: historyToggleSort } = useTableSort(displayHistory, historyCompare, 'closeTime', 'desc');
 
   const updateSetting = <K extends keyof AutoTradingSettings>(key: K, value: AutoTradingSettings[K]) => {
     setSettings((prev) => {
@@ -1006,7 +999,7 @@ export default function AutoTradingPage() {
               </div>
             </div>
             <div className="mt-6">
-              <button type="button" onClick={() => (window as any).__navigateTo?.('settings')} className="px-5 py-2.5 rounded-xl text-sm font-medium" style={{ background: 'var(--accent)', color: 'white' }}>
+              <button type="button" onClick={() => navigateTo('settings')} className="px-5 py-2.5 rounded-xl text-sm font-medium" style={{ background: 'var(--accent)', color: 'white' }}>
                 Перейти в Настройки
               </button>
             </div>
@@ -1723,149 +1716,83 @@ export default function AutoTradingPage() {
 
       <TradingAnalytics history={history} minConfidence={settings.minConfidence} hideSuggestions={settings.fullAuto} />
 
-      <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
-        <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Открытые позиции</h3>
-        <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
-          {settings.executeOrders
+      <PositionsTable
+        positions={(() => {
+          const items: PositionItem[] = [];
+          if (settings.executeOrders && okxData?.positions) {
+            okxData.positions.forEach((p: any, i: number) => {
+              items.push({
+                id: `okx-${i}-${p.symbol ?? i}`,
+                symbol: p.symbol || '—',
+                direction: p.side === 'long' ? 'LONG' : 'SHORT',
+                size: 0,
+                leverage: Math.max(1, Number(p.leverage) || 1),
+                openPrice: Number(p.entryPrice) || 0,
+                currentPrice: Number(p.markPrice) || undefined,
+                pnl: p.unrealizedPnl ?? undefined,
+                contracts: p.contracts != null ? Number(p.contracts) : undefined,
+                notional: p.notional != null ? Number(p.notional) : undefined,
+                stopLoss: p.stopLoss != null ? Number(p.stopLoss) : undefined,
+                takeProfit: p.takeProfit != null ? [Number(p.takeProfit)] : undefined,
+                openTime: new Date().toISOString(),
+                source: 'okx',
+              });
+            });
+          }
+          if (!settings.fullAuto) {
+            positions.forEach((pos) => {
+              items.push({
+                id: pos.id,
+                symbol: pos.signal?.symbol ?? (pos.signal as any)?.pair ?? '—',
+                direction: (pos.signal?.direction ?? 'LONG') as 'LONG' | 'SHORT',
+                size: pos.size,
+                leverage: pos.leverage,
+                openPrice: pos.openPrice,
+                currentPrice: pos.currentPrice,
+                pnl: pos.pnl,
+                pnlPercent: pos.pnlPercent,
+                openTime: pos.openTime instanceof Date ? pos.openTime.toISOString() : String(pos.openTime),
+                source: 'demo',
+              });
+            });
+          }
+          return items;
+        })()}
+        onClose={(positionId) => {
+          const pos = positions.find((p) => p.id === positionId);
+          if (pos) closePosition(pos);
+        }}
+        title="Открытые позиции"
+        subtitle={
+          settings.executeOrders
             ? `OKX (реальный счёт) · ${okxData?.positions?.length ?? 0} позиций`
             : !settings.executeOrders
               ? 'Включите «Исполнение через OKX», чтобы видеть позиции с биржи'
-              : 'Локальные позиции (демо) — открыты вручную по сигналам'}
-        </p>
-        {settings.executeOrders && (okxData?.positions?.length ?? 0) > 0 ? (
-          <div className="space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
-              OKX (реальный счёт) — ордера бота
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(okxData!.positions ?? []).map((p: any, i: number) => {
-                    const symNorm = normSymbol((p.symbol || '').replace(/:.*$/, ''));
-                    const base = symNorm ? symNorm.split('-')[0] : (p.symbol || '').split(/[/:-]/)[0] || '';
-                    const amountStr = p.contracts != null ? `${Math.abs(Number(p.contracts)).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${base}` : '—';
-                    return (
-                      <div
-                        key={`okx-${i}-${p.symbol ?? i}`}
-                        className="rounded-xl border p-4 flex flex-col gap-1"
-                        style={{ borderColor: 'var(--accent)', background: 'var(--accent-dim)' }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold">{(symNorm || p.symbol) || '—'} {p.side === 'long' ? 'LONG' : 'SHORT'}</span>
-                          <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'var(--accent)', color: 'white' }}>
-                            OKX Реал
-                          </span>
-                        </div>
-                        <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Количество: </span>{amountStr}</p>
-                        <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Вход: </span>{p.entryPrice != null ? Number(p.entryPrice).toLocaleString('ru-RU') : '—'}</p>
-                        {p.notional != null && (() => {
-                          const lev = Math.max(1, Number(p.leverage) || 1);
-                          const stake = Number(p.notional) / lev;
-                          return (
-                            <>
-                              <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Ставка: </span>${stake.toFixed(2)}</p>
-                              <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Ставка с плечом {lev}x: </span>${Number(p.notional).toFixed(2)}</p>
-                            </>
-                          );
-                        })()}
-                        {p.stopLoss != null && <p className="text-sm"><span style={{ color: 'var(--danger)' }}>SL: </span>{Number(p.stopLoss).toLocaleString('ru-RU')}</p>}
-                        {p.takeProfit != null && <p className="text-sm"><span style={{ color: 'var(--success)' }}>TP: </span>{Number(p.takeProfit).toLocaleString('ru-RU')}</p>}
-                        <p className={`text-sm font-medium ${(p.unrealizedPnl ?? 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                          P&L: {p.unrealizedPnl != null ? (p.unrealizedPnl >= 0 ? '+' : '') + p.unrealizedPnl.toFixed(2) : '—'}
-                        </p>
-                      </div>
-                    );
-                  })}
-            </div>
-          </div>
-        ) : !settings.fullAuto && positions.length > 0 ? (
-          <div className="space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
-              Локальные позиции (демо) · {positions.length}
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {positions.map((pos) => {
-                const dir = (pos.signal?.direction ?? 'LONG').toUpperCase();
-                const pair = pos.signal?.symbol ?? (pos.signal as any)?.pair ?? '—';
-                const pnl = pos.pnl ?? (pos.currentPrice - pos.openPrice) * (dir === 'SHORT' ? -1 : 1) * (pos.size / pos.openPrice);
-                return (
-                  <div
-                    key={pos.id}
-                    className="rounded-xl border p-4 flex flex-col gap-1"
-                    style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold">{pair} {dir}</span>
-                      <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'var(--bg-card-solid)', color: 'var(--text-muted)' }}>
-                        Демо
-                      </span>
-                    </div>
-                    <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Вход: </span>{pos.openPrice?.toLocaleString('ru-RU') ?? '—'}</p>
-                    <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Текущая: </span>{pos.currentPrice?.toLocaleString('ru-RU') ?? '—'}</p>
-                    <p className="text-sm"><span style={{ color: 'var(--text-muted)' }}>Ставка: </span>${(pos.size ?? 0).toFixed(2)}</p>
-                    <p className={`text-sm font-medium ${pnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                      P&L: {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="py-10 px-4 rounded-xl text-center" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px dashed var(--border)' }}>
-            <p className="text-sm font-medium">Нет открытых позиций</p>
-            <p className="text-xs mt-1">
-              {settings.executeOrders
-                ? 'Позиции по реальному счёту OKX появятся здесь после исполнения ордеров'
-                : !settings.fullAuto
-                  ? 'В ручном режиме позиции по сигналам отображаются выше (локальное демо)'
-                  : 'Включите полный автомат и исполнение через OKX'}
-            </p>
-          </div>
-        )}
-      </section>
+              : 'Локальные позиции (демо) — открыты вручную по сигналам'
+        }
+      />
 
-      <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
-        <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>История сделок</h3>
-        <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
-          {displayHistory.length} записей · {token ? 'закрытые сделки с сервера (OKX)' : 'локальная демо-история'}
-        </p>
-        {displayHistory.length === 0 ? (
-          <div className="py-10 px-4 rounded-xl text-center" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px dashed var(--border)' }}>
-            <p className="text-sm font-medium">История пуста</p>
-            <p className="text-xs mt-1">Закрытые сделки по реальному счёту OKX появятся здесь</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-xs font-semibold uppercase tracking-wider" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
-                  <SortableTh label="Пара" sortKey="pair" currentKey={historySortKey} sortDir={historySortDir} onSort={historyToggleSort} />
-                  <SortableTh label="Направление" sortKey="direction" currentKey={historySortKey} sortDir={historySortDir} onSort={historyToggleSort} />
-                  <SortableTh label="Сумма" sortKey="size" currentKey={historySortKey} sortDir={historySortDir} onSort={historyToggleSort} align="right" />
-                  <th className="text-right py-3 px-3" style={{ color: 'var(--text-muted)' }}>Вход / Выход</th>
-                  <th className="text-right py-3 px-3" style={{ color: 'var(--text-muted)' }}>SL</th>
-                  <th className="text-right py-3 px-3" style={{ color: 'var(--text-muted)' }}>TP</th>
-                  <SortableTh label="P&L" sortKey="pnl" currentKey={historySortKey} sortDir={historySortDir} onSort={historyToggleSort} align="right" />
-                  <SortableTh label="Время" sortKey="closeTime" currentKey={historySortKey} sortDir={historySortDir} onSort={historyToggleSort} />
-                </tr>
-              </thead>
-              <tbody>
-                {sortedHistory.slice(0, 20).map((h) => (
-                  <tr key={h.id} className="border-b hover:bg-[var(--bg-hover)]/50 transition-colors" style={{ borderColor: 'var(--border)' }}>
-                    <td className="py-3 px-3 font-medium">{h.pair}</td>
-                    <td className="py-3 px-3">{h.direction}</td>
-                    <td className="text-right py-3 px-3 tabular-nums">${(h.size ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td className="text-right py-3 px-3 tabular-nums text-xs">{formatPrice(h.openPrice)} / {validClosePrice(h) ? formatPrice(h.closePrice) : '—'}</td>
-                    <td className="text-right py-3 px-3 tabular-nums text-xs" style={{ color: 'var(--danger)' }}>{h.stopLoss != null && h.stopLoss > 0 ? formatPrice(h.stopLoss) : '—'}</td>
-                    <td className="text-right py-3 px-3 tabular-nums text-xs" style={{ color: 'var(--success)' }}>{Array.isArray(h.takeProfit) && h.takeProfit.length ? h.takeProfit.map(formatPrice).join(' / ') : '—'}</td>
-                    <td className={`text-right py-3 px-3 font-semibold tabular-nums ${validClosePrice(h) ? (h.pnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]') : ''}`}>{validClosePrice(h) ? (h.pnl >= 0 ? '+' : '') + h.pnl.toFixed(2) : '—'}</td>
-                    <td className="py-3 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>{new Date(h.closeTime).toLocaleString('ru-RU')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      <TradeHistory
+        history={displayHistory.map((h): TradeHistoryEntry => ({
+          id: h.id,
+          pair: h.pair,
+          direction: h.direction,
+          size: h.size,
+          leverage: h.leverage,
+          openPrice: h.openPrice,
+          closePrice: h.closePrice,
+          pnl: h.pnl,
+          pnlPercent: h.pnlPercent,
+          openTime: h.openTime instanceof Date ? h.openTime.toISOString() : String(h.openTime),
+          closeTime: h.closeTime instanceof Date ? h.closeTime.toISOString() : String(h.closeTime),
+          stopLoss: h.stopLoss,
+          takeProfit: h.takeProfit,
+          autoOpened: h.autoOpened,
+          confidenceAtOpen: h.confidenceAtOpen,
+        }))}
+        title="История сделок"
+        subtitle={`${displayHistory.length} записей · ${token ? 'закрытые сделки с сервера (OKX)' : 'локальная демо-история'}`}
+      />
     </div>
   );
 }

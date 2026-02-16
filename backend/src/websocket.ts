@@ -6,14 +6,24 @@ import { getOkxStream } from './services/okxStream';
 import { logger } from './lib/logger';
 import { findSessionUserId } from './db/authDb';
 
-type ExtWebSocket = WebSocket & { unsubCandles?: Map<string, () => void>; unsubStream?: () => void; userId?: string };
+const AUTH_TIMEOUT_MS = 5000;
+
+type ExtWebSocket = WebSocket & { unsubCandles?: Map<string, () => void>; unsubStream?: () => void; userId?: string; authenticated?: boolean };
 
 export function createWebSocketServer(server: import('http').Server) {
   const wss = new WebSocketServer({ server, path: '/ws' });
 
   wss.on('connection', (ws: ExtWebSocket) => {
     ws.unsubCandles = new Map();
+    ws.authenticated = false;
     logger.debug('WS', 'Client connected');
+
+    const authTimer = setTimeout(() => {
+      if (!ws.authenticated) {
+        logger.warn('WS', 'Client did not authenticate within timeout, closing');
+        ws.close(4001, 'Authentication required');
+      }
+    }, AUTH_TIMEOUT_MS);
 
     ws.on('message', (data) => {
       try {
@@ -21,9 +31,22 @@ export function createWebSocketServer(server: import('http').Server) {
         if (msg.type === 'auth' && msg.token) {
           const token = String(msg.token).trim();
           const userId = findSessionUserId(token);
-          if (userId) (ws as ExtWebSocket).userId = userId;
+          if (userId) {
+            ws.userId = userId;
+            ws.authenticated = true;
+            clearTimeout(authTimer);
+            ws.send(JSON.stringify({ type: 'auth', ok: true }));
+          } else {
+            ws.send(JSON.stringify({ type: 'auth', ok: false, error: 'Invalid token' }));
+          }
           return;
         }
+
+        if (!ws.authenticated) {
+          ws.send(JSON.stringify({ type: 'error', error: 'Not authenticated' }));
+          return;
+        }
+
         if (msg.type === 'subscribe_candle' && msg.symbol && msg.timeframe) {
           const key = `${msg.symbol}_${msg.timeframe}`;
           if (ws.unsubCandles?.has(key)) return;
@@ -52,12 +75,13 @@ export function createWebSocketServer(server: import('http').Server) {
           ws.unsubStream?.();
           ws.unsubStream = undefined;
         }
-      } catch {
-        // ignore
+      } catch (err) {
+        logger.warn('WS', `Message parse error: ${(err as Error).message}`);
       }
     });
 
     ws.on('close', () => {
+      clearTimeout(authTimer);
       ws.unsubCandles?.forEach((fn) => fn());
       ws.unsubCandles?.clear();
       ws.unsubStream?.();
@@ -77,7 +101,7 @@ export function createWebSocketServer(server: import('http').Server) {
   const broadcastBreakout = (data: unknown) => {
     const msg = JSON.stringify({ type: 'BREAKOUT_ALERT', data });
     wss.clients.forEach((c) => {
-      if (c.readyState === 1) c.send(msg);
+      if (c.readyState === 1 && (c as ExtWebSocket).authenticated) c.send(msg);
     });
   };
   (global as any).__broadcastSignal = broadcastSignal;

@@ -45,17 +45,11 @@ export const config = {
     return envBool('AUTO_TRADING_EXECUTION_ENABLED', false);
   },
 
-  /** Прокси для запросов к OKX (обход Cloudflare). PROXY_LIST — список через запятую */
+  /** Прокси для запросов к OKX (обход Cloudflare). PROXY_LIST — список через запятую в .env */
   proxyList: (() => {
     const raw = envStr('PROXY_LIST');
     if (raw) return raw.split(',').map((s) => s.trim()).filter(Boolean);
-    return [
-      'http://user351292:czwhnm@138.124.21.91:2721',
-      'http://user351292:czwhnm@138.124.21.136:2721',
-      'http://user351292:czwhnm@138.124.21.153:2721',
-      'http://user351292:czwhnm@138.124.21.207:2721',
-      'http://user351292:czwhnm@138.124.21.250:2721'
-    ];
+    return [];
   })(),
   get proxy(): string {
     const list = this.proxyList;

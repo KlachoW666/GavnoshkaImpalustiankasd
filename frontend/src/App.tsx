@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import Dashboard from './pages/Dashboard';
 import SignalFeed from './pages/SignalFeed';
 import { getSavedPage, savePage } from './store/appStore';
 import { useNotifications } from './contexts/NotificationContext';
 import { useAuth } from './contexts/AuthContext';
 import { getSettings } from './store/settingsStore';
+import { NavigationProvider } from './contexts/NavigationContext';
 
 const ChartView = lazy(() => import('./pages/ChartView'));
 const DemoPage = lazy(() => import('./pages/DemoPage'));
@@ -98,21 +99,49 @@ function getPageFromUrl(): Page {
   return (candidate as Page) ?? 'dashboard';
 }
 
-const ALL_PAGES: { id: Page; label: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Главная', icon: '◉' },
-  { id: 'signals', label: 'Сигналы', icon: '◈' },
-  { id: 'chart', label: 'График', icon: '▣' },
-  { id: 'demo', label: 'Демо', icon: '◆' },
-  { id: 'autotrade', label: 'Авто', icon: '◇' },
-  { id: 'scanner', label: 'Скринер', icon: '▤' },
-  { id: 'pnl', label: 'PNL', icon: '💰' },
-  { id: 'analytics', label: 'Аналитика', icon: '📈' },
-  { id: 'backtest', label: 'Бэктест', icon: '📊' },
-  { id: 'copy', label: 'Копитрейдинг', icon: '📋' },
-  { id: 'social', label: 'Социальная', icon: '👥' },
-  { id: 'settings', label: 'Настройки', icon: '⚙' },
-  { id: 'activate', label: 'Активировать', icon: '🔑' },
-  { id: 'admin', label: 'Админ', icon: '🎛' }
+const NAV_ICONS: Record<string, string> = {
+  dashboard: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4',
+  signals: 'M13 10V3L4 14h7v7l9-11h-7z',
+  chart: 'M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16',
+  demo: 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664zM21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+  autotrade: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15',
+  scanner: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
+  pnl: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+  analytics: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
+  backtest: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+  copy: 'M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2',
+  social: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',
+  settings: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z',
+  activate: 'M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z',
+  admin: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4',
+  wallet: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'
+};
+
+function NavIcon({ name, className }: { name: string; className?: string }) {
+  const d = NAV_ICONS[name];
+  if (!d) return null;
+  return (
+    <svg className={className || 'w-4 h-4 shrink-0'} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
+  );
+}
+
+const ALL_PAGES: { id: Page; label: string }[] = [
+  { id: 'dashboard', label: 'Главная' },
+  { id: 'signals', label: 'Сигналы' },
+  { id: 'chart', label: 'График' },
+  { id: 'demo', label: 'Демо' },
+  { id: 'autotrade', label: 'Авто' },
+  { id: 'scanner', label: 'Скринер' },
+  { id: 'pnl', label: 'PNL' },
+  { id: 'analytics', label: 'Аналитика' },
+  { id: 'backtest', label: 'Бэктест' },
+  { id: 'copy', label: 'Копитрейдинг' },
+  { id: 'social', label: 'Социальная' },
+  { id: 'settings', label: 'Настройки' },
+  { id: 'activate', label: 'Активировать' },
+  { id: 'admin', label: 'Админ' }
 ];
 
 function useSignalToasts() {
@@ -286,14 +315,8 @@ export default function App() {
     setPage('trader');
   };
 
-  useEffect(() => {
-    (window as any).__navigateTo = setPageSafe;
-    (window as any).__navigateToTrader = navigateToTrader;
-    return () => {
-      delete (window as any).__navigateTo;
-      delete (window as any).__navigateToTrader;
-    };
-  }, [allowedSet]);
+  const stableNavigateTo = useCallback((p: string) => setPageSafe(p as any), [allowedSet]);
+  const stableNavigateToTrader = useCallback((userId: string) => navigateToTrader(userId), [allowedSet]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -341,6 +364,7 @@ export default function App() {
   }
 
   return (
+    <NavigationProvider onNavigate={stableNavigateTo} onNavigateToTrader={stableNavigateToTrader}>
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
       {/* Top bar — компактный брендинг и навигация с переносом */}
       <header
@@ -374,10 +398,11 @@ export default function App() {
                     setPageSafe(p.id);
                   }
                 }}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all relative inline-block whitespace-nowrap ${
+                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all relative inline-flex items-center gap-1.5 whitespace-nowrap ${
                   safePage === p.id ? 'text-[var(--accent)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
                 }`}
               >
+                <NavIcon name={p.id} className="w-3.5 h-3.5" />
                 {p.label}
                 {safePage === p.id && (
                   <span className="absolute bottom-0 left-1.5 right-1.5 h-0.5 rounded-full" style={{ background: 'var(--accent)' }} />
@@ -403,11 +428,12 @@ export default function App() {
                     key={p.id}
                     type="button"
                     onClick={() => { setPageSafe(p.id); setMobileNavOpen(false); }}
-                    className={`px-4 py-3 rounded-lg text-left text-sm font-medium w-full ${
+                    className={`px-4 py-3 rounded-lg text-left text-sm font-medium w-full flex items-center gap-3 min-h-[44px] ${
                       safePage === p.id ? 'bg-[var(--accent-dim)]' : 'hover:bg-[var(--bg-hover)]'
                     }`}
                     style={{ color: safePage === p.id ? 'var(--accent)' : 'var(--text-primary)' }}
                   >
+                    <NavIcon name={p.id} className="w-5 h-5 shrink-0" />
                     {p.label}
                   </button>
                 ))}
@@ -436,8 +462,8 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => {
+                      setPageSafe('profile');
                       setUserMenuOpen(false);
-                      window.open('/profile', '_blank', 'noopener,noreferrer');
                     }}
                     className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors"
                   >
@@ -526,76 +552,38 @@ export default function App() {
 
       <main className="flex-1 min-h-0 overflow-auto py-8 px-8 md:px-12 lg:px-16">
         <Suspense fallback={<div className="flex items-center justify-center py-16" style={{ color: 'var(--text-muted)' }}>Загрузка…</div>}>
-        <div className={safePage === 'dashboard' ? 'block' : 'hidden'}>
-          <Dashboard />
-        </div>
-        <div className={safePage === 'signals' ? 'block' : 'hidden'}>
-          <SignalFeed />
-        </div>
-        <div className={safePage === 'chart' ? 'block' : 'hidden'}>
+          <div key={safePage} className="animate-page-in">
+          {safePage === 'dashboard' && <Dashboard />}
+          {safePage === 'signals' && <SignalFeed />}
           {safePage === 'chart' && <ChartView />}
-        </div>
-        <div className={safePage === 'demo' ? 'block' : 'hidden'}>
-          <DemoPage />
-        </div>
-        <div className={safePage === 'autotrade' ? 'block' : 'hidden'}>
-          <AutoTradingPage />
-        </div>
-        <div className={safePage === 'scanner' ? 'block' : 'hidden'}>
-          <ScannerPage />
-        </div>
-        <div className={safePage === 'pnl' ? 'block' : 'hidden'}>
-          <PnlCalculatorPage />
-        </div>
-        <div className={safePage === 'analytics' ? 'block' : 'hidden'}>
-          <MyAnalyticsPage />
-        </div>
-        <div className={safePage === 'backtest' ? 'block' : 'hidden'}>
-          <BacktestPage />
-        </div>
-        <div className={safePage === 'copy' ? 'block' : 'hidden'}>
-          <CopyTradingPage />
-        </div>
-        <div className={safePage === 'social' ? 'block' : 'hidden'}>
-          <SocialPage />
-        </div>
-        <div className={safePage === 'trader' ? 'block' : 'hidden'}>
+          {safePage === 'demo' && <DemoPage />}
+          {safePage === 'autotrade' && <AutoTradingPage />}
+          {safePage === 'scanner' && <ScannerPage />}
+          {safePage === 'pnl' && <PnlCalculatorPage />}
+          {safePage === 'analytics' && <MyAnalyticsPage />}
+          {safePage === 'backtest' && <BacktestPage />}
+          {safePage === 'copy' && <CopyTradingPage />}
+          {safePage === 'social' && <SocialPage />}
           {safePage === 'trader' && (
             <TraderProfilePage
               traderId={getTraderIdFromPath()}
               onBackToSocial={() => setPageSafe('social')}
             />
           )}
-        </div>
-        <div className={safePage === 'settings' ? 'block' : 'hidden'}>
-          <SettingsPage />
-        </div>
-        <div className={safePage === 'activate' ? 'block' : 'hidden'}>
-          <ActivatePage />
-        </div>
-        <div className={safePage === 'admin' ? 'block' : 'hidden'}>
-          <AdminPanel />
-        </div>
-        <div className={safePage === 'profile' ? 'block' : 'hidden'}>
-          <ProfilePage />
-        </div>
-        <div className={safePage === 'wallet' ? 'block' : 'hidden'}>
-          <WalletPage />
-        </div>
-        <div className={safePage === 'help' ? 'block' : 'hidden'}>
-          <HelpPage />
-        </div>
-        <div className={safePage === 'privacy' ? 'block' : 'hidden'}>
-          <PrivacyPage />
-        </div>
-        <div className={safePage === 'terms' ? 'block' : 'hidden'}>
-          <TermsPage />
-        </div>
+          {safePage === 'settings' && <SettingsPage />}
+          {safePage === 'activate' && <ActivatePage />}
+          {safePage === 'admin' && <AdminPanel />}
+          {safePage === 'profile' && <ProfilePage />}
+          {safePage === 'wallet' && <WalletPage />}
+          {safePage === 'help' && <HelpPage />}
+          {safePage === 'privacy' && <PrivacyPage />}
+          {safePage === 'terms' && <TermsPage />}
+          </div>
         </Suspense>
       </main>
 
       <footer
-        className="shrink-0 border-t mt-4 px-6 md:px-8 lg:px-10 py-4 text-xs leading-relaxed"
+        className="shrink-0 border-t mt-4 px-6 md:px-8 lg:px-10 py-4 text-[12px] leading-relaxed"
         style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)', color: 'var(--text-muted)' }}
       >
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-2">
@@ -604,31 +592,31 @@ export default function App() {
             <span> — ваше приложение для быстрой и выгодной торговли криптой.</span>
           </div>
           <div className="flex flex-wrap gap-3">
-            <span>
+            <span className="py-1">
               Наш сайт:{' '}
-              <a href="https://clabx.ru" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
+              <a href="https://clabx.ru" target="_blank" rel="noreferrer" className="min-h-[44px] inline-flex items-center" style={{ color: 'var(--accent)' }}>
                 clabx.ru
               </a>
             </span>
-            <span>
+            <span className="py-1">
               Покупка ключа:{' '}
-              <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
+              <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" className="min-h-[44px] inline-flex items-center" style={{ color: 'var(--accent)' }}>
                 @clabx_bot
               </a>
             </span>
-            <span>
+            <span className="py-1">
               🆘 Support:{' '}
-              <a href="https://t.me/clabxartur" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
+              <a href="https://t.me/clabxartur" target="_blank" rel="noreferrer" className="min-h-[44px] inline-flex items-center" style={{ color: 'var(--accent)' }}>
                 @clabxartur
               </a>
               ,{' '}
-              <a href="https://t.me/clabxsupport" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
+              <a href="https://t.me/clabxsupport" target="_blank" rel="noreferrer" className="min-h-[44px] inline-flex items-center" style={{ color: 'var(--accent)' }}>
                 @clabxsupport
               </a>
             </span>
           </div>
         </div>
-        <div className="max-w-5xl mx-auto mt-2 text-[10px] md:text-[11px]" style={{ color: 'var(--text-muted)' }}>
+        <div className="max-w-5xl mx-auto mt-2 text-[11px] md:text-[12px]" style={{ color: 'var(--text-muted)' }}>
           <p>
             © {year} CLABX 💸. Все права защищены. Торговля криптовалютой связана с повышенным риском потери капитала, вы действуете на
             свой страх и риск.
@@ -642,6 +630,7 @@ export default function App() {
                 setPageSafe('privacy');
                 if (typeof window !== 'undefined') window.history.pushState({}, '', '/privacy');
               }}
+              className="min-h-[44px] inline-flex items-center"
               style={{ color: 'var(--accent)' }}
             >
               Политикой конфиденциальности
@@ -654,6 +643,7 @@ export default function App() {
                 setPageSafe('terms');
                 if (typeof window !== 'undefined') window.history.pushState({}, '', '/terms');
               }}
+              className="min-h-[44px] inline-flex items-center"
               style={{ color: 'var(--accent)' }}
             >
               Пользовательским соглашением
@@ -664,5 +654,6 @@ export default function App() {
       </footer>
       {!online && <OfflineBanner />}
     </div>
+    </NavigationProvider>
   );
 }

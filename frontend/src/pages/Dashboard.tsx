@@ -4,6 +4,7 @@ import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import { formatNum4, formatNum4Signed } from '../utils/formatNum';
 import { SkeletonCard } from '../components/Skeleton';
+import { useNavigation } from '../contexts/NavigationContext';
 
 export interface DisplayStats {
   volumeEarned: number;
@@ -41,6 +42,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState<AppStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const { token, user } = useAuth();
+  const { navigateTo } = useNavigation();
 
   // Отображаемая статистика: с сервера (демо-слой растёт автоматически от даты запуска) или реальная
   const display = stats?.displayEnabled && stats?.display
@@ -143,7 +145,7 @@ export default function Dashboard() {
             Уже есть ключ? Перейдите во вкладку{' '}
             <button
               type="button"
-              onClick={() => (window as any).__navigateTo?.('activate')}
+              onClick={() => navigateTo('activate')}
               className="font-semibold underline cursor-pointer hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-1 rounded"
               style={{ color: 'var(--accent)', background: 'transparent', border: 'none' }}
             >

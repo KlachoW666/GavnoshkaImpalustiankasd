@@ -6,6 +6,7 @@
 
 import path from 'path';
 import fs from 'fs';
+import { logger } from '../lib/logger';
 
 const DB_DIR = process.env.DATABASE_PATH
   ? path.dirname(process.env.DATABASE_PATH)
@@ -81,13 +82,13 @@ export function initDb(): any {
     // Lightweight migrations (safe on already-migrated DB)
     try {
       db.prepare('ALTER TABLE users ADD COLUMN activation_expires_at TEXT').run();
-    } catch {}
+    } catch { /* migration: column/table may already exist */ }
     try {
       db.prepare('ALTER TABLE users ADD COLUMN banned INTEGER NOT NULL DEFAULT 0').run();
-    } catch {}
+    } catch { /* migration: column/table may already exist */ }
     try {
       db.prepare('ALTER TABLE users ADD COLUMN ban_reason TEXT').run();
-    } catch {}
+    } catch { /* migration: column/table may already exist */ }
     try {
       db.exec(`
         CREATE TABLE IF NOT EXISTS activation_keys (
@@ -103,7 +104,7 @@ export function initDb(): any {
         CREATE INDEX IF NOT EXISTS idx_activation_keys_key ON activation_keys(key);
         CREATE INDEX IF NOT EXISTS idx_activation_keys_used ON activation_keys(used_at);
       `);
-    } catch {}
+    } catch { /* migration: column/table may already exist */ }
     try {
       db.exec(`
         CREATE TABLE IF NOT EXISTS subscription_plans (
@@ -123,7 +124,7 @@ export function initDb(): any {
           'INSERT INTO subscription_plans (days, price_usd, price_stars, discount_percent, enabled, sort_order) VALUES (?,?,?,?,?,?)'
         ).run(1, 150, 7000, 0, 1, 1);
       }
-    } catch {}
+    } catch { /* migration: column/table may already exist */ }
     try {
       db.exec(`
         CREATE TABLE IF NOT EXISTS user_okx_connections (
@@ -134,7 +135,7 @@ export function initDb(): any {
           updated_at TEXT DEFAULT (datetime('now'))
         );
       `);
-    } catch {}
+    } catch { /* migration: column/table may already exist */ }
     try {
       db.exec(`
         CREATE TABLE IF NOT EXISTS admin_proxies (
@@ -143,7 +144,7 @@ export function initDb(): any {
           created_at TEXT DEFAULT (datetime('now'))
         );
       `);
-    } catch {}
+    } catch { /* migration: column/table may already exist */ }
     try {
       db.exec(`
         CREATE TABLE IF NOT EXISTS admin_tokens (
@@ -151,7 +152,7 @@ export function initDb(): any {
           created_at TEXT DEFAULT (datetime('now'))
         );
       `);
-    } catch {}
+    } catch { /* migration: column/table may already exist */ }
     try {
       db.exec(`
         CREATE TABLE IF NOT EXISTS copy_subscriptions (
@@ -165,7 +166,7 @@ export function initDb(): any {
         CREATE INDEX IF NOT EXISTS idx_copy_subscriptions_provider ON copy_subscriptions(provider_id);
         CREATE INDEX IF NOT EXISTS idx_copy_subscriptions_subscriber ON copy_subscriptions(subscriber_id);
       `);
-    } catch {}
+    } catch { /* migration: column/table may already exist */ }
     try {
       db.exec(`
         CREATE TABLE IF NOT EXISTS user_wallet_addresses (
@@ -223,10 +224,10 @@ export function initDb(): any {
         CREATE INDEX IF NOT EXISTS idx_internal_positions_user ON internal_positions(user_id);
         CREATE INDEX IF NOT EXISTS idx_internal_positions_status ON internal_positions(status);
       `);
-    } catch {}
+    } catch { /* migration: column/table may already exist */ }
     try {
       db.prepare('ALTER TABLE users ADD COLUMN telegram_id TEXT').run();
-    } catch {}
+    } catch { /* migration: column/table may already exist */ }
     try {
       db.exec(`
         CREATE TABLE IF NOT EXISTS telegram_register_tokens (
@@ -241,9 +242,10 @@ export function initDb(): any {
           expires_at TEXT NOT NULL
         );
       `);
-    } catch {}
+    } catch { /* migration: column/table may already exist */ }
     return db;
-  } catch {
+  } catch (err) {
+    logger.error('DB', `SQLite init failed, falling back to in-memory store: ${(err as Error).message}`);
     useMemoryStore = true;
     db = null;
     return null;
@@ -255,16 +257,16 @@ export function runUserMigrations(database: any): void {
   if (!database) return;
   try {
     database.prepare('ALTER TABLE users ADD COLUMN activation_expires_at TEXT').run();
-  } catch {}
+  } catch { /* migration: column/table may already exist */ }
   try {
     database.prepare('ALTER TABLE users ADD COLUMN banned INTEGER NOT NULL DEFAULT 0').run();
-  } catch {}
+  } catch { /* migration: column/table may already exist */ }
   try {
     database.prepare('ALTER TABLE users ADD COLUMN ban_reason TEXT').run();
-  } catch {}
+  } catch { /* migration: column/table may already exist */ }
   try {
     database.prepare('ALTER TABLE users ADD COLUMN telegram_id TEXT').run();
-  } catch {}
+  } catch { /* migration: column/table may already exist */ }
   try {
     database.exec(`
       CREATE TABLE IF NOT EXISTS telegram_register_tokens (
@@ -279,7 +281,7 @@ export function runUserMigrations(database: any): void {
         expires_at TEXT NOT NULL
       );
     `);
-  } catch {}
+  } catch { /* migration: column/table may already exist */ }
 }
 
 export function getDb(): any {
@@ -297,7 +299,8 @@ export function getSetting(key: string): string | null {
   try {
     const row = d.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;
     return row?.value ?? null;
-  } catch {
+  } catch (err) {
+    logger.warn('DB', `getSetting(${key}) failed: ${(err as Error).message}`);
     return null;
   }
 }
@@ -312,7 +315,7 @@ export function setSetting(key: string, value: string): void {
   if (!d) return;
   try {
     d.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, datetime(\'now\'))').run(key, value);
-  } catch {}
+  } catch (err) { logger.warn('DB', (err as Error).message); }
 }
 
 export { SETTINGS_KEY_STATS_DISPLAY };
