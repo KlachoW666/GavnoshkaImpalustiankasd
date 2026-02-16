@@ -5,6 +5,7 @@
 
 import crypto from 'crypto';
 import { getDb, initDb, isMemoryStore, runUserMigrations } from './index';
+import { logger } from '../lib/logger';
 
 export interface UserRow {
   id: string;
@@ -486,7 +487,7 @@ export function getTelegramIdForUser(userId: string): string | null {
   try {
     const u = db.prepare('SELECT telegram_id FROM users WHERE id = ?').get(userId) as { telegram_id: string | null } | undefined;
     if (u?.telegram_id) return u.telegram_id;
-  } catch {}
+  } catch (err) { logger.warn('AuthDB', (err as Error).message); }
   const row = db.prepare("SELECT note FROM activation_keys WHERE used_by_user_id = ? AND note IS NOT NULL AND TRIM(note) != '' ORDER BY used_at DESC LIMIT 1").get(userId) as { note: string } | undefined;
   return row?.note ?? null;
 }
@@ -663,7 +664,7 @@ export function redeemActivationKeyForUser(opts: { userId: string; key: string; 
     if (k.note && String(k.note).trim()) {
       try {
         db.prepare('UPDATE users SET telegram_id = ? WHERE id = ?').run(String(k.note).trim(), opts.userId);
-      } catch {}
+      } catch (err) { logger.warn('AuthDB', (err as Error).message); }
     }
     return { activationExpiresAt, groupId: proGroupId };
   });
@@ -733,7 +734,7 @@ export function deleteUser(userId: string): void {
   if (!db) return;
   try {
     db.prepare('DELETE FROM user_okx_connections WHERE user_id = ?').run(userId);
-  } catch {}
+  } catch (err) { logger.warn('AuthDB', (err as Error).message); }
   db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
   db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 }

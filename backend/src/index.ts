@@ -124,7 +124,7 @@ function getFrontendPath(): string | null {
     try {
       const { app: electronApp } = require('electron');
       candidates.push(path.join(electronApp.getAppPath(), 'frontend', 'dist'));
-    } catch {}
+    } catch (err) { logger.warn('Server', (err as Error).message); }
   }
   candidates.push(path.resolve(__dirname, '../../frontend/dist'));
   for (const dir of candidates) {
@@ -168,7 +168,7 @@ export async function startServer(port: number = config.port): Promise<void> {
     try {
       const c = JSON.parse(efConfig) as { cooldownMinutes?: number; maxLossStreak?: number; maxDailyDrawdownPct?: number };
       emotionalFilterInstance.setConfig(c);
-    } catch {}
+    } catch (err) { logger.warn('Server', (err as Error).message); }
   }
   logger.info('Server', isMemoryStore() ? 'Database: in-memory (native SQLite unavailable)' : 'Database: SQLite initialized');
   loadMLModel();

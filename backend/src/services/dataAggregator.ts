@@ -120,7 +120,7 @@ export class DataAggregator {
       const ticker = await this.exchange.fetchTicker(ccxtSymbol);
       const last = ticker?.last ?? ticker?.close;
       if (typeof last === 'number' && last > 0) return last;
-    } catch {}
+    } catch (err) { logger.warn('DataAggregator', (err as Error).message); }
     try {
       const ob = await this.getOrderBookByExchange(symbol, 5);
       const bestBid = ob.bids?.[0]?.[0];
@@ -128,7 +128,7 @@ export class DataAggregator {
       if (bestBid != null && bestAsk != null && bestBid > 0 && bestAsk > 0) {
         return (bestBid + bestAsk) / 2;
       }
-    } catch {}
+    } catch (err) { logger.warn('DataAggregator', (err as Error).message); }
     return this.getSymbolBasePrice(symbol);
   }
 

@@ -27,7 +27,7 @@ export function createAdminToken(): string {
     if (db) {
       db.prepare('INSERT OR REPLACE INTO admin_tokens (token) VALUES (?)').run(token);
     }
-  } catch {}
+  } catch (err) { logger.warn('AdminService', (err as Error).message); }
   return token;
 }
 
@@ -42,7 +42,7 @@ function loadAdminTokensFromDb(): void {
       const rows = db.prepare('SELECT token FROM admin_tokens').all() as { token: string }[];
       for (const r of rows) inMemoryTokens.add(r.token);
     }
-  } catch {}
+  } catch (err) { logger.warn('AdminService', (err as Error).message); }
 }
 
 /** Предзагрузка токенов при старте сервера (вызывать после initDb) */
@@ -63,7 +63,7 @@ export function validateAdminToken(token: string | undefined): boolean {
         return true;
       }
     }
-  } catch {}
+  } catch (err) { logger.warn('AdminService', (err as Error).message); }
   return false;
 }
 
@@ -189,7 +189,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     if (config.okx.hasCredentials) {
       okxApi = 'connected';
     }
-  } catch {}
+  } catch (err) { logger.warn('AdminService', (err as Error).message); }
 
   let database: 'ok' | 'error' = 'ok';
   try {

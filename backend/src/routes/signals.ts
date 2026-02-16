@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { TradingSignal } from '../types/signal';
 import { updateTrailingStop, DEFAULT_TRAILING_CONFIG } from '../lib/trailingStop';
+import { logger } from '../lib/logger';
 
 const router = Router();
 const MAX_SIGNALS = 200;
@@ -14,7 +15,7 @@ function getDataDir(): string {
       const { app } = require('electron');
       return path.join(app.getPath('userData'), 'data');
     }
-  } catch {}
+  } catch (err) { logger.warn('Signals', (err as Error).message); }
   return path.join(process.cwd(), 'data');
 }
 

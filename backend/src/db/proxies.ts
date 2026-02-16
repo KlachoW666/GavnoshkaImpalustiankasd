@@ -3,6 +3,7 @@
  */
 
 import { getDb, isMemoryStore } from './index';
+import { logger } from '../lib/logger';
 
 export interface ProxyRow {
   id: number;
@@ -23,7 +24,7 @@ function ensureTable(): void {
         created_at TEXT DEFAULT (datetime('now'))
       );
     `);
-  } catch {}
+  } catch (err) { logger.warn('ProxiesDB', (err as Error).message); }
 }
 
 /** Список URL из БД (добавленные админом). */

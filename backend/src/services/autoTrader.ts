@@ -320,6 +320,7 @@ export async function executeSignal(
   }
 
   const side = signal.direction === 'LONG' ? 'buy' : 'sell';
+  const posSide = signal.direction === 'LONG' ? 'long' : 'short';
 
   const tryPlaceOrder = async (tdMode: 'isolated' | 'cross') => {
     try {
@@ -327,7 +328,7 @@ export async function executeSignal(
     } catch (e) {
       logger.warn('AutoTrader', 'setLeverage failed', { symbol: ccxtSymbol, tdMode, error: (e as Error).message });
     }
-    const params: Record<string, unknown> = { tdMode };
+    const params: Record<string, unknown> = { tdMode, posSide };
     if (stopLoss > 0) {
       params.stopLoss = { triggerPrice: stopLoss, type: 'market' };
     }
@@ -510,15 +511,16 @@ export async function pullClosedOrdersFromOkx(
           const avgPx = Number((o as any).average ?? info.avgPx ?? o.price ?? 0);
           const filled = Number((o as any).filled ?? info.fillSz ?? 0);
           const side = String((o as any).side ?? info.side ?? 'buy').toLowerCase();
-          const direction = side === 'sell' ? 'SHORT' : 'LONG';
+          const posSide = String(info.posSide ?? '').toLowerCase();
+          const direction = posSide === 'long' ? 'LONG' : posSide === 'short' ? 'SHORT' : (side === 'sell' ? 'SHORT' : 'LONG');
           const pair = normalizeSymbol((o.symbol ?? sym).replace(/\/.*|:.*/, '').replace('/', '-') + '-USDT') || sym;
           const sizeUsdt = filled > 0 && avgPx > 0 ? filled * avgPx : 0;
           if (sizeUsdt <= 0) continue;
           const closeTime = (o.datetime ? new Date(o.datetime) : info.uTime ? new Date(Number(info.uTime)) : new Date()).toISOString();
           const openPrice = avgPx;
           const closePrice = avgPx;
-          const pnlPercent = openPrice > 0
-            ? (direction === 'LONG' ? (closePrice - openPrice) / openPrice : (openPrice - closePrice) / openPrice) * 100
+          const pnlPercent = sizeUsdt > 0 && Number.isFinite(pnl)
+            ? (pnl / sizeUsdt) * 100
             : 0;
           upsertOrderFromOkx({
             id: dbId,

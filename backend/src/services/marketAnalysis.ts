@@ -370,6 +370,173 @@ export function analyzeTape(trades: TradeInput[]): TapeResult {
   return { direction, score: Math.max(bullishScore, bearishScore), delta, cvdDivergence, recentDelta };
 }
 
+/**
+ * Absorption Detection — Order Flow Scalping
+ * Стена в DOM (крупный ордер на bid/ask) + агрессивные рыночные продажи/покупки, но цена не двигается.
+ * Если стена на BID поглощает sells → бычий сигнал (крупный покупатель).
+ * Если стена на ASK поглощает buys → медвежий сигнал (крупный продавец).
+ */
+export interface AbsorptionResult {
+  detected: boolean;
+  direction: 'LONG' | 'SHORT' | null;
+  strength: number;
+}
+
+export function detectAbsorption(
+  ob: OrderBookInput,
+  trades: TradeInput[]
+): AbsorptionResult {
+  const empty: AbsorptionResult = { detected: false, direction: null, strength: 0 };
+  if (!ob.bids.length || !ob.asks.length || trades.length < 20) return empty;
+
+  const bestBid = ob.bids[0][0];
+  const bestAsk = ob.asks[0][0];
+  const midPrice = (bestBid + bestAsk) / 2;
+
+  const bidWallThreshold = ob.bids.slice(0, 20).reduce((s, [, q]) => s + q, 0) / Math.min(20, ob.bids.length) * 3;
+  const askWallThreshold = ob.asks.slice(0, 20).reduce((s, [, q]) => s + q, 0) / Math.min(20, ob.asks.length) * 3;
+
+  const bidWalls = ob.bids.filter(([p, q]) => q >= bidWallThreshold && Math.abs(p - bestBid) / midPrice < 0.002);
+  const askWalls = ob.asks.filter(([p, q]) => q >= askWallThreshold && Math.abs(p - bestAsk) / midPrice < 0.002);
+
+  const recentTrades = trades.slice(-Math.min(100, trades.length));
+  let recentSellVol = 0;
+  let recentBuyVol = 0;
+  for (const t of recentTrades) {
+    const qty = t.quoteQuantity ?? t.price * t.amount;
+    if (t.isBuy) recentBuyVol += qty;
+    else recentSellVol += qty;
+  }
+
+  const prices = recentTrades.map((t) => t.price);
+  const priceFirst = prices.length >= 10 ? prices.slice(0, 5).reduce((a, b) => a + b, 0) / 5 : midPrice;
+  const priceLast = prices.length >= 10 ? prices.slice(-5).reduce((a, b) => a + b, 0) / 5 : midPrice;
+  const priceChange = midPrice > 0 ? Math.abs(priceLast - priceFirst) / midPrice : 0;
+  const priceStable = priceChange < 0.0015;
+
+  if (bidWalls.length > 0 && recentSellVol > recentBuyVol * 1.3 && priceStable) {
+    const strength = Math.min(1, recentSellVol / (recentBuyVol + recentSellVol) * 2);
+    return { detected: true, direction: 'LONG', strength };
+  }
+
+  if (askWalls.length > 0 && recentBuyVol > recentSellVol * 1.3 && priceStable) {
+    const strength = Math.min(1, recentBuyVol / (recentBuyVol + recentSellVol) * 2);
+    return { detected: true, direction: 'SHORT', strength };
+  }
+
+  return empty;
+}
+
+/**
+ * Iceberg Detection — скрытые ордера.
+ * Если на определённом ценовом уровне повторяются исполнения одинакового размера (±10%),
+ * это признак крупного скрытого ордера (iceberg). Бьют в стену, а стена восстанавливается.
+ */
+export interface IcebergResult {
+  detected: boolean;
+  direction: 'LONG' | 'SHORT' | null;
+  level: number;
+  repeatCount: number;
+}
+
+export function detectIceberg(
+  trades: TradeInput[],
+  midPrice: number
+): IcebergResult {
+  const empty: IcebergResult = { detected: false, direction: null, level: 0, repeatCount: 0 };
+  if (trades.length < 30 || midPrice <= 0) return empty;
+
+  const priceTolerance = midPrice * 0.0005;
+  const recentTrades = trades.slice(-Math.min(200, trades.length));
+
+  const priceGroups = new Map<number, { sizes: number[]; isBuy: boolean[] }>();
+  for (const t of recentTrades) {
+    const bucket = Math.round(t.price / priceTolerance) * priceTolerance;
+    const group = priceGroups.get(bucket) || { sizes: [], isBuy: [] };
+    group.sizes.push(t.amount);
+    group.isBuy.push(t.isBuy);
+    priceGroups.set(bucket, group);
+  }
+
+  let bestLevel = 0;
+  let bestRepeat = 0;
+  let bestDir: 'LONG' | 'SHORT' | null = null;
+
+  for (const [level, group] of priceGroups) {
+    if (group.sizes.length < 4) continue;
+
+    const sorted = [...group.sizes].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    if (median <= 0) continue;
+
+    let sameCount = 0;
+    for (const s of group.sizes) {
+      if (Math.abs(s - median) / median < 0.10) sameCount++;
+    }
+
+    if (sameCount >= 4 && sameCount > bestRepeat) {
+      bestRepeat = sameCount;
+      bestLevel = level;
+      const buyCount = group.isBuy.filter(Boolean).length;
+      const sellCount = group.isBuy.length - buyCount;
+      bestDir = sellCount > buyCount ? 'LONG' : 'SHORT';
+    }
+  }
+
+  if (bestRepeat >= 4) {
+    return { detected: true, direction: bestDir, level: bestLevel, repeatCount: bestRepeat };
+  }
+  return empty;
+}
+
+/**
+ * Consolidation / Range Detector — Breakout Trading
+ * Если ATR последних N свечей < 0.5 × avgATR → цена во флэте (консолидация).
+ * При пробое из консолидации с объёмом — вход с повышенной уверенностью.
+ * Возвращает: isConsolidating, range (high - low), compressionRatio.
+ */
+export interface ConsolidationResult {
+  isConsolidating: boolean;
+  rangeHigh: number;
+  rangeLow: number;
+  compressionRatio: number;
+}
+
+export function detectConsolidation(
+  candles: { high: number; low: number; close: number; volume?: number }[],
+  lookback = 10,
+  atrPeriod = 14
+): ConsolidationResult {
+  const empty: ConsolidationResult = { isConsolidating: false, rangeHigh: 0, rangeLow: 0, compressionRatio: 1 };
+  if (candles.length < atrPeriod + lookback + 5) return empty;
+
+  const trueRanges: number[] = [];
+  for (let i = 1; i < candles.length; i++) {
+    const c = candles[i];
+    const prevClose = candles[i - 1].close;
+    const tr = Math.max(c.high - c.low, Math.abs(c.high - prevClose), Math.abs(c.low - prevClose));
+    trueRanges.push(tr);
+  }
+
+  const allATR = trueRanges.slice(-atrPeriod - lookback);
+  const avgATR = allATR.slice(0, -lookback).reduce((a, b) => a + b, 0) / Math.max(1, allATR.length - lookback);
+  const recentATR = allATR.slice(-lookback).reduce((a, b) => a + b, 0) / lookback;
+
+  if (avgATR <= 0) return empty;
+
+  const compressionRatio = recentATR / avgATR;
+  const recentCandles = candles.slice(-lookback);
+  const rangeHigh = Math.max(...recentCandles.map((c) => c.high));
+  const rangeLow = Math.min(...recentCandles.map((c) => c.low));
+
+  return {
+    isConsolidating: compressionRatio < 0.5,
+    rangeHigh,
+    rangeLow,
+    compressionRatio
+  };
+}
+
 /** PDF: надёжность паттернов — Engulfing 75%, Morning/Evening Star 80%, Hammer 60-65%, 3 Soldiers/Crows 75% */
 const PATTERN_WEIGHTS: Record<string, { bull: number; bear: number }> = {
   bullish_engulfing: { bull: 3, bear: 0 },
@@ -561,6 +728,9 @@ export function analyzeCandles(
   };
 }
 
+/** Режим торговли для адаптивных весов */
+export type TradingMode = 'scalping' | 'breakout' | 'standard';
+
 /** Опции для глубокого анализа — достижение 80% уверенности */
 export interface DeepAnalysisOptions {
   spreadPct?: number;
@@ -573,7 +743,15 @@ export interface DeepAnalysisOptions {
   cvdDivergence?: 'bullish' | 'bearish' | null;
   highVolatility?: boolean; // Antonopoulos: Panic Noise — снижение confidence при резком движении
   falseBreakoutHint?: boolean; // Nison: 24/7 крипто — пробой без объёма = возможный ложный пробой
+  tradingMode?: TradingMode; // Adaptive weights based on trading mode
 }
+
+/** Adaptive weights by trading mode */
+const MODE_WEIGHTS: Record<TradingMode, { ob: number; tape: number; candles: number }> = {
+  scalping: { ob: 0.30, tape: 0.50, candles: 0.20 },
+  breakout: { ob: 0.25, tape: 0.35, candles: 0.40 },
+  standard: { ob: WEIGHT_ORDERBOOK, tape: WEIGHT_TAPE, candles: WEIGHT_CANDLES }
+};
 
 /**
  * PDF: Confidence = Candles*0.25 + OrderBook*0.40 + Tape*0.35
@@ -610,16 +788,23 @@ export function computeSignal(
 
   const direction: 'LONG' | 'SHORT' = agreeLong ? 'LONG' : 'SHORT';
 
+  // Minimum tape delta filter: |delta| < 5% → tape is neutral, reduce weight to 0.25x
+  const tapeDelta = options?.tapeDelta ?? 0;
+  const tapeNeutral = Math.abs(tapeDelta) < 0.05;
+  const tapeNeutralAdj = tapeNeutral ? 0.25 : 1;
+
   // Ослабление веса ленты при противоречии: если лента 1/3 и её delta слабый (< 25%), считаем как 0.5x
   const tapeContradicts = (direction === 'SHORT' && tapeDir === 'LONG') || (direction === 'LONG' && tapeDir === 'SHORT');
-  const tapeDelta = options?.tapeDelta ?? 0;
   const tapeDeltaWeak = Math.abs(tapeDelta) < 0.25;
-  const tapeWeightAdj = tapeContradicts && tapeDeltaWeak ? 0.5 : 1;
+  const tapeWeightAdj = (tapeContradicts && tapeDeltaWeak ? 0.5 : 1) * tapeNeutralAdj;
+
+  // Adaptive weights based on trading mode
+  const modeWeights = MODE_WEIGHTS[options?.tradingMode ?? 'standard'];
 
   const weightedScore =
-    orderBook.score * WEIGHT_ORDERBOOK +
-    tape.score * WEIGHT_TAPE * tapeWeightAdj +
-    candles.score * WEIGHT_CANDLES;
+    orderBook.score * modeWeights.ob +
+    tape.score * modeWeights.tape * tapeWeightAdj +
+    candles.score * modeWeights.candles;
 
   // Базис: 0.62 + взвешенный скор (цель 80%). Немного консервативнее для 2/3 confluence
   let confidence = Math.min(0.92, 0.62 + weightedScore * 0.026);
@@ -682,6 +867,17 @@ export function computeSignal(
   // Nison (Japanese Candles): 24/7 крипто — пробой без объёма = возможный ложный пробой
   if (options?.falseBreakoutHint) {
     confidence = Math.max(0.52, confidence - 0.06);
+  }
+
+  // Strengthened conflict penalty: 2/3 split with contradicting component having strong score
+  const dissentingDir = direction === 'LONG' ? 'SHORT' : 'LONG';
+  const dissentingCount = [obDir, tapeDir, candlesDir].filter((d) => d === dissentingDir).length;
+  if (dissentingCount === 1) {
+    const dissentingOB = obDir === dissentingDir && orderBook.score >= 5;
+    const dissentingTape = tapeDir === dissentingDir && tape.score >= 5;
+    if (dissentingOB || dissentingTape) {
+      confidence = Math.max(0.52, confidence - 0.04);
+    }
   }
 
   if (confidence < 0.6) {

@@ -232,7 +232,7 @@ function computeRiskReward(order: {
         reward = Math.abs(firstTp - entry);
       }
     }
-  } catch {}
+  } catch (err) { logger.warn('MLService', (err as Error).message); }
   return Math.max(0.5, Math.min(4, reward / risk));
 }
 

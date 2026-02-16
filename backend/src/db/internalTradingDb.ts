@@ -3,6 +3,7 @@
  */
 
 import { getDb, initDb } from './index';
+import { logger } from '../lib/logger';
 
 export interface InternalPosition {
   id: string;
@@ -38,7 +39,7 @@ export function insertInternalPosition(p: {
       INSERT INTO internal_positions (id, user_id, symbol, direction, size_usdt, leverage, open_price, status, open_time)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     `).run(p.id, p.user_id, p.symbol, p.direction, p.size_usdt, p.leverage, p.open_price, p.status || 'open');
-  } catch {}
+  } catch (err) { logger.warn('InternalTradingDB', (err as Error).message); }
 }
 
 export function getOpenPositions(userId: string): InternalPosition[] {
