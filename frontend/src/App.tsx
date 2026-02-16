@@ -90,7 +90,6 @@ function getPageFromLocation(allowed: Set<Page>): Page {
   return first;
 }
 
-/** Страница из URL без проверки прав (для сохранения при F5) */
 function getPageFromUrl(): Page {
   if (typeof window === 'undefined') return 'dashboard';
   const path = normalizePath(window.location.pathname);
@@ -99,6 +98,7 @@ function getPageFromUrl(): Page {
   return (candidate as Page) ?? 'dashboard';
 }
 
+/* ── SVG Icon paths ─────────────────────────────────────────────────── */
 const NAV_ICONS: Record<string, string> = {
   dashboard: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4',
   signals: 'M13 10V3L4 14h7v7l9-11h-7z',
@@ -114,35 +114,50 @@ const NAV_ICONS: Record<string, string> = {
   settings: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z',
   activate: 'M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z',
   admin: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4',
-  wallet: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'
+  wallet: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
+  help: 'M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+  profile: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+  menu: 'M4 6h16M4 12h16M4 18h16',
 };
 
 function NavIcon({ name, className }: { name: string; className?: string }) {
   const d = NAV_ICONS[name];
   if (!d) return null;
   return (
-    <svg className={className || 'w-4 h-4 shrink-0'} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className || 'w-5 h-5 shrink-0'} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
       <path d={d} />
     </svg>
   );
 }
 
-const ALL_PAGES: { id: Page; label: string }[] = [
-  { id: 'dashboard', label: 'Главная' },
-  { id: 'signals', label: 'Сигналы' },
-  { id: 'chart', label: 'График' },
-  { id: 'demo', label: 'Демо' },
-  { id: 'autotrade', label: 'Авто' },
-  { id: 'scanner', label: 'Скринер' },
-  { id: 'pnl', label: 'PNL' },
-  { id: 'analytics', label: 'Аналитика' },
-  { id: 'backtest', label: 'Бэктест' },
-  { id: 'copy', label: 'Копитрейдинг' },
-  { id: 'social', label: 'Социальная' },
-  { id: 'settings', label: 'Настройки' },
-  { id: 'activate', label: 'Активировать' },
-  { id: 'admin', label: 'Админ' }
+/* ── Nav groups ─────────────────────────────────────────────────────── */
+interface NavItem { id: Page; label: string; group: 'trading' | 'analytics' | 'account' }
+
+const ALL_PAGES: NavItem[] = [
+  { id: 'dashboard', label: 'Главная', group: 'trading' },
+  { id: 'signals', label: 'Сигналы', group: 'trading' },
+  { id: 'chart', label: 'График', group: 'trading' },
+  { id: 'autotrade', label: 'Авто-трейд', group: 'trading' },
+  { id: 'demo', label: 'Демо', group: 'trading' },
+  { id: 'scanner', label: 'Скринер', group: 'analytics' },
+  { id: 'pnl', label: 'PNL', group: 'analytics' },
+  { id: 'analytics', label: 'Аналитика', group: 'analytics' },
+  { id: 'backtest', label: 'Бэктест', group: 'analytics' },
+  { id: 'copy', label: 'Копитрейдинг', group: 'analytics' },
+  { id: 'social', label: 'Социальная', group: 'analytics' },
+  { id: 'wallet', label: 'Кошелёк', group: 'account' },
+  { id: 'settings', label: 'Настройки', group: 'account' },
+  { id: 'activate', label: 'Активация', group: 'account' },
+  { id: 'admin', label: 'Админ', group: 'account' },
 ];
+
+const MOBILE_TABS: Page[] = ['dashboard', 'signals', 'autotrade', 'chart'];
+
+const GROUP_LABELS: Record<string, string> = {
+  trading: 'Торговля',
+  analytics: 'Аналитика',
+  account: 'Аккаунт',
+};
 
 function useSignalToasts() {
   const { addToast } = useNotifications();
@@ -209,6 +224,21 @@ function useSignalToasts() {
 
 const FALLBACK_TABS: Page[] = ['dashboard', 'settings'];
 
+/* ── Loading spinner ────────────────────────────────────────────────── */
+function LoadingSpinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin-slow" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }} />
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Загрузка…</p>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Main App
+   ══════════════════════════════════════════════════════════════════════ */
 export default function App() {
   const year = new Date().getFullYear();
   const { user, loading, logout, maintenanceMode } = useAuth();
@@ -230,6 +260,7 @@ export default function App() {
     if (set.has('admin')) set.add('trader');
     return set;
   }, [user?.allowedTabs]);
+
   const PAGES = useMemo(() => {
     let list = ALL_PAGES.filter((p) => allowedSet.has(p.id));
     if (user?.activationActive) list = list.filter((p) => p.id !== 'activate');
@@ -245,7 +276,8 @@ export default function App() {
   });
   const [notifOpen, setNotifOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { toasts, clearAll } = useNotifications();
 
   useSignalToasts();
@@ -290,9 +322,7 @@ export default function App() {
     }
   }, [user?.activationActive, page]);
 
-  useEffect(() => {
-    savePage(page);
-  }, [page]);
+  useEffect(() => { savePage(page); }, [page]);
 
   const setPageSafe = (p: Page) => {
     if (!allowedSet.has(p)) return;
@@ -304,6 +334,7 @@ export default function App() {
       }
     }
     setPage(p);
+    setMobileMenuOpen(false);
   };
 
   const navigateToTrader = (userId: string) => {
@@ -348,310 +379,411 @@ export default function App() {
   const safePage = allowedSet.has(page) ? page : 'dashboard';
   const online = useOnlineStatus();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
-        <p style={{ color: 'var(--text-muted)' }}>Загрузка…</p>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner />;
   if (!user) {
     return (
-      <Suspense fallback={<div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)', color: 'var(--text-muted)' }}>Загрузка…</div>}>
+      <Suspense fallback={<LoadingSpinner />}>
         {maintenanceMode ? <MaintenancePage /> : <AuthPage />}
       </Suspense>
     );
   }
 
+  const sidebarW = sidebarCollapsed ? 'w-[68px]' : 'w-[240px]';
+
   return (
     <NavigationProvider onNavigate={stableNavigateTo} onNavigateToTrader={stableNavigateToTrader}>
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
-      {/* Top bar — компактный брендинг и навигация с переносом */}
-      <header
-        className="shrink-0 min-h-14 px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-y-2 py-2 border-b"
-        style={{ background: 'var(--bg-topbar)', borderColor: 'var(--border)' }}
+    <div className="min-h-screen flex" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+
+      {/* ── Desktop Sidebar ─────────────────────────────────────────── */}
+      <aside
+        className={`hidden lg:flex flex-col shrink-0 ${sidebarW} transition-all duration-300 border-r h-screen sticky top-0`}
+        style={{ background: 'var(--bg-sidebar)', borderColor: 'var(--border)' }}
       >
-        <div className="flex items-center gap-2 min-w-0 shrink-0">
+        {/* Logo */}
+        <div className="h-14 flex items-center gap-2.5 px-4 shrink-0 border-b" style={{ borderColor: 'var(--border)' }}>
+          <img src="/logo.svg" alt="CLABX" className="h-7 w-7 object-contain shrink-0" />
+          {!sidebarCollapsed && (
+            <span className="text-base font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>CLABX</span>
+          )}
           <button
             type="button"
-            onClick={() => setMobileNavOpen(true)}
-            className="lg:hidden p-2 rounded-lg hover:bg-[var(--bg-hover)]"
-            style={{ color: 'var(--text-secondary)' }}
-            aria-label="Меню"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="ml-auto p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors"
+            style={{ color: 'var(--text-muted)' }}
+            title={sidebarCollapsed ? 'Развернуть' : 'Свернуть'}
           >
-            <span className="text-xl">☰</span>
+            <svg className={`w-4 h-4 transition-transform ${sidebarCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path d="M11 19l-7-7 7-7M18 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
-          <img src="/logo.svg" alt="CLABX" className="h-7 w-auto object-contain shrink-0" />
-          <h1 className="text-base font-semibold tracking-tight truncate shrink-0">CLABX</h1>
-          <span className="hidden xl:inline text-sm truncate" style={{ color: 'var(--text-muted)' }}>Crypto Trading</span>
         </div>
-        <nav className="hidden lg:flex flex-wrap items-center justify-center gap-x-0.5 gap-y-1 flex-1 min-w-0 max-w-3xl">
-          {PAGES.filter((p) => p.id !== 'settings').map((p) => {
-            const path = PAGE_PATHS[p.id];
+
+        {/* Nav groups */}
+        <nav className="flex-1 overflow-y-auto custom-scrollbar py-3 px-2">
+          {(['trading', 'analytics', 'account'] as const).map((group) => {
+            const items = PAGES.filter((p) => p.group === group);
+            if (items.length === 0) return null;
             return (
-              <a
-                key={p.id}
-                href={path}
-                onClick={(e) => {
-                  if (e.button === 0 && !e.ctrlKey && !e.metaKey) {
-                    e.preventDefault();
-                    setPageSafe(p.id);
-                  }
-                }}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-all relative inline-flex items-center gap-1.5 whitespace-nowrap ${
-                  safePage === p.id ? 'text-[var(--accent)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-                }`}
-              >
-                <NavIcon name={p.id} className="w-3.5 h-3.5" />
-                {p.label}
-                {safePage === p.id && (
-                  <span className="absolute bottom-0 left-1.5 right-1.5 h-0.5 rounded-full" style={{ background: 'var(--accent)' }} />
+              <div key={group} className="mb-4">
+                {!sidebarCollapsed && (
+                  <p className="text-[10px] font-semibold uppercase tracking-widest px-3 mb-2" style={{ color: 'var(--text-muted)' }}>
+                    {GROUP_LABELS[group]}
+                  </p>
                 )}
-              </a>
+                {items.map((p) => {
+                  const active = safePage === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setPageSafe(p.id)}
+                      title={sidebarCollapsed ? p.label : undefined}
+                      className={`w-full flex items-center gap-3 rounded-lg transition-all duration-200 mb-0.5 ${
+                        sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'
+                      } ${
+                        active
+                          ? 'bg-[var(--accent-dim)] text-[var(--accent)]'
+                          : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
+                      }`}
+                    >
+                      <NavIcon name={p.id} className={`shrink-0 ${sidebarCollapsed ? 'w-5 h-5' : 'w-[18px] h-[18px]'}`} />
+                      {!sidebarCollapsed && <span className="text-sm font-medium truncate">{p.label}</span>}
+                      {active && !sidebarCollapsed && (
+                        <span className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: 'var(--accent)' }} />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>
-        {mobileNavOpen && (
-          <>
-            <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setMobileNavOpen(false)} aria-hidden />
-            <div
-              className="fixed top-0 left-0 z-50 w-72 max-w-[85vw] h-full overflow-y-auto lg:hidden"
-              style={{ background: 'var(--bg-card-solid)', borderRight: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}
-            >
-              <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)' }}>
-                <span className="font-semibold">Меню</span>
-                <button type="button" onClick={() => setMobileNavOpen(false)} className="p-2 rounded-lg hover:bg-[var(--bg-hover)]">✕</button>
-              </div>
-              <nav className="p-2 flex flex-col gap-1">
-                {PAGES.filter((p) => p.id !== 'settings').map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => { setPageSafe(p.id); setMobileNavOpen(false); }}
-                    className={`px-4 py-3 rounded-lg text-left text-sm font-medium w-full flex items-center gap-3 min-h-[44px] ${
-                      safePage === p.id ? 'bg-[var(--accent-dim)]' : 'hover:bg-[var(--bg-hover)]'
-                    }`}
-                    style={{ color: safePage === p.id ? 'var(--accent)' : 'var(--text-primary)' }}
-                  >
-                    <NavIcon name={p.id} className="w-5 h-5 shrink-0" />
-                    {p.label}
-                  </button>
-                ))}
-              </nav>
-            </div>
-          </>
-        )}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => { setUserMenuOpen(!userMenuOpen); setNotifOpen(false); }}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--bg-hover)] max-w-[120px] sm:max-w-[160px] truncate"
-              style={{ color: 'var(--text-secondary)' }}
-              title={user.username}
-            >
-              {user.username}
-            </button>
-            {userMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
-                <div
-                  className="absolute right-0 top-full mt-1 py-1 min-w-[160px] rounded-lg border z-50"
-                  style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPageSafe('profile');
-                      setUserMenuOpen(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors"
-                  >
-                    Профиль
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setPageSafe('settings'); setUserMenuOpen(false); }}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors"
-                  >
-                    Настройки
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setPageSafe('help'); setUserMenuOpen(false); }}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors"
-                  >
-                    Помощь
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setUserMenuOpen(false); logout(); }}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors"
-                    style={{ color: 'var(--danger)' }}
-                  >
-                    Выйти
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+
+        {/* Sidebar footer — user */}
+        <div className="shrink-0 border-t px-2 py-3" style={{ borderColor: 'var(--border)' }}>
           <button
             type="button"
-            onClick={() => { setNotifOpen(!notifOpen); setUserMenuOpen(false); }}
-            className="relative p-1.5 rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
-            style={{ background: toasts.length > 0 ? 'var(--accent-dim)' : 'transparent' }}
-            aria-label="Уведомления"
+            onClick={() => setPageSafe('profile')}
+            className={`w-full flex items-center gap-2.5 rounded-lg hover:bg-[var(--bg-hover)] transition-colors ${sidebarCollapsed ? 'justify-center p-2' : 'px-3 py-2'}`}
           >
-            <span className="text-base">🔔</span>
-            {toasts.length > 0 && (
-              <span
-                className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold"
-                style={{ background: 'var(--accent)', color: 'var(--bg-base)' }}
-              >
-                {Math.min(toasts.length, 99)}
-              </span>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>
+              {(user.username || '?')[0].toUpperCase()}
+            </div>
+            {!sidebarCollapsed && (
+              <div className="min-w-0 text-left">
+                <p className="text-sm font-medium truncate">{user.username}</p>
+                <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>
+                  {user.allowedTabs?.includes('admin') ? 'Администратор' : 'Трейдер'}
+                </p>
+              </div>
             )}
           </button>
         </div>
-      </header>
+      </aside>
 
-      {notifOpen && (
+      {/* ── Mobile drawer overlay ────────────────────────────────────── */}
+      {mobileMenuOpen && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+          <div className="fixed inset-0 z-40 bg-black/60 lg:hidden animate-fade-in" onClick={() => setMobileMenuOpen(false)} />
           <div
-            className="fixed right-6 top-16 w-72 rounded-lg border z-50 overflow-hidden"
-            style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}
+            className="fixed top-0 left-0 z-50 w-72 max-w-[85vw] h-full overflow-y-auto lg:hidden animate-slide-up custom-scrollbar"
+            style={{ background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}
           >
-            <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border)' }}>
-              <span className="font-semibold text-sm">Уведомления</span>
-              {toasts.length > 0 && (
-                <button type="button" onClick={clearAll} className="text-xs hover:opacity-80" style={{ color: 'var(--accent)' }}>
-                  Очистить
-                </button>
-              )}
+            <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-2">
+                <img src="/logo.svg" alt="CLABX" className="h-6 w-6" />
+                <span className="font-bold text-sm">CLABX</span>
+              </div>
+              <button type="button" onClick={() => setMobileMenuOpen(false)} className="p-2 rounded-lg hover:bg-[var(--bg-hover)]" style={{ color: 'var(--text-muted)' }}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
             </div>
-            <div className="max-h-64 overflow-y-auto">
-              {toasts.length === 0 ? (
-                <p className="px-5 py-4 text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>Нет уведомлений</p>
-              ) : (
-                toasts.slice().reverse().map((t) => (
-                  <div
-                    key={t.id}
-                    className="px-4 py-3 border-b hover:bg-[var(--bg-hover)] transition-colors"
-                    style={{ borderColor: 'var(--border)' }}
-                  >
-                    <p className="font-medium text-sm leading-snug">{t.title}</p>
-                    {t.message && <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--text-muted)' }}>{t.message}</p>}
+            <nav className="p-2 flex flex-col gap-0.5">
+              {(['trading', 'analytics', 'account'] as const).map((group) => {
+                const items = PAGES.filter((p) => p.group === group);
+                if (items.length === 0) return null;
+                return (
+                  <div key={group} className="mb-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest px-3 mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                      {GROUP_LABELS[group]}
+                    </p>
+                    {items.map((p) => {
+                      const active = safePage === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setPageSafe(p.id)}
+                          className={`w-full px-3 py-2.5 rounded-lg text-left text-sm font-medium flex items-center gap-3 min-h-[44px] transition-all duration-200 ${
+                            active ? 'bg-[var(--accent-dim)] text-[var(--accent)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
+                          }`}
+                        >
+                          <NavIcon name={p.id} className="w-5 h-5 shrink-0" />
+                          {p.label}
+                        </button>
+                      );
+                    })}
                   </div>
-                ))
-              )}
-            </div>
+                );
+              })}
+            </nav>
           </div>
         </>
       )}
 
-      <main className="flex-1 min-h-0 overflow-auto py-8 px-8 md:px-12 lg:px-16">
-        <Suspense fallback={<div className="flex items-center justify-center py-16" style={{ color: 'var(--text-muted)' }}>Загрузка…</div>}>
-          <div key={safePage} className="animate-page-in">
-          {safePage === 'dashboard' && <Dashboard />}
-          {safePage === 'signals' && <SignalFeed />}
-          {safePage === 'chart' && <ChartView />}
-          {safePage === 'demo' && <DemoPage />}
-          {safePage === 'autotrade' && <AutoTradingPage />}
-          {safePage === 'scanner' && <ScannerPage />}
-          {safePage === 'pnl' && <PnlCalculatorPage />}
-          {safePage === 'analytics' && <MyAnalyticsPage />}
-          {safePage === 'backtest' && <BacktestPage />}
-          {safePage === 'copy' && <CopyTradingPage />}
-          {safePage === 'social' && <SocialPage />}
-          {safePage === 'trader' && (
-            <TraderProfilePage
-              traderId={getTraderIdFromPath()}
-              onBackToSocial={() => setPageSafe('social')}
-            />
-          )}
-          {safePage === 'settings' && <SettingsPage />}
-          {safePage === 'activate' && <ActivatePage />}
-          {safePage === 'admin' && <AdminPanel />}
-          {safePage === 'profile' && <ProfilePage />}
-          {safePage === 'wallet' && <WalletPage />}
-          {safePage === 'help' && <HelpPage />}
-          {safePage === 'privacy' && <PrivacyPage />}
-          {safePage === 'terms' && <TermsPage />}
-          </div>
-        </Suspense>
-      </main>
+      {/* ── Right content area ──────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
 
-      <footer
-        className="shrink-0 border-t mt-4 px-6 md:px-8 lg:px-10 py-4 text-[12px] leading-relaxed"
-        style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)', color: 'var(--text-muted)' }}
+        {/* ── Top bar ───────────────────────────────────────────────── */}
+        <header
+          className="h-14 shrink-0 flex items-center justify-between px-4 sm:px-6 border-b sticky top-0 z-30"
+          style={{ background: 'var(--bg-topbar)', borderColor: 'var(--border)' }}
+        >
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
+              style={{ color: 'var(--text-secondary)' }}
+              aria-label="Меню"
+            >
+              <NavIcon name="menu" className="w-5 h-5" />
+            </button>
+            <div className="lg:hidden flex items-center gap-2">
+              <img src="/logo.svg" alt="CLABX" className="h-6 w-6" />
+              <span className="font-bold text-sm">CLABX</span>
+            </div>
+            <h2 className="hidden lg:block text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+              {PAGES.find((p) => p.id === safePage)?.label ?? ''}
+            </h2>
+          </div>
+
+          <div className="flex items-center gap-1">
+            {/* Notifications */}
+            <button
+              type="button"
+              onClick={() => { setNotifOpen(!notifOpen); setUserMenuOpen(false); }}
+              className="relative p-2 rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
+              aria-label="Уведомления"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} style={{ color: 'var(--text-secondary)' }}>
+                <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {toasts.length > 0 && (
+                <span
+                  className="absolute top-1 right-1 min-w-[16px] h-[16px] rounded-full flex items-center justify-center text-[10px] font-bold"
+                  style={{ background: 'var(--danger)', color: '#fff' }}
+                >
+                  {Math.min(toasts.length, 99)}
+                </span>
+              )}
+            </button>
+
+            {/* User menu */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => { setUserMenuOpen(!userMenuOpen); setNotifOpen(false); }}
+                className="flex items-center gap-2 p-1.5 rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
+              >
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>
+                  {(user.username || '?')[0].toUpperCase()}
+                </div>
+                <span className="hidden sm:block text-sm font-medium max-w-[100px] truncate" style={{ color: 'var(--text-secondary)' }}>{user.username}</span>
+                <svg className="w-3.5 h-3.5 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} style={{ color: 'var(--text-muted)' }}>
+                  <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              {userMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                  <div
+                    className="absolute right-0 top-full mt-1.5 py-1 min-w-[180px] rounded-xl border z-50 animate-slide-up"
+                    style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}
+                  >
+                    <div className="px-4 py-2.5 border-b" style={{ borderColor: 'var(--border)' }}>
+                      <p className="text-sm font-medium truncate">{user.username}</p>
+                      <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                        {user.allowedTabs?.includes('admin') ? 'Администратор' : 'Трейдер'}
+                      </p>
+                    </div>
+                    {[
+                      { id: 'profile' as Page, label: 'Профиль', icon: 'profile' },
+                      { id: 'wallet' as Page, label: 'Кошелёк', icon: 'wallet' },
+                      { id: 'settings' as Page, label: 'Настройки', icon: 'settings' },
+                      { id: 'help' as Page, label: 'Помощь', icon: 'help' },
+                    ].map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => { setPageSafe(item.id); setUserMenuOpen(false); }}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2.5"
+                      >
+                        <NavIcon name={item.icon} className="w-4 h-4" />
+                        {item.label}
+                      </button>
+                    ))}
+                    <div className="border-t my-1" style={{ borderColor: 'var(--border)' }} />
+                    <button
+                      type="button"
+                      onClick={() => { setUserMenuOpen(false); logout(); }}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2.5"
+                      style={{ color: 'var(--danger)' }}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      Выйти
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* Notifications dropdown */}
+        {notifOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+            <div
+              className="fixed right-4 sm:right-6 top-16 w-80 rounded-xl border z-50 overflow-hidden animate-slide-up"
+              style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}
+            >
+              <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border)' }}>
+                <span className="font-semibold text-sm">Уведомления</span>
+                {toasts.length > 0 && (
+                  <button type="button" onClick={clearAll} className="text-xs font-medium hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
+                    Очистить
+                  </button>
+                )}
+              </div>
+              <div className="max-h-72 overflow-y-auto custom-scrollbar">
+                {toasts.length === 0 ? (
+                  <div className="px-5 py-8 text-center">
+                    <svg className="w-8 h-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: 'var(--text-muted)' }}>
+                      <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Нет уведомлений</p>
+                  </div>
+                ) : (
+                  toasts.slice().reverse().map((t) => (
+                    <div
+                      key={t.id}
+                      className="px-4 py-3 border-b hover:bg-[var(--bg-hover)] transition-colors"
+                      style={{ borderColor: 'var(--border)' }}
+                    >
+                      <p className="font-medium text-sm leading-snug">{t.title}</p>
+                      {t.message && <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>{t.message}</p>}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── Main content ──────────────────────────────────────────── */}
+        <main className="flex-1 min-h-0 overflow-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 lg:pb-6">
+          <Suspense fallback={
+            <div className="flex items-center justify-center py-20">
+              <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin-slow" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }} />
+            </div>
+          }>
+            <div key={safePage} className="animate-page-in max-w-7xl mx-auto">
+              {safePage === 'dashboard' && <Dashboard />}
+              {safePage === 'signals' && <SignalFeed />}
+              {safePage === 'chart' && <ChartView />}
+              {safePage === 'demo' && <DemoPage />}
+              {safePage === 'autotrade' && <AutoTradingPage />}
+              {safePage === 'scanner' && <ScannerPage />}
+              {safePage === 'pnl' && <PnlCalculatorPage />}
+              {safePage === 'analytics' && <MyAnalyticsPage />}
+              {safePage === 'backtest' && <BacktestPage />}
+              {safePage === 'copy' && <CopyTradingPage />}
+              {safePage === 'social' && <SocialPage />}
+              {safePage === 'trader' && (
+                <TraderProfilePage
+                  traderId={getTraderIdFromPath()}
+                  onBackToSocial={() => setPageSafe('social')}
+                />
+              )}
+              {safePage === 'settings' && <SettingsPage />}
+              {safePage === 'activate' && <ActivatePage />}
+              {safePage === 'admin' && <AdminPanel />}
+              {safePage === 'profile' && <ProfilePage />}
+              {safePage === 'wallet' && <WalletPage />}
+              {safePage === 'help' && <HelpPage />}
+              {safePage === 'privacy' && <PrivacyPage />}
+              {safePage === 'terms' && <TermsPage />}
+            </div>
+          </Suspense>
+        </main>
+
+        {/* ── Footer ────────────────────────────────────────────────── */}
+        <footer
+          className="hidden lg:block shrink-0 border-t px-6 py-3"
+          style={{ borderColor: 'var(--border)', background: 'var(--bg-sidebar)', color: 'var(--text-muted)' }}
+        >
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[11px]">
+            <p>
+              © {year} <span style={{ color: 'var(--accent)' }}>CLABX</span> — Crypto Trading Platform
+            </p>
+            <div className="flex flex-wrap gap-4">
+              <a href="https://clabx.ru" target="_blank" rel="noreferrer" className="hover:text-[var(--text-secondary)] transition-colors">clabx.ru</a>
+              <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" className="hover:text-[var(--text-secondary)] transition-colors">@clabx_bot</a>
+              <a
+                href="/privacy"
+                onClick={(e) => { e.preventDefault(); setPageSafe('privacy'); }}
+                className="hover:text-[var(--text-secondary)] transition-colors"
+              >
+                Конфиденциальность
+              </a>
+              <a
+                href="/terms"
+                onClick={(e) => { e.preventDefault(); setPageSafe('terms'); }}
+                className="hover:text-[var(--text-secondary)] transition-colors"
+              >
+                Условия
+              </a>
+            </div>
+          </div>
+        </footer>
+      </div>
+
+      {/* ── Mobile bottom tab bar ───────────────────────────────────── */}
+      <nav
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around h-16 border-t"
+        style={{ background: 'var(--bg-sidebar)', borderColor: 'var(--border)' }}
       >
-        <div className="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-          <div>
-            <span className="font-semibold" style={{ color: 'var(--accent)' }}>CLABX 💸</span>
-            <span> — ваше приложение для быстрой и выгодной торговли криптой.</span>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <span className="py-1">
-              Наш сайт:{' '}
-              <a href="https://clabx.ru" target="_blank" rel="noreferrer" className="min-h-[44px] inline-flex items-center" style={{ color: 'var(--accent)' }}>
-                clabx.ru
-              </a>
-            </span>
-            <span className="py-1">
-              Покупка ключа:{' '}
-              <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" className="min-h-[44px] inline-flex items-center" style={{ color: 'var(--accent)' }}>
-                @clabx_bot
-              </a>
-            </span>
-            <span className="py-1">
-              🆘 Support:{' '}
-              <a href="https://t.me/clabxartur" target="_blank" rel="noreferrer" className="min-h-[44px] inline-flex items-center" style={{ color: 'var(--accent)' }}>
-                @clabxartur
-              </a>
-              ,{' '}
-              <a href="https://t.me/clabxsupport" target="_blank" rel="noreferrer" className="min-h-[44px] inline-flex items-center" style={{ color: 'var(--accent)' }}>
-                @clabxsupport
-              </a>
-            </span>
-          </div>
-        </div>
-        <div className="max-w-5xl mx-auto mt-2 text-[11px] md:text-[12px]" style={{ color: 'var(--text-muted)' }}>
-          <p>
-            © {year} CLABX 💸. Все права защищены. Торговля криптовалютой связана с повышенным риском потери капитала, вы действуете на
-            свой страх и риск.
-          </p>
-          <p className="mt-1">
-            Используя сервис, вы подтверждаете, что ознакомились и согласны с{' '}
-            <a
-              href="/privacy"
-              onClick={(e) => {
-                e.preventDefault();
-                setPageSafe('privacy');
-                if (typeof window !== 'undefined') window.history.pushState({}, '', '/privacy');
-              }}
-              className="min-h-[44px] inline-flex items-center"
-              style={{ color: 'var(--accent)' }}
+        {MOBILE_TABS.filter((id) => allowedSet.has(id)).map((id) => {
+          const active = safePage === id;
+          const info = ALL_PAGES.find((p) => p.id === id);
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setPageSafe(id)}
+              className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors"
+              style={{ color: active ? 'var(--accent)' : 'var(--text-muted)' }}
             >
-              Политикой конфиденциальности
-            </a>{' '}
-            и{' '}
-            <a
-              href="/terms"
-              onClick={(e) => {
-                e.preventDefault();
-                setPageSafe('terms');
-                if (typeof window !== 'undefined') window.history.pushState({}, '', '/terms');
-              }}
-              className="min-h-[44px] inline-flex items-center"
-              style={{ color: 'var(--accent)' }}
-            >
-              Пользовательским соглашением
-            </a>
-            .
-          </p>
-        </div>
-      </footer>
+              <NavIcon name={id} className="w-5 h-5" />
+              <span className="text-[10px] font-medium">{info?.label ?? id}</span>
+              {active && (
+                <span className="absolute bottom-1.5 w-4 h-0.5 rounded-full" style={{ background: 'var(--accent)' }} />
+              )}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen(true)}
+          className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          <NavIcon name="menu" className="w-5 h-5" />
+          <span className="text-[10px] font-medium">Ещё</span>
+        </button>
+      </nav>
+
       {!online && <OfflineBanner />}
     </div>
     </NavigationProvider>

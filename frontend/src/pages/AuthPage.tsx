@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../utils/api';
 import { formatNum4, formatNum4Signed } from '../utils/formatNum';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Card } from '../components/ui/Card';
+import { Tabs } from '../components/ui/Tabs';
 
 const USERNAME_KEY = 'clabx-username';
 
@@ -333,22 +337,25 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--bg-base)' }}>
-      <div className="w-full max-w-sm rounded-2xl border p-8" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-        <div className="flex justify-center gap-2 mb-6">
-          <button
-            type="button"
-            onClick={() => { setTab('login'); setError(''); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'login' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-hover)] text-[var(--text-muted)]'}`}
-          >
-            Вход
-          </button>
-          <button
-            type="button"
-            onClick={() => { setTab('register'); setError(''); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === 'register' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-hover)] text-[var(--text-muted)]'}`}
-          >
-            Регистрация
-          </button>
+      <div className="w-full max-w-sm">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-8">
+          <img src="/logo.svg" alt="CLABX" className="h-10 w-10 mb-3" />
+          <h1 className="text-xl font-bold tracking-tight">CLABX</h1>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Crypto Trading Platform</p>
+        </div>
+
+      <Card variant="glass" padding="normal" className="animate-slide-up">
+        <div className="mb-6">
+          <Tabs
+            tabs={[
+              { id: 'login', label: 'Вход' },
+              { id: 'register', label: 'Регистрация' },
+            ]}
+            active={tab}
+            onChange={(id) => { setTab(id as Tab); setError(''); }}
+            size="sm"
+          />
         </div>
         {/* Статистика платформы для новых пользователей (с сервера, растёт автоматически) */}
         {displayStats && (
@@ -407,14 +414,9 @@ export default function AuthPage() {
             {error && (
               <p className="text-sm" style={{ color: 'var(--danger)' }}>{error}</p>
             )}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 rounded-lg font-medium text-white disabled:opacity-50"
-              style={{ background: 'var(--accent)' }}
-            >
-              {loading ? '…' : 'Войти'}
-            </button>
+            <Button type="submit" variant="primary" fullWidth loading={loading}>
+              Войти
+            </Button>
           </form>
         ) : (
           <div className="space-y-4">
@@ -445,6 +447,7 @@ export default function AuthPage() {
             Данные для входа сохраняются (логин).
           </p>
         )}
+      </Card>
       </div>
 
       {showTerms && (

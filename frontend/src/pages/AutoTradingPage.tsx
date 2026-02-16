@@ -13,6 +13,9 @@ import { RiskDisclaimer } from '../components/RiskDisclaimer';
 import { useNavigation } from '../contexts/NavigationContext';
 import PositionsTable, { PositionItem } from '../components/AutoTrading/PositionsTable';
 import TradeHistory, { HistoryEntry as TradeHistoryEntry } from '../components/AutoTrading/TradeHistory';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 
 const API = '/api';
 /** Партнёрская ссылка на регистрацию OKX (можно заменить в одном месте) */
@@ -1009,73 +1012,70 @@ export default function AutoTradingPage() {
     );
   }
 
-  const cardStyle = { background: 'var(--bg-card-solid)', border: '1px solid var(--border)', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' };
   const sectionTitleClass = 'text-xs font-semibold uppercase tracking-wider mb-2';
   const sectionTitleStyle = { color: 'var(--text-muted)' };
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto px-4 sm:px-6 pb-12">
+    <div className="space-y-6 pb-12">
       <RiskDisclaimer storageKey="trading" />
-      {/* Hero — только реальный счёт */}
-      <header className="rounded-2xl overflow-hidden" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
-        <div className="p-6 md:p-8">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)' }}>
-                📈
+      {/* Hero — Status hero with glow */}
+      <Card variant="glass" padding="normal">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 ${enabled ? 'animate-pulse-glow' : ''}`} style={{ background: 'var(--accent-dim)' }}>
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} style={{ color: 'var(--accent)' }}>
+                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <h1 className="text-xl font-bold tracking-tight">Авто-торговля</h1>
+                <Badge variant="success" dot={enabled} pulse={enabled}>
+                  {enabled ? 'Активно' : 'Выключено'}
+                </Badge>
+                <Badge variant="info">OKX Реальный счёт</Badge>
               </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Авто-торговля</h1>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold" style={{ background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid var(--accent)' }}>
-                    Только реальный счёт OKX
-                  </span>
-                </div>
-                <p className="text-sm mt-0.5 max-w-xl" style={{ color: 'var(--text-muted)' }}>
-                  {settings.fullAuto
-                    ? 'Полный автомат: система выбирает лучший сигнал и исполняет ордера на бирже по вашим API-ключам.'
-                    : 'Анализ выбранных пар по сигналам. Настройте пары, плечо и порог уверенности ниже.'}
-                </p>
-              </div>
+              <p className="text-sm max-w-xl" style={{ color: 'var(--text-muted)' }}>
+                {settings.fullAuto
+                  ? 'Полный автомат: система выбирает лучший сигнал и исполняет ордера на бирже.'
+                  : 'Анализ выбранных пар по сигналам. Настройте пары, плечо и порог уверенности ниже.'}
+              </p>
             </div>
           </div>
-        </div>
-      </header>
-
-      {/* Управление: Запуск и статус */}
-      <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
-        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Запуск</h2>
-        <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Включите авто-торговлю — анализ и исполнение идут только на реальном счёте OKX</p>
-        <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-          <button
-            type="button"
-            onClick={async (e) => {
-              e.preventDefault();
-              if (enabled) {
-                try {
-                  await fetch(`${API}/market/auto-analyze/stop`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
-                  });
-                } catch {}
-              }
-              setEnabled(!enabled);
-            }}
-            disabled={status === 'running' && !enabled}
-            className={`px-8 py-3.5 rounded-xl font-semibold text-base transition-all shadow-lg min-w-[160px] ${
-              enabled ? 'bg-[var(--danger)] text-white hover:brightness-110' : 'bg-[var(--accent)] text-white hover:brightness-110'
-            }`}
-          >
-            {enabled ? 'Остановить' : 'Запустить'}
-          </button>
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium ${
-              enabled && status === 'running' ? 'bg-[var(--success-dim)] text-[var(--success)]' :
-              status === 'stopped_daily_loss' ? 'bg-[rgba(245,158,11,0.2)] text-[var(--warning)]' :
-              'bg-[var(--bg-hover)] text-[var(--text-muted)]'
-            }`}>
-              {enabled ? status === 'running' ? '● Анализ запущен' : status === 'error' ? '● Ошибка' : status === 'stopped_daily_loss' ? '● Дневной лимит' : '● Запуск...' : '○ Выключено'}
+          <div className="flex items-center gap-2 sm:shrink-0">
+            <Button
+              variant={enabled ? 'danger' : 'primary'}
+              size="lg"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (enabled) {
+                  try {
+                    await fetch(`${API}/market/auto-analyze/stop`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+                    });
+                  } catch {}
+                }
+                setEnabled(!enabled);
+              }}
+              disabled={status === 'running' && !enabled}
+              className="min-w-[140px]"
+            >
+              {enabled ? 'Остановить' : 'Запустить'}
+            </Button>
+            <span className="text-sm font-medium px-3 py-1.5 rounded-lg" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
+              {mode === 'spot' ? 'SPOT 1x' : `${leverage}x`}
             </span>
+          </div>
+        </div>
+      </Card>
+
+      {/* Управление: Статус и таймер */}
+      <Card variant="glass" padding="normal">
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge variant={enabled && status === 'running' ? 'success' : status === 'stopped_daily_loss' ? 'warning' : 'neutral'} dot pulse={enabled && status === 'running'}>
+            {enabled ? status === 'running' ? 'Анализ запущен' : status === 'error' ? 'Ошибка' : status === 'stopped_daily_loss' ? 'Дневной лимит' : 'Запуск...' : 'Выключено'}
+          </Badge>
             {enabled && status === 'running' && settings.fullAuto && (
               <>
                 <span className="text-xs px-4 py-2 rounded-xl" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
@@ -1093,8 +1093,6 @@ export default function AutoTradingPage() {
                 )}
               </>
             )}
-            <span className="text-sm px-4 py-2 rounded-xl font-medium" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>{mode === 'spot' ? 'SPOT 1x' : `Futures ${leverage}x`}</span>
-          </div>
         {enabled && !settings.executeOrders && (
           <div className="mt-4 pt-4 border-t text-sm" style={{ borderColor: 'var(--border)' }}>
             <p className="font-medium" style={{ color: 'var(--warning)' }}>
@@ -1152,10 +1150,10 @@ export default function AutoTradingPage() {
           </div>
         )}
         </div>
-      </section>
+      </Card>
 
       {/* Режим и настройки */}
-      <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <Card variant="glass" padding="normal">
         <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Режим и настройки</h2>
         <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Полный автомат (скринер + исполнение на OKX) или ручной режим: пары, плечо, порог уверенности. Торговля только на реальном счёте.</p>
         <div className="flex flex-wrap items-center gap-4 sm:gap-6 mb-6">
@@ -1606,11 +1604,11 @@ export default function AutoTradingPage() {
           )}
         </div>
         )}
-      </section>
+      </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
-          <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Баланс и статистика</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card variant="glass" padding="normal">
+          <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Баланс и статистика</h3>
           <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
             {settings.executeOrders
               ? 'P&L, win rate и метрики по сделкам (реальный счёт OKX)'
@@ -1662,10 +1660,10 @@ export default function AutoTradingPage() {
               </span>
             </div>
           </div>
-        </section>
+        </Card>
 
-        <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
-          <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Последний сигнал</h3>
+        <Card variant="glass" padding="normal">
+          <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Последний сигнал</h3>
           <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>Последний пришедший сигнал по выбранным парам или из скринера</p>
           {lastSignal ? (
             <div className="space-y-4">
@@ -1711,7 +1709,7 @@ export default function AutoTradingPage() {
               )}
             </div>
           )}
-        </section>
+        </Card>
       </div>
 
       <TradingAnalytics history={history} minConfidence={settings.minConfidence} hideSuggestions={settings.fullAuto} />

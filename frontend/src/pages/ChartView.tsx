@@ -231,25 +231,29 @@ export default function ChartView() {
     if (!chartRef.current) return;
     const el = chartRef.current;
     const chart = createChart(el, {
-      layout: { background: { color: '#242424' }, textColor: 'rgba(255,255,255,0.6)' },
-      grid: { vertLines: { color: 'rgba(255,255,255,0.06)' }, horzLines: { color: 'rgba(255,255,255,0.06)' } },
-      rightPriceScale: { scaleMargins: { top: 0.05, bottom: 0.15 } },
+      layout: { background: { color: '#0B0E11' }, textColor: 'rgba(234,236,239,0.5)' },
+      grid: { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
+      rightPriceScale: { scaleMargins: { top: 0.05, bottom: 0.15 }, borderColor: 'rgba(255,255,255,0.06)' },
       timeScale: {
         visible: true,
         rightOffset: 12,
-        timeVisible: true
+        timeVisible: true,
+        borderColor: 'rgba(255,255,255,0.06)'
       },
+      crosshair: { vertLine: { color: 'rgba(46,204,113,0.2)' }, horzLine: { color: 'rgba(46,204,113,0.2)' } },
       handleScale: { axisPressedMouseMove: true, pinch: true },
       handleScroll: { vertTouchDrag: true, horzTouchDrag: true }
     });
     const isLine = chartStyle === 'line';
     const series = isLine
-      ? chart.addLineSeries({ color: '#40DDFF', lineWidth: 2 })
+      ? chart.addLineSeries({ color: '#2ECC71', lineWidth: 2 })
       : chart.addCandlestickSeries({
-          upColor: '#47A663',
-          downColor: '#ef4444',
-          borderUpColor: '#47A663',
-          borderDownColor: '#ef4444'
+          upColor: '#0ECB81',
+          downColor: '#F6465D',
+          borderUpColor: '#0ECB81',
+          borderDownColor: '#F6465D',
+          wickUpColor: '#0ECB81',
+          wickDownColor: '#F6465D'
         });
     if (!isLine) series.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.15 } });
     const volumeSeries = chart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' });
@@ -533,16 +537,14 @@ export default function ChartView() {
   }, [symbol]);
 
   return (
-    <div className="flex flex-col gap-4 max-w-[1600px] mx-auto">
-      <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
+    <div className="flex flex-col gap-3">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 shrink-0 rounded-xl p-3 glass border" style={{ borderColor: 'var(--border)' }}>
         <div className="flex items-center gap-3">
-          <span className="text-2xl">📈</span>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>График</h1>
-            <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              Свечи, стакан и сделки по инструменту. Для сигналов по этому инструменту откройте вкладку Сигналы.
-            </p>
-          </div>
+          <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} style={{ color: 'var(--accent)' }}>
+            <path d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <h1 className="text-sm font-bold tracking-tight">График</h1>
         </div>
         <button
           type="button"
@@ -552,10 +554,10 @@ export default function ChartView() {
             }
             navigateTo('signals');
           }}
-          className="px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
-          style={{ background: 'var(--bg-hover)', color: 'var(--accent)' }}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--bg-hover)]"
+          style={{ color: 'var(--accent)' }}
         >
-          Перейти к Сигналам
+          Сигналы →
         </button>
       </div>
 

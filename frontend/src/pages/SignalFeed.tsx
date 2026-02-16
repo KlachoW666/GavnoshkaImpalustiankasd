@@ -2,8 +2,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { TradingSignal } from '../types/signal';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../utils/api';
-import { SkeletonCard } from '../components/Skeleton';
 import { useNavigation, type Page } from '../contexts/NavigationContext';
+import { Card } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
+import { Tabs } from '../components/ui/Tabs';
 
 type DirectionFilter = 'all' | 'LONG' | 'SHORT';
 type SortBy = 'time' | 'confidence' | 'rr';
@@ -32,6 +35,40 @@ function goToChart(symbol: string, timeframe: string, navigateTo: (page: Page) =
   }
 }
 
+function ConfidenceBar({ value }: { value: number }) {
+  const pct = Math.min(100, value * 100);
+  const color = value >= 0.8 ? 'var(--success)' : value >= 0.6 ? 'var(--warning)' : 'var(--danger)';
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover-strong)' }}>
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${pct}%`, background: color }}
+        />
+      </div>
+      <span className="text-xs font-bold tabular-nums" style={{ color }}>{pct.toFixed(0)}%</span>
+    </div>
+  );
+}
+
+function SignalSkeleton() {
+  return (
+    <Card variant="glass" padding="normal">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="animate-shimmer h-5 w-24 rounded" />
+        <div className="animate-shimmer h-5 w-14 rounded" />
+      </div>
+      <div className="grid grid-cols-4 gap-3 mb-3">
+        <div className="animate-shimmer h-12 rounded-lg" />
+        <div className="animate-shimmer h-12 rounded-lg" />
+        <div className="animate-shimmer h-12 rounded-lg" />
+        <div className="animate-shimmer h-12 rounded-lg" />
+      </div>
+      <div className="animate-shimmer h-2 w-full rounded" />
+    </Card>
+  );
+}
+
 export default function SignalFeed() {
   const { navigateTo } = useNavigation();
   const [signals, setSignals] = useState<TradingSignal[]>([]);
@@ -51,9 +88,7 @@ export default function SignalFeed() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => {
-    fetchSignals();
-  }, []);
+  useEffect(() => { fetchSignals(); }, []);
 
   useEffect(() => {
     const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
@@ -82,21 +117,9 @@ export default function SignalFeed() {
     const minConf = minConfidence / 100;
     if (minConf > 0) list = list.filter((s) => (s.confidence ?? 0) >= minConf);
     const sorted = [...list].sort((a, b) => {
-      if (sortBy === 'time') {
-        const ta = new Date(a.timestamp || 0).getTime();
-        const tb = new Date(b.timestamp || 0).getTime();
-        return tb - ta;
-      }
-      if (sortBy === 'confidence') {
-        const ca = a.confidence ?? 0;
-        const cb = b.confidence ?? 0;
-        return cb - ca;
-      }
-      if (sortBy === 'rr') {
-        const ra = a.risk_reward ?? 0;
-        const rb = b.risk_reward ?? 0;
-        return rb - ra;
-      }
+      if (sortBy === 'time') return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
+      if (sortBy === 'confidence') return (b.confidence ?? 0) - (a.confidence ?? 0);
+      if (sortBy === 'rr') return (b.risk_reward ?? 0) - (a.risk_reward ?? 0);
       return 0;
     });
     return sorted;
@@ -109,254 +132,182 @@ export default function SignalFeed() {
   }, [signals]);
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">◈</span>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-              Сигналы
-            </h1>
-            <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              Торговые идеи по инструментам OKX. Новые сигналы приходят в реальном времени.
-            </p>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Сигналы</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            Торговые идеи в реальном времени
+          </p>
+        </div>
+        <Button variant="secondary" size="sm" onClick={fetchSignals} loading={loading}>
+          Обновить
+        </Button>
+      </div>
+
+      {/* Stats + Filters */}
+      <Card variant="glass" padding="compact">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Direction tabs */}
+          <Tabs
+            tabs={[
+              { id: 'all', label: 'Все', count: stats.total },
+              { id: 'LONG', label: 'LONG', count: stats.long },
+              { id: 'SHORT', label: 'SHORT', count: stats.short },
+            ]}
+            active={filter}
+            onChange={(id) => setFilter(id as DirectionFilter)}
+            size="sm"
+          />
+
+          <div className="h-6 w-px mx-1 hidden sm:block" style={{ background: 'var(--border)' }} />
+
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortBy)}
+            className="input-field w-auto text-xs py-1.5 px-3"
+          >
+            <option value="time">Новые</option>
+            <option value="confidence">Уверенность</option>
+            <option value="rr">R:R</option>
+          </select>
+
+          <input
+            type="text"
+            placeholder="Поиск..."
+            value={searchSymbol}
+            onChange={(e) => setSearchSymbol(e.target.value)}
+            className="input-field w-32 text-xs py-1.5 px-3"
+          />
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Мин</span>
+            <input
+              type="range"
+              min={0}
+              max={95}
+              step={5}
+              value={minConfidence}
+              onChange={(e) => setMinConfidence(Number(e.target.value))}
+              className="slider-track w-20"
+            />
+            <span className="text-xs font-bold tabular-nums w-8" style={{ color: 'var(--accent)' }}>
+              {minConfidence > 0 ? `${minConfidence}%` : 'Все'}
+            </span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={fetchSignals}
-          disabled={loading}
-          className="px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
-        >
-          {loading ? 'Загрузка…' : 'Обновить'}
-        </button>
-      </div>
+      </Card>
 
-      {/* Stats */}
-      <div className="flex flex-wrap gap-3">
-        <div
-          className="rounded-xl px-4 py-2 border flex items-center gap-2"
-          style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}
-        >
-          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Всего</span>
-          <span className="font-bold" style={{ color: 'var(--accent)' }}>{stats.total}</span>
-        </div>
-        <div
-          className="rounded-xl px-4 py-2 border flex items-center gap-2"
-          style={{ background: 'var(--success-dim)', borderColor: 'var(--success)' }}
-        >
-          <span className="text-sm" style={{ color: 'var(--success)' }}>LONG</span>
-          <span className="font-bold" style={{ color: 'var(--success)' }}>{stats.long}</span>
-        </div>
-        <div
-          className="rounded-xl px-4 py-2 border flex items-center gap-2"
-          style={{ background: 'var(--danger-dim)', borderColor: 'var(--danger)' }}
-        >
-          <span className="text-sm" style={{ color: 'var(--danger)' }}>SHORT</span>
-          <span className="font-bold" style={{ color: 'var(--danger)' }}>{stats.short}</span>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex gap-2">
-          {(['all', 'LONG', 'SHORT'] as const).map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFilter(f)}
-              className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
-              style={{
-                background: filter === f ? 'var(--accent)' : 'var(--bg-hover)',
-                color: filter === f ? 'white' : 'var(--text-secondary)'
-              }}
-            >
-              {f === 'all' ? 'Все' : f}
-            </button>
-          ))}
-        </div>
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as SortBy)}
-          className="rounded-xl px-3 py-2 text-sm border bg-transparent"
-          style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
-        >
-          <option value="time">Сначала новые</option>
-          <option value="confidence">По уверенности</option>
-          <option value="rr">По R:R</option>
-        </select>
-        <input
-          type="text"
-          placeholder="Поиск по символу..."
-          value={searchSymbol}
-          onChange={(e) => setSearchSymbol(e.target.value)}
-          className="rounded-xl px-3 py-2 text-sm border w-40 md:w-52 bg-transparent placeholder:opacity-60"
-          style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
-        />
-        <div className="flex items-center gap-2">
-          <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Мин. уверенность</label>
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={minConfidence || ''}
-            onChange={(e) => setMinConfidence(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
-            placeholder="0"
-            className="rounded-lg px-2 py-1.5 text-sm w-14 border bg-transparent"
-            style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
-          />
-          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>%</span>
-        </div>
-      </div>
-
-      {/* List */}
+      {/* Signal list */}
       {loading && signals.length === 0 ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <SkeletonCard key={i} lines={4} />
-          ))}
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => <SignalSkeleton key={i} />)}
         </div>
       ) : filteredAndSorted.length === 0 ? (
-        <div
-          className="rounded-2xl p-8 text-center"
-          style={{
-            background: 'var(--bg-card-solid)',
-            border: '1px solid var(--border)',
-            borderLeft: '4px solid var(--warning)'
-          }}
-        >
-          <p className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-            Нет сигналов
-          </p>
+        <Card variant="glass" padding="spacious" className="text-center">
+          <svg className="w-10 h-10 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: 'var(--text-muted)' }}>
+            <path d="M13 10V3L4 14h7v7l9-11h-7z" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <p className="text-base font-medium mb-1">Нет сигналов</p>
           <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-            {signals.length === 0
-              ? 'Сигналы появятся после анализа рынка. Откройте График или Авто-торговлю для настройки.'
-              : 'Попробуйте ослабить фильтры (направление, поиск, минимальная уверенность).'}
+            {signals.length === 0 ? 'Сигналы появятся после анализа рынка.' : 'Попробуйте ослабить фильтры.'}
           </p>
-          <button
-            type="button"
-            onClick={() => navigateTo('chart')}
-            className="px-4 py-2 rounded-xl text-sm font-medium"
-            style={{ background: 'var(--accent)', color: 'white' }}
-          >
+          <Button variant="primary" size="sm" onClick={() => navigateTo('chart')}>
             Перейти к Графику
-          </button>
-        </div>
+          </Button>
+        </Card>
       ) : (
-        <div className="space-y-4">
-          {filteredAndSorted.map((s, idx) => (
-            <article
-              key={s.id ?? `sig-${idx}`}
-              className="rounded-2xl overflow-hidden transition-all duration-200 hover:shadow-lg"
-              style={{
-                background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
-                border: '1px solid var(--border)',
-                borderLeft: `4px solid ${s.direction === 'LONG' ? 'var(--success)' : 'var(--danger)'}`,
-                boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
-              }}
-            >
-              <div className="p-5 md:p-6">
-                <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h2 className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>
-                      {s.symbol}
-                    </h2>
-                    <span
-                      className="px-3 py-1 rounded-lg text-xs font-semibold"
-                      style={{
-                        background: s.direction === 'LONG' ? 'var(--success-dim)' : 'var(--danger-dim)',
-                        color: s.direction === 'LONG' ? 'var(--success)' : 'var(--danger)'
-                      }}
-                    >
-                      {s.direction === 'LONG' ? 'LONG' : 'SHORT'}
-                    </span>
-                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                      {s.exchange} • {s.timeframe}
-                    </span>
-                    {s.aiWinProbability != null && (
-                      <span className="px-2 py-0.5 rounded text-xs font-medium" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }} title="AI: вероятность выигрыша">
-                        AI {(s.aiWinProbability * 100).toFixed(0)}%
+        <div className="space-y-3">
+          {filteredAndSorted.map((s, idx) => {
+            const isLong = s.direction === 'LONG';
+            return (
+              <Card
+                key={s.id ?? `sig-${idx}`}
+                variant="glass"
+                padding="none"
+                hoverable
+                className="overflow-hidden"
+              >
+                <div
+                  className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
+                  style={{ background: isLong ? 'var(--success)' : 'var(--danger)' }}
+                />
+                <div className="p-4 sm:p-5 pl-5">
+                  {/* Top row */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-base">{s.symbol}</span>
+                      <Badge variant={isLong ? 'long' : 'short'}>
+                        {isLong ? 'LONG' : 'SHORT'}
+                      </Badge>
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {s.exchange} · {s.timeframe}
                       </span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => goToChart(s.symbol, s.timeframe, navigateTo)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-90"
-                    style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}
-                  >
-                    На график
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                  <div className="rounded-xl px-4 py-3" style={{ background: 'var(--bg-hover)' }}>
-                    <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Вход</p>
-                    <p className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      {formatPrice(s.entry_price)}
-                    </p>
-                  </div>
-                  <div className="rounded-xl px-4 py-3" style={{ background: 'var(--danger-dim)' }}>
-                    <p className="text-xs mb-1" style={{ color: 'var(--danger)' }}>Стоп-лосс</p>
-                    <p className="font-mono font-semibold" style={{ color: 'var(--danger)' }}>
-                      {formatPrice(s.stop_loss)}
-                    </p>
-                  </div>
-                  <div className="rounded-xl px-4 py-3" style={{ background: 'var(--success-dim)' }}>
-                    <p className="text-xs mb-1" style={{ color: 'var(--success)' }}>Тейк-профит</p>
-                    <p className="font-mono text-sm" style={{ color: 'var(--success)' }}>
-                      {(Array.isArray(s.take_profit) ? s.take_profit : [])
-                        .map((t) => formatPrice(t))
-                        .join(' / ') || '—'}
-                    </p>
-                  </div>
-                  <div className="rounded-xl px-4 py-3" style={{ background: 'var(--bg-hover)' }}>
-                    <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>R:R / Уверенность</p>
-                    <p className="font-mono font-semibold" style={{ color: 'var(--warning)' }}>
-                      {typeof s.risk_reward === 'number' ? s.risk_reward.toFixed(1) : '—'} /{' '}
-                      {((s.confidence ?? 0) * 100).toFixed(0)}%
-                    </p>
-                    <div
-                      className="mt-1 h-1.5 rounded-full overflow-hidden"
-                      style={{ background: 'var(--border)' }}
+                      {s.aiWinProbability != null && (
+                        <Badge variant="info">
+                          AI {(s.aiWinProbability * 100).toFixed(0)}%
+                        </Badge>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => goToChart(s.symbol, s.timeframe, navigateTo)}
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
+                      style={{ color: 'var(--accent)' }}
                     >
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${Math.min(100, (s.confidence ?? 0) * 100)}%`,
-                          background: (s.confidence ?? 0) >= 0.8 ? 'var(--success)' : (s.confidence ?? 0) >= 0.6 ? 'var(--warning)' : 'var(--danger)'
-                        }}
-                      />
+                      На график →
+                    </button>
+                  </div>
+
+                  {/* Price grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                    <div className="rounded-lg px-3 py-2" style={{ background: 'var(--bg-hover)' }}>
+                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>Вход</p>
+                      <p className="font-mono text-sm font-semibold tabular-nums">{formatPrice(s.entry_price)}</p>
+                    </div>
+                    <div className="rounded-lg px-3 py-2" style={{ background: 'var(--danger-dim)' }}>
+                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--danger)' }}>SL</p>
+                      <p className="font-mono text-sm font-semibold tabular-nums" style={{ color: 'var(--danger)' }}>{formatPrice(s.stop_loss)}</p>
+                    </div>
+                    <div className="rounded-lg px-3 py-2" style={{ background: 'var(--success-dim)' }}>
+                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--success)' }}>TP</p>
+                      <p className="font-mono text-sm tabular-nums" style={{ color: 'var(--success)' }}>
+                        {(Array.isArray(s.take_profit) ? s.take_profit : []).map((t) => formatPrice(t)).join(' / ') || '—'}
+                      </p>
+                    </div>
+                    <div className="rounded-lg px-3 py-2" style={{ background: 'var(--bg-hover)' }}>
+                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>R:R</p>
+                      <p className="font-mono text-sm font-semibold tabular-nums" style={{ color: 'var(--warning)' }}>
+                        {typeof s.risk_reward === 'number' ? s.risk_reward.toFixed(1) : '—'}
+                      </p>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {formatDate(s.timestamp)}
-                  </span>
-                  {Array.isArray(s.triggers) && s.triggers.length > 0 && (
-                    <>
-                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>•</span>
-                      <div className="flex flex-wrap gap-1.5">
+                  {/* Confidence bar */}
+                  <ConfidenceBar value={s.confidence ?? 0} />
+
+                  {/* Footer */}
+                  <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                    <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{formatDate(s.timestamp)}</span>
+                    {Array.isArray(s.triggers) && s.triggers.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
                         {s.triggers.map((t) => (
                           <span
                             key={t}
-                            className="px-2 py-0.5 rounded text-xs"
-                            style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
+                            className="px-1.5 py-0.5 rounded text-[10px]"
+                            style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
                           >
                             {t}
                           </span>
                         ))}
                       </div>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

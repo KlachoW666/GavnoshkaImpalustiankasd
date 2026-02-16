@@ -5,7 +5,7 @@
 export function SkeletonLine({ className = '' }: { className?: string }) {
   return (
     <div
-      className={`animate-pulse rounded bg-[var(--bg-hover)] ${className}`}
+      className={`animate-shimmer rounded ${className}`}
       style={{ minHeight: '1rem' }}
     />
   );

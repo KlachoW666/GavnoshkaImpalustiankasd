@@ -5,7 +5,7 @@ import { RiskDisclaimer } from '../components/RiskDisclaimer';
 import { useTableSort } from '../utils/useTableSort';
 import { SortableTh } from '../components/SortableTh';
 
-const cardStyle = { background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' };
+const cardStyle = { background: 'var(--bg-card)', backdropFilter: 'blur(12px)', border: '1px solid var(--border)', color: 'var(--text-primary)' };
 
 interface Provider {
   providerId: string;

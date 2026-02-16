@@ -26,7 +26,7 @@ interface BacktestResult {
   maxDrawdownPct: number;
 }
 
-const cardStyle = { background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' };
+const cardStyle = { background: 'var(--bg-card)', backdropFilter: 'blur(12px)', border: '1px solid var(--border)', color: 'var(--text-primary)' };
 
 export default function BacktestPage() {
   const { token } = useAuth();

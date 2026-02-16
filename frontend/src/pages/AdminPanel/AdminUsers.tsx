@@ -265,9 +265,11 @@ export default function AdminUsers() {
   }
 
   const cardStyle = {
-    background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
+    background: 'var(--bg-card)',
+    backdropFilter: 'blur(12px)',
     border: '1px solid var(--border)',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+    color: 'var(--text-primary)'
   };
   const miniCardStyle = { background: 'var(--bg-hover)' };
 
@@ -491,7 +493,7 @@ export default function AdminUsers() {
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Поиск: user_id, ник, Telegram ID..."
             className="input-field w-72 pl-10 rounded-xl border"
-            style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}
+            style={{ background: 'var(--bg-card)', backdropFilter: 'blur(12px)', borderColor: 'var(--border)' }}
           />
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--text-muted)' }}>🔍</span>
         </div>

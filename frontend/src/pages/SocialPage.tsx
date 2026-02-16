@@ -6,7 +6,7 @@ import { useTableSort } from '../utils/useTableSort';
 import { SortableTh } from '../components/SortableTh';
 import { useNavigation } from '../contexts/NavigationContext';
 
-const cardStyle = { background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' };
+const cardStyle = { background: 'var(--bg-card)', backdropFilter: 'blur(12px)', border: '1px solid var(--border)', color: 'var(--text-primary)' };
 
 interface LeaderboardEntry {
   userId: string;
@@ -79,7 +79,7 @@ export default function SocialPage() {
           <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+                <tr style={{ borderColor: 'var(--border)', background: 'var(--bg-card)', backdropFilter: 'blur(12px)' }}>
                   <th className="text-left py-3 px-2 text-xs font-semibold uppercase" style={{ color: 'var(--text-muted)' }}>#</th>
                   <SortableTh label="Трейдер" sortKey="username" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   <SortableTh label="PnL $" sortKey="totalPnl" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="right" />

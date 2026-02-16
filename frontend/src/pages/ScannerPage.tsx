@@ -56,7 +56,7 @@ interface FullAnalysisItem {
   } | null;
 }
 
-const cardStyle = { background: 'var(--bg-card-solid)', border: '1px solid var(--border)', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' };
+const cardStyle = { background: 'var(--bg-card)', backdropFilter: 'blur(12px)', border: '1px solid var(--border)', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' };
 const sectionTitleStyle = { color: 'var(--text-muted)' };
 
 function normSymbol(s: string): string {
