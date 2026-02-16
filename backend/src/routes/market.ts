@@ -824,6 +824,7 @@ async function runAutoTradingBestCycle(
     logger.warn('runAutoTradingBestCycle', 'Funding rate check failed', { error: (e as Error).message });
   }
 
+  const volMult = (best.breakdown as any)?.volatilityMultiplier as number | undefined;
   executeSignal(best.signal, {
     sizePercent,
     sizeMode,
@@ -831,7 +832,8 @@ async function runAutoTradingBestCycle(
     leverage,
     maxPositions,
     useTestnet,
-    tpMultiplier
+    tpMultiplier,
+    volatilityMultiplier: volMult
   }, hasUserCreds ? userCreds : undefined).then((result) => {
     if (result.ok) {
       logger.info('runAutoTradingBestCycle', `OKX order placed: ${result.orderId} (${useTestnet ? 'testnet' : 'real'})`);

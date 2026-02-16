@@ -42,6 +42,8 @@ export interface ExecuteOptions {
   sizeMode?: 'percent' | 'risk';
   /** Риск на сделку (0.01–0.03) при sizeMode=risk */
   riskPct?: number;
+  /** Sinclair: множитель при высокой волатильности (ATR>1.5×avg). 1 = без уменьшения. */
+  volatilityMultiplier?: number;
   /** Мин. Open Interest в USDT — пропустить вход, если ликвидность ниже (0 = не проверять) */
   minOpenInterestUsdt?: number;
 }
@@ -240,23 +242,31 @@ export async function executeSignal(
     }
   }
 
-  // Ограничиваем долю баланса запасом (OKX может отклонять при точном 100% из-за комиссий и маржи)
-  const reserveRatio = balance < 50 ? 0.7 : 0.85; // при малом балансе — больший запас
+  // POSITIONS_AND_ORDERS_ANALYSIS: резерв баланса — пороги вынесены в константы
+  const RESERVE_THRESHOLD_SMALL = 50;
+  const RESERVE_THRESHOLD_TINY = 20;
+  const RESERVE_RATIO_NORMAL = 0.85;
+  const RESERVE_RATIO_SMALL = 0.7;
+  const MAX_PCT_WHEN_TINY = 0.15;
+  const reserveRatio = balance < RESERVE_THRESHOLD_SMALL ? RESERVE_RATIO_SMALL : RESERVE_RATIO_NORMAL;
   let maxUsableBalance = balance * reserveRatio;
-  // При очень малом балансе OKX часто отклоняет — используем не более 15% баланса под одну позицию
-  if (balance < 20) {
-    maxUsableBalance = Math.min(maxUsableBalance, balance * 0.15);
+  if (balance < RESERVE_THRESHOLD_TINY) {
+    maxUsableBalance = Math.min(maxUsableBalance, balance * MAX_PCT_WHEN_TINY);
   }
   let margin: number;
   let positionValue: number;
+  const volMult = typeof options.volatilityMultiplier === 'number' && options.volatilityMultiplier > 0 && options.volatilityMultiplier <= 1
+    ? options.volatilityMultiplier
+    : 1;
   if (options.sizeMode === 'risk' && stopLoss > 0) {
     const riskPct = Math.max(0.01, Math.min(0.03, options.riskPct ?? 0.02));
-    const sizeUsd = getPositionSize(balance, entryPrice, stopLoss, { riskPct, fallbackPct: options.sizePercent / 100 });
+    let sizeUsd = getPositionSize(balance, entryPrice, stopLoss, { riskPct, fallbackPct: options.sizePercent / 100 });
+    sizeUsd *= volMult;
     const limitedSize = Math.min(sizeUsd, maxUsableBalance * options.leverage);
     positionValue = Math.min(limitedSize, balance * 0.25 * options.leverage);
     margin = positionValue / options.leverage;
   } else {
-    margin = Math.min((balance * options.sizePercent) / 100, maxUsableBalance);
+    margin = Math.min((balance * options.sizePercent) / 100 * volMult, maxUsableBalance);
     positionValue = margin * options.leverage;
   }
   // OKX не принимает слишком мелкие ордера — не менее MIN_NOTIONAL_USD
