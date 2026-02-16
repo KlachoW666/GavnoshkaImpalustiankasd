@@ -108,28 +108,28 @@ export default function AdminWallet() {
 
       {/* Статистика */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl" style={cardStyle}>
+        <div className="p-4 rounded-lg" style={cardStyle}>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Пополнения</p>
           <p className="text-lg font-bold">{data?.deposits?.count ?? 0}</p>
           <p className="text-sm">{Number(data?.deposits?.total_usdt ?? 0).toFixed(2)} USDT</p>
         </div>
-        <div className="p-4 rounded-xl" style={cardStyle}>
+        <div className="p-4 rounded-lg" style={cardStyle}>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>На вывод</p>
           <p className="text-lg font-bold">{data?.withdrawals?.pending ?? 0}</p>
         </div>
-        <div className="p-4 rounded-xl" style={cardStyle}>
+        <div className="p-4 rounded-lg" style={cardStyle}>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Выведено</p>
           <p className="text-lg font-bold">{data?.withdrawals?.sent ?? 0}</p>
           <p className="text-sm">{Number(data?.withdrawals?.total_sent_usdt ?? 0).toFixed(2)} USDT</p>
         </div>
-        <div className="p-4 rounded-xl" style={cardStyle}>
+        <div className="p-4 rounded-lg" style={cardStyle}>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>TRC20 кошелёк</p>
           <p className="text-lg font-bold">{data?.enabled ? '✓' : '—'}</p>
         </div>
       </div>
 
       {/* Seed-фраза — только USDT/TRC20 */}
-      <section className="p-5 rounded-xl" style={cardStyle}>
+      <section className="p-5 rounded-lg" style={cardStyle}>
         <h3 className="font-medium mb-3">Seed-фраза (шифруется)</h3>
         <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>12 или 24 слова. Зачисления и выводы только по USDT/TRC20.</p>
         <textarea
@@ -148,7 +148,7 @@ export default function AdminWallet() {
       </section>
 
       {/* Кастомные адреса TRC20 (опц.) */}
-      <section className="p-5 rounded-xl" style={cardStyle}>
+      <section className="p-5 rounded-lg" style={cardStyle}>
         <h3 className="font-medium mb-3">Кастомные TRC20 адреса (опционально)</h3>
         <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Аккаунт 0–4. Адрес должен начинаться с T, 34 символа (напр. TYDzsYUEpvnYmQk4zGP9gZhgxw4jv3mD7A).</p>
         <div className="flex flex-wrap gap-2 mb-3">
@@ -169,7 +169,7 @@ export default function AdminWallet() {
       </section>
 
       {/* Заявки на вывод */}
-      <section className="p-5 rounded-xl" style={cardStyle}>
+      <section className="p-5 rounded-lg" style={cardStyle}>
         <h3 className="font-medium mb-3">Заявки на вывод ({data?.pendingWithdrawals?.length ?? 0})</h3>
         {data?.pendingWithdrawals?.length ? (
           <div className="overflow-x-auto">

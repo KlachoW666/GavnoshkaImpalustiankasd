@@ -110,7 +110,7 @@ export default function AdminTrading() {
       </div>
 
       {status != null && (
-        <section className="rounded-2xl p-4 shadow-lg border-l-4" style={{ ...cardStyle, borderLeftColor: status.running ? 'var(--success)' : 'var(--text-muted)' }}>
+        <section className="rounded-lg p-4 shadow-lg border-l-4" style={{ ...cardStyle, borderLeftColor: status.running ? 'var(--success)' : 'var(--text-muted)' }}>
           <p className="text-sm">
             Статус: <strong style={{ color: status.running ? 'var(--success)' : 'var(--text-secondary)' }}>
               {status.running ? 'Активно (у одного или нескольких пользователей)' : 'Остановлено'}
@@ -119,11 +119,11 @@ export default function AdminTrading() {
         </section>
       )}
       {message && (
-        <div className="p-4 rounded-xl border text-sm" style={{ background: 'var(--accent-dim)', borderColor: 'var(--accent)', color: 'var(--text-primary)' }}>
+        <div className="p-4 rounded-lg border text-sm" style={{ background: 'var(--accent-dim)', borderColor: 'var(--accent)', color: 'var(--text-primary)' }}>
           {message}
         </div>
       )}
-      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <div className="flex items-center gap-3 mb-5">
           <span className="text-2xl">⚡</span>
           <div>
@@ -162,7 +162,7 @@ export default function AdminTrading() {
         </div>
       </section>
       {efConfig && (
-        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--warning)' }}>
+        <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--warning)' }}>
           <div className="flex items-center gap-3 mb-5">
             <span className="text-2xl">😤</span>
             <div>

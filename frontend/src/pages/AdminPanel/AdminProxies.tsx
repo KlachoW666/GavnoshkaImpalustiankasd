@@ -127,13 +127,13 @@ export default function AdminProxies() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
           <span>⚠</span>
           <span>{error}</span>
         </div>
       )}
 
-      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <div className="flex items-center gap-3 mb-5">
           <span className="text-2xl">➕</span>
           <div>
@@ -147,14 +147,14 @@ export default function AdminProxies() {
             value={newUrl}
             onChange={(e) => setNewUrl(e.target.value)}
             placeholder="http://user:pass@host:port"
-            className="input-field flex-1 min-w-[280px] rounded-xl"
+            className="input-field flex-1 min-w-[280px] rounded-lg"
             style={{ background: 'var(--bg-hover)' }}
           />
           <button
             type="button"
             onClick={handleAdd}
             disabled={adding || !newUrl.trim()}
-            className="px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50"
+            className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
             style={{ background: 'var(--accent)', color: 'white' }}
           >
             {adding ? '…' : 'Добавить'}
@@ -162,7 +162,7 @@ export default function AdminProxies() {
         </div>
       </section>
 
-      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+      <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
         <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
           <div className="flex items-center gap-3">
             <span className="text-2xl">📋</span>
@@ -175,7 +175,7 @@ export default function AdminProxies() {
             type="button"
             onClick={handleCheckAll}
             disabled={checking || proxies.length === 0}
-            className="px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50"
+            className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
             style={{ background: 'var(--success)', color: 'white' }}
           >
             {checking ? 'Проверка…' : 'Проверить все'}
@@ -183,7 +183,7 @@ export default function AdminProxies() {
         </div>
 
         {proxies.length === 0 ? (
-          <div className="py-10 text-center rounded-xl text-sm" style={miniCardStyle}>
+          <div className="py-10 text-center rounded-lg text-sm" style={miniCardStyle}>
             <span className="text-4xl opacity-50">🌐</span>
             <p className="mt-2" style={{ color: 'var(--text-muted)' }}>Нет прокси. Добавьте выше или настройте PROXY_LIST в .env</p>
           </div>
@@ -194,7 +194,7 @@ export default function AdminProxies() {
               return (
                 <li
                   key={p.source === 'db' && p.id != null ? `db-${p.id}` : `env-${p.url}`}
-                  className="rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3"
+                  className="rounded-lg px-4 py-3 flex flex-wrap items-center justify-between gap-3"
                   style={miniCardStyle}
                 >
                   <div className="min-w-0 flex-1 flex items-center gap-3 flex-wrap">

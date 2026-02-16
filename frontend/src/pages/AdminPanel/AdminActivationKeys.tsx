@@ -147,13 +147,13 @@ export default function AdminActivationKeys() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
           <span>⚠</span>
           <span>{error}</span>
         </div>
       )}
 
-      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <div className="flex items-center gap-3 mb-5">
           <span className="text-2xl">➕</span>
           <div>
@@ -207,7 +207,7 @@ export default function AdminActivationKeys() {
         )}
       </section>
 
-      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+      <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
         <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
           <div className="flex items-center gap-3">
             <span className="text-2xl">📋</span>
@@ -244,7 +244,7 @@ export default function AdminActivationKeys() {
               return (
                 <div
                   key={k.id}
-                  className="rounded-xl px-4 py-3 flex flex-wrap items-start justify-between gap-3"
+                  className="rounded-lg px-4 py-3 flex flex-wrap items-start justify-between gap-3"
                   style={{ background: 'var(--bg-hover)' }}
                 >
                   <div className="min-w-0 flex-1">

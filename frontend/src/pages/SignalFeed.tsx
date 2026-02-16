@@ -230,7 +230,7 @@ export default function SignalFeed() {
                 className="overflow-hidden"
               >
                 <div
-                  className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
+                  className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
                   style={{ background: isLong ? 'var(--success)' : 'var(--danger)' }}
                 />
                 <div className="p-4 sm:p-5 pl-5">

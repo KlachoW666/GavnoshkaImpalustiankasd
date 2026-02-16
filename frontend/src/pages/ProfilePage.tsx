@@ -144,7 +144,7 @@ export default function ProfilePage() {
       </div>
 
       {showWelcome && !active && (
-        <div className="rounded-2xl p-6 shadow-lg border-l-4" style={{ ...cardStyle, borderLeftColor: 'var(--accent)' }}>
+        <div className="rounded-lg p-6 shadow-lg border-l-4" style={{ ...cardStyle, borderLeftColor: 'var(--accent)' }}>
           <p className="font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Добро пожаловать!</p>
           <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
             Для получения доступа к PREMIUM-версии необходимо приобрести ключ в нашем Telegram-боте.
@@ -153,7 +153,7 @@ export default function ProfilePage() {
             href="https://t.me/clabx_bot"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-white"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white"
             style={{ background: 'var(--accent)' }}
           >
             @clabx_bot — приобрести ключ
@@ -161,7 +161,7 @@ export default function ProfilePage() {
         </div>
       )}
 
-      <div className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <div className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <div className="flex items-center gap-3 mb-5">
           <span className="text-2xl">🪪</span>
           <div>
@@ -170,16 +170,16 @@ export default function ProfilePage() {
           </div>
         </div>
         <dl className="space-y-3 text-sm">
-          <div className="flex justify-between items-center gap-4 py-2 px-3 rounded-xl" style={miniCardStyle}>
+          <div className="flex justify-between items-center gap-4 py-2 px-3 rounded-lg" style={miniCardStyle}>
             <dt style={{ color: 'var(--text-muted)' }}>User ID</dt>
             <dd className="font-mono text-xs truncate max-w-[60%]" style={{ color: 'var(--accent)' }} title={user?.id ?? ''}>{user?.id ?? '—'}</dd>
           </div>
-          <div className="flex justify-between items-center gap-4 py-2 px-3 rounded-xl" style={miniCardStyle}>
+          <div className="flex justify-between items-center gap-4 py-2 px-3 rounded-lg" style={miniCardStyle}>
             <dt style={{ color: 'var(--text-muted)' }}>Имя пользователя</dt>
             <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>{user?.username ?? '—'}</dd>
           </div>
           {user?.groupName && (
-            <div className="flex justify-between items-center gap-4 py-2 px-3 rounded-xl" style={miniCardStyle}>
+            <div className="flex justify-between items-center gap-4 py-2 px-3 rounded-lg" style={miniCardStyle}>
               <dt style={{ color: 'var(--text-muted)' }}>Группа</dt>
               <dd style={{ color: 'var(--text-primary)' }}>{user.groupName.toLowerCase() === 'pro' ? 'PREMIUM' : user.groupName}</dd>
             </div>
@@ -187,7 +187,7 @@ export default function ProfilePage() {
         </dl>
       </div>
 
-      <div className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid #2E7CF6' }}>
+      <div className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid #2E7CF6' }}>
         <div className="flex items-center gap-3 mb-5">
           <span className="text-2xl">💵</span>
           <div>
@@ -196,10 +196,10 @@ export default function ProfilePage() {
           </div>
         </div>
         {!token ? (
-          <p className="text-sm py-4 rounded-xl text-center" style={{ ...miniCardStyle, color: 'var(--text-muted)' }}>Войдите в аккаунт.</p>
+          <p className="text-sm py-4 rounded-lg text-center" style={{ ...miniCardStyle, color: 'var(--text-muted)' }}>Войдите в аккаунт.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-            <div className="rounded-xl p-4" style={miniCardStyle}>
+            <div className="rounded-lg p-4" style={miniCardStyle}>
               <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Реальный счёт</p>
               {okxBalance.realError && okxBalance.real === null ? (
                 <p className="text-xs" style={{ color: 'var(--danger)' }}>{okxBalance.realError}</p>
@@ -210,7 +210,7 @@ export default function ProfilePage() {
               )}
               <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Ключи API в Настройках</p>
             </div>
-            <div className="rounded-xl p-4" style={miniCardStyle}>
+            <div className="rounded-lg p-4" style={miniCardStyle}>
               <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Демо (Testnet)</p>
               {okxBalance.demoError && okxBalance.demo === null ? (
                 <p className="text-xs" style={{ color: 'var(--danger)' }}>{okxBalance.demoError}</p>
@@ -225,7 +225,7 @@ export default function ProfilePage() {
         )}
       </div>
 
-      <div className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+      <div className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
         <div className="flex items-center gap-3 mb-5">
           <span className="text-2xl">⭐</span>
           <div>
@@ -234,7 +234,7 @@ export default function ProfilePage() {
           </div>
         </div>
         <div className="space-y-3 text-sm">
-          <div className="flex items-center gap-2 py-2 px-3 rounded-xl" style={miniCardStyle}>
+          <div className="flex items-center gap-2 py-2 px-3 rounded-lg" style={miniCardStyle}>
             <span
               className={`w-2 h-2 rounded-full shrink-0 ${active ? 'bg-[var(--success)] animate-pulse' : 'bg-[var(--danger)]'}`}
             />
@@ -243,7 +243,7 @@ export default function ProfilePage() {
             </span>
           </div>
           {expiresAt && (
-            <div className="space-y-1 py-2 px-3 rounded-xl" style={miniCardStyle}>
+            <div className="space-y-1 py-2 px-3 rounded-lg" style={miniCardStyle}>
               <p style={{ color: 'var(--text-muted)' }}>
                 Действует до: <strong style={{ color: 'var(--text-primary)' }}>{formatDate(expiresAt)}</strong>
               </p>
@@ -255,7 +255,7 @@ export default function ProfilePage() {
             </div>
           )}
           {!expiresAt && (
-            <p className="py-2 px-3 rounded-xl text-sm" style={{ ...miniCardStyle, color: 'var(--text-muted)' }}>
+            <p className="py-2 px-3 rounded-lg text-sm" style={{ ...miniCardStyle, color: 'var(--text-muted)' }}>
               Введите ключ ниже или приобретите у{' '}
               <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
                 @clabx_bot
@@ -290,7 +290,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <div className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <div className="flex items-center gap-3 mb-5">
           <span className="text-2xl">📊</span>
           <div>
@@ -302,14 +302,14 @@ export default function ProfilePage() {
           Ордера, открытые ботом на OKX, и закрытые в приложении или на бирже (данные обновляются автоматически).
         </p>
         {!token ? (
-          <p className="text-sm py-4 rounded-xl text-center" style={{ ...miniCardStyle, color: 'var(--text-muted)' }}>Войдите в аккаунт для просмотра статистики.</p>
+          <p className="text-sm py-4 rounded-lg text-center" style={{ ...miniCardStyle, color: 'var(--text-muted)' }}>Войдите в аккаунт для просмотра статистики.</p>
         ) : stats ? (
           <dl className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-xl p-3 text-center" style={miniCardStyle}>
+            <div className="rounded-lg p-3 text-center" style={miniCardStyle}>
               <dt className="text-xs" style={{ color: 'var(--text-muted)' }}>Ордеров всего</dt>
               <dd className="text-lg font-bold mt-0.5 tabular-nums" style={{ color: 'var(--text-primary)' }}>{Number(stats.orders?.total) || 0}</dd>
             </div>
-            <div className="rounded-xl p-3 text-center" style={miniCardStyle}>
+            <div className="rounded-lg p-3 text-center" style={miniCardStyle}>
               <dt className="text-xs" style={{ color: 'var(--text-muted)' }}>Прибыльных / Убыточных</dt>
               <dd className="text-lg font-bold mt-0.5 tabular-nums">
                 <span style={{ color: 'var(--success)' }}>{formatNum4Signed(Number(stats.orders?.wins) || 0)}</span>
@@ -317,7 +317,7 @@ export default function ProfilePage() {
                 <span style={{ color: 'var(--danger)' }}>-{formatNum4(Number(stats.orders?.losses) || 0)}</span>
               </dd>
             </div>
-            <div className="rounded-xl p-3 text-center col-span-2" style={miniCardStyle}>
+            <div className="rounded-lg p-3 text-center col-span-2" style={miniCardStyle}>
               <dt className="text-xs" style={{ color: 'var(--text-muted)' }}>Объём (PnL)</dt>
               <dd className={`text-xl font-bold mt-0.5 tabular-nums ${(Number(stats.volumeEarned) || 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
                 {formatNum4Signed(Number(stats.volumeEarned) || 0)} $
@@ -328,7 +328,7 @@ export default function ProfilePage() {
             </p>
           </dl>
         ) : (
-          <p className="text-sm py-4 rounded-xl text-center" style={{ ...miniCardStyle, color: 'var(--text-muted)' }}>Загрузка…</p>
+          <p className="text-sm py-4 rounded-lg text-center" style={{ ...miniCardStyle, color: 'var(--text-muted)' }}>Загрузка…</p>
         )}
       </div>
     </div>

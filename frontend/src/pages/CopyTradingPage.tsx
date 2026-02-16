@@ -82,7 +82,7 @@ export default function CopyTradingPage() {
         Подпишитесь на трейдера — его сделки будут копироваться на ваш счёт (доля от вашего баланса). Нужны API ключи OKX в профиле.
       </p>
 
-      <section className="rounded-2xl p-6" style={cardStyle}>
+      <section className="rounded-lg p-6" style={cardStyle}>
         <h2 className="text-lg font-semibold mb-4">Мои подписки</h2>
         {!token ? (
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Войдите, чтобы видеть подписки и подписываться на провайдеров.</p>
@@ -106,12 +106,12 @@ export default function CopyTradingPage() {
         )}
       </section>
 
-      <section className="rounded-2xl p-6" style={cardStyle}>
+      <section className="rounded-lg p-6" style={cardStyle}>
         <h2 className="text-lg font-semibold mb-4">Провайдеры (топ по PnL)</h2>
         {loading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-xl p-5 animate-pulse" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+              <div key={i} className="rounded-lg p-5 animate-pulse" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
                 <div className="h-4 rounded w-1/3 mb-3" style={{ background: 'var(--bg-hover)' }} />
                 <div className="h-3 rounded w-2/3 mb-2" style={{ background: 'var(--bg-hover)' }} />
                 <div className="h-3 rounded w-1/2" style={{ background: 'var(--bg-hover)' }} />
@@ -121,7 +121,7 @@ export default function CopyTradingPage() {
         ) : providers.length === 0 ? (
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Пока нет провайдеров с подписчиками. Станьте первым — включите авто-торговлю, и другие смогут копировать ваши сделки.</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
+          <div className="overflow-x-auto rounded-lg border" style={{ borderColor: 'var(--border)' }}>
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>

@@ -129,7 +129,7 @@ export default function PnlCalculatorPage() {
             <button
               type="button"
               onClick={() => setDirection('LONG')}
-              className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-all border-2 ${
+              className={`flex-1 py-3 rounded-lg font-semibold text-sm transition-all border-2 ${
                 direction === 'LONG'
                   ? 'badge-long border-[var(--success)]'
                   : 'border-transparent'
@@ -141,7 +141,7 @@ export default function PnlCalculatorPage() {
             <button
               type="button"
               onClick={() => setDirection('SHORT')}
-              className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-all border-2 ${
+              className={`flex-1 py-3 rounded-lg font-semibold text-sm transition-all border-2 ${
                 direction === 'SHORT'
                   ? 'badge-short border-[var(--danger)]'
                   : 'border-transparent'

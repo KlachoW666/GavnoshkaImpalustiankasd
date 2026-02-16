@@ -47,7 +47,7 @@ export default function HelpPage() {
         </div>
       </div>
 
-      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <div className="flex items-center gap-3 mb-4">
           <span className="text-2xl">🚀</span>
           <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -66,7 +66,7 @@ export default function HelpPage() {
         </ul>
       </section>
 
-      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+      <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
         <div className="flex items-center gap-3 mb-4">
           <span className="text-2xl">📊</span>
           <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -78,7 +78,7 @@ export default function HelpPage() {
           Отсюда удобно переходить к <NavLink page="signals" label="Сигналы">Сигналам</NavLink>, <NavLink page="chart" label="График">Графику</NavLink> и
           <NavLink page="autotrade" label="Авто">Авто-торговле</NavLink>.
         </p>
-        <div className="rounded-xl p-3 mt-3" style={miniCardStyle}>
+        <div className="rounded-lg p-3 mt-3" style={miniCardStyle}>
           <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Горячие клавиши</p>
           <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
             Ctrl+1 — Главная, Ctrl+2 — Сигналы, Ctrl+3 — График, Ctrl+4 — Демо, Ctrl+5 — Авто, Ctrl+7 — PnL, Ctrl+, — Настройки
@@ -86,7 +86,7 @@ export default function HelpPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--warning)' }}>
+      <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--warning)' }}>
         <div className="flex items-center gap-3 mb-4">
           <span className="text-2xl">📈</span>
           <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -105,7 +105,7 @@ export default function HelpPage() {
         </ul>
       </section>
 
-      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <div className="flex items-center gap-3 mb-4">
           <span className="text-2xl">🤖</span>
           <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -122,7 +122,7 @@ export default function HelpPage() {
         </ul>
       </section>
 
-      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--text-secondary)' }}>
+      <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--text-secondary)' }}>
         <div className="flex items-center gap-3 mb-4">
           <span className="text-2xl">⚙️</span>
           <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -141,7 +141,7 @@ export default function HelpPage() {
         </ul>
       </section>
 
-      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+      <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
         <div className="flex items-center gap-3 mb-4">
           <span className="text-2xl">👤</span>
           <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -158,7 +158,7 @@ export default function HelpPage() {
         </ul>
       </section>
 
-      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--text-muted)' }}>
+      <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--text-muted)' }}>
         <div className="flex items-center gap-3 mb-4">
           <span className="text-2xl">📜</span>
           <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -171,7 +171,7 @@ export default function HelpPage() {
         </p>
       </section>
 
-      <div className="rounded-2xl p-4 shadow-sm flex flex-wrap items-center gap-3" style={{ ...miniCardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <div className="rounded-lg p-4 shadow-sm flex flex-wrap items-center gap-3" style={{ ...miniCardStyle, borderLeft: '4px solid var(--accent)' }}>
         <span className="text-lg">💬</span>
         <div>
           <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Нужна помощь?</p>

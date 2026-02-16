@@ -191,10 +191,10 @@ export default function ScannerPage() {
   return (
     <div className="space-y-8 max-w-6xl mx-auto px-4 sm:px-6 pb-12">
       {/* Hero */}
-      <header className="rounded-2xl overflow-hidden" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <header className="rounded-lg overflow-hidden" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <div className="p-6 md:p-8">
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)' }}>
+            <div className="w-14 h-14 rounded-lg flex items-center justify-center text-2xl shrink-0" style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)' }}>
               ▤
             </div>
             <div>
@@ -208,7 +208,7 @@ export default function ScannerPage() {
       </header>
 
       {/* Таблица топ монет */}
-      <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+      <section className="rounded-lg overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Топ по скорингу</h2>
@@ -220,7 +220,7 @@ export default function ScannerPage() {
               <select
                 value={limit}
                 onChange={(e) => setLimit(Number(e.target.value))}
-                className="rounded-xl border px-3 py-2 text-sm font-medium transition-colors min-w-[72px]"
+                className="rounded-lg border px-3 py-2 text-sm font-medium transition-colors min-w-[72px]"
                 style={{ background: 'var(--bg-hover)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
               >
                 {[5, 10, 15, 20].map((n) => (
@@ -232,7 +232,7 @@ export default function ScannerPage() {
               type="button"
               onClick={fetchTop}
               disabled={loading}
-              className="px-4 py-2.5 rounded-xl text-sm font-medium transition-opacity disabled:opacity-50"
+              className="px-4 py-2.5 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50"
               style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
             >
               Обновить
@@ -241,7 +241,7 @@ export default function ScannerPage() {
               type="button"
               onClick={runFullAnalysis}
               disabled={analyzing}
-              className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-50"
+              className="px-4 py-2.5 rounded-lg text-sm font-semibold transition-opacity disabled:opacity-50"
               style={{ background: 'var(--accent)', color: 'white' }}
             >
               {analyzing ? 'Анализ…' : 'Полный анализ (топ 5)'}
@@ -252,7 +252,7 @@ export default function ScannerPage() {
         {loading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-xl p-5 animate-pulse" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+              <div key={i} className="rounded-lg p-5 animate-pulse" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
                 <div className="h-4 rounded w-1/3 mb-3" style={{ background: 'var(--bg-hover)' }} />
                 <div className="h-3 rounded w-2/3 mb-2" style={{ background: 'var(--bg-hover)' }} />
                 <div className="h-3 rounded w-1/2" style={{ background: 'var(--bg-hover)' }} />
@@ -260,7 +260,7 @@ export default function ScannerPage() {
             ))}
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
+          <div className="overflow-x-auto rounded-lg border" style={{ borderColor: 'var(--border)' }}>
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
@@ -316,7 +316,7 @@ export default function ScannerPage() {
           </div>
         )}
         {!loading && topCoins.length === 0 && (
-          <div className="py-10 rounded-xl text-center" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px dashed var(--border)' }}>
+          <div className="py-10 rounded-lg text-center" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px dashed var(--border)' }}>
             Нет данных. Проверьте подключение к API.
           </div>
         )}
@@ -330,7 +330,7 @@ export default function ScannerPage() {
           onClick={() => setLevelsModal(null)}
         >
           <div
-            className="rounded-2xl overflow-hidden w-full max-w-lg max-h-[85vh] flex flex-col"
+            className="rounded-lg overflow-hidden w-full max-w-lg max-h-[85vh] flex flex-col"
             style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -339,7 +339,7 @@ export default function ScannerPage() {
               <button
                 type="button"
                 onClick={() => setLevelsModal(null)}
-                className="w-9 h-9 flex items-center justify-center rounded-xl opacity-80 hover:opacity-100 transition-opacity"
+                className="w-9 h-9 flex items-center justify-center rounded-lg opacity-80 hover:opacity-100 transition-opacity"
                 style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
                 aria-label="Закрыть"
               >
@@ -348,16 +348,16 @@ export default function ScannerPage() {
             </div>
             <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                <div className="p-3 rounded-xl" style={{ background: 'var(--accent-dim)', borderLeft: '3px solid var(--accent)' }}>
+                <div className="p-3 rounded-lg" style={{ background: 'var(--accent-dim)', borderLeft: '3px solid var(--accent)' }}>
                   <p className="text-xs font-semibold uppercase tracking-wider mb-0.5" style={sectionTitleStyle}>Цена</p>
                   <p className="font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{formatPrice(levelsModal.data.currentPrice)}</p>
                 </div>
-                <div className="p-3 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
+                <div className="p-3 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
                   <p className="text-xs font-semibold uppercase tracking-wider mb-0.5" style={sectionTitleStyle}>Уровней</p>
                   <p className="font-semibold tabular-nums">{levelsModal.data.levelsCount}</p>
                 </div>
                 {levelsModal.data.nearestLevel && (
-                  <div className="p-3 rounded-xl sm:col-span-1" style={{ background: 'var(--bg-hover)' }}>
+                  <div className="p-3 rounded-lg sm:col-span-1" style={{ background: 'var(--bg-hover)' }}>
                     <p className="text-xs font-semibold uppercase tracking-wider mb-0.5" style={sectionTitleStyle}>Ближайший</p>
                     <p className="text-xs font-medium tabular-nums">
                       {formatLevelPrice(levelsModal.data.nearestLevel.price)} ({levelTypeLabel(levelsModal.data.nearestLevel.type).toLowerCase()})
@@ -366,7 +366,7 @@ export default function ScannerPage() {
                 )}
               </div>
 
-              <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs font-semibold uppercase tracking-wider" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>
@@ -404,7 +404,7 @@ export default function ScannerPage() {
               <button
                 type="button"
                 onClick={() => goToChart(levelsModal.symbol)}
-                className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+                className="w-full py-3 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90"
                 style={{ background: 'var(--accent)', color: 'white' }}
               >
                 Открыть график
@@ -416,7 +416,7 @@ export default function ScannerPage() {
 
       {levelsLoading && (
         <div className="fixed inset-0 z-40 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }}>
-          <div className="px-6 py-3 rounded-xl text-sm font-medium" style={{ background: 'var(--bg-card-solid)', color: 'var(--text-primary)' }}>
+          <div className="px-6 py-3 rounded-lg text-sm font-medium" style={{ background: 'var(--bg-card-solid)', color: 'var(--text-primary)' }}>
             Загрузка уровней…
           </div>
         </div>
@@ -424,14 +424,14 @@ export default function ScannerPage() {
 
       {/* Результаты полного анализа */}
       {analysis.length > 0 && (
-        <section className="rounded-2xl overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+        <section className="rounded-lg overflow-hidden p-6 md:p-8" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
           <h3 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Результаты полного анализа</h3>
           <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Уровни и пробои для топ-5 монет</p>
           <div className="space-y-4">
             {analysis.map((item) => (
               <div
                 key={item.coin?.symbol}
-                className="rounded-xl border p-4 transition-colors hover:border-[var(--border-hover)]"
+                className="rounded-lg border p-4 transition-colors hover:border-[var(--border-hover)]"
                 style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}
               >
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-2">

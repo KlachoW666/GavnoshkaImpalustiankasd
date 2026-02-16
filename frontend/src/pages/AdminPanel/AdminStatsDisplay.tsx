@@ -83,7 +83,7 @@ export default function AdminStatsDisplay() {
 
   if (loading || !config) {
     return (
-      <div className="rounded-xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
+      <div className="rounded-lg border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
         <p style={{ color: 'var(--text-muted)' }}>Загрузка…</p>
       </div>
     );
@@ -91,7 +91,7 @@ export default function AdminStatsDisplay() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
+      <div className="rounded-lg border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
         <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Демо-статистика</h2>
         <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
           Значения на главной и на странице входа растут автоматически от даты запуска (не зависят от визитов пользователей). Здесь задаёте дату старта и прирост в день.
@@ -272,7 +272,7 @@ export default function AdminStatsDisplay() {
           <button
             type="submit"
             disabled={saving}
-            className="px-5 py-2.5 rounded-xl font-medium disabled:opacity-50"
+            className="px-5 py-2.5 rounded-lg font-medium disabled:opacity-50"
             style={{ background: 'var(--accent)', color: 'white' }}
           >
             {saving ? 'Сохранение…' : 'Сохранить'}

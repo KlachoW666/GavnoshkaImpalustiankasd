@@ -94,12 +94,12 @@ export default function AdminPanel() {
               key={t.id}
               onClick={() => setTab(t.id)}
               data-admin-tab={t.id}
-              className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-sm font-medium transition-all ${
-                tab === t.id ? 'text-white shadow' : 'hover:bg-[var(--bg-hover)]'
+              className={`shrink-0 flex items-center gap-2 px-3 py-2 rounded text-sm font-medium transition-all ${
+                tab === t.id ? '' : 'hover:bg-[var(--bg-hover)]'
               }`}
               style={{
-                background: tab === t.id ? 'var(--accent)' : 'transparent',
-                color: tab === t.id ? 'white' : 'var(--text-secondary)'
+                background: tab === t.id ? 'var(--accent-dim)' : 'transparent',
+                color: tab === t.id ? 'var(--accent)' : 'var(--text-secondary)'
               }}
             >
               <span aria-hidden>{t.icon}</span>

@@ -41,7 +41,7 @@ export function RiskDisclaimer({ storageKey = 'default', onAccept }: RiskDisclai
 
   return (
     <div
-      className="rounded-2xl border-2 p-6 mb-6"
+      className="rounded-lg border-2 p-6 mb-6"
       style={{
         borderColor: 'var(--warning)',
         background: 'var(--bg-card-solid)',
@@ -69,7 +69,7 @@ export function RiskDisclaimer({ storageKey = 'default', onAccept }: RiskDisclai
         type="button"
         onClick={handleAccept}
         disabled={!checked}
-        className="px-4 py-2 rounded-xl font-medium disabled:opacity-50"
+        className="px-4 py-2 rounded-lg font-medium disabled:opacity-50"
         style={{ background: 'var(--accent)', color: 'white' }}
       >
         Понял риски

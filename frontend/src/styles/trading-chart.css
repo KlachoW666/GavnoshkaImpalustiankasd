@@ -1,0 +1,189 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   TradingView Chart Customizations
+   Adapted from Bybit design system for CLABX trading platform
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Dark theme — chart background & toolbar ──────────────────────────── */
+.theme-dark:root {
+  --tv-color-platform-background: var(--bg-base, #000);
+  --tv-color-pane-background: var(--bg-base, #000);
+  --tv-color-toolbar-button-text: var(--text-secondary, #ADB1B8);
+  --tv-color-toolbar-button-background-hover: transparent;
+  --tv-color-toolbar-button-text-hover: #fff;
+  --tv-color-toolbar-button-text-active: var(--accent, #FF9C2E);
+  --tv-color-toolbar-button-text-active-hover: var(--accent-hover, #FFC35C);
+  --tv-color-toolbar-toggle-button-background-active: #fff;
+  --tv-color-toolbar-toggle-button-background-active-hover: #fff;
+}
+
+/* ── Light theme — chart background & toolbar ─────────────────────────── */
+.theme-light:root {
+  --tv-color-platform-background: var(--bg-base, #F5F5F5);
+  --tv-color-pane-background: var(--bg-surface, #FFFFFF);
+  --tv-color-toolbar-button-background-hover: transparent;
+  --tv-color-toolbar-button-text: #81858C;
+  --tv-color-toolbar-button-text-hover: #121214;
+  --tv-color-toolbar-button-text-active: var(--accent, #FF9C2E);
+  --tv-color-toolbar-button-text-active-hover: var(--accent-hover, #FFC35C);
+  --tv-color-toolbar-toggle-button-background-active: #81858C;
+  --tv-color-toolbar-toggle-button-background-active-hover: #81858C;
+}
+
+/* ── Tooltips ─────────────────────────────────────────────────────────── */
+.html .common-tooltip__body-EJBD96zX {
+  white-space: pre-line;
+}
+
+.html.theme-dark .common-tooltip__body-EJBD96zX {
+  color: #fff;
+  background-color: var(--bg-card-solid, #161B22);
+  box-shadow: 4px 4px 20px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  border-radius: var(--radius-sm, 6px);
+}
+
+.html.theme-light .common-tooltip__body-EJBD96zX {
+  color: #121214;
+  background-color: #E9EDF2;
+  box-shadow: 4px 4px 20px rgba(18, 18, 20, 0.1);
+  border-radius: var(--radius-sm, 6px);
+}
+
+/* ── Chart dialogs (watchlist, indicators, etc.) ──────────────────────── */
+.bb-tv-wd .main-MQCwyEL_ {
+  margin: 0 0 0 32px;
+}
+
+html.theme-dark .bb-tv-wd.dialog-nnDbXk_L {
+  background-color: var(--bg-card-solid, #161B22);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+}
+html.theme-dark .bb-tv-wd .main-MQCwyEL_ {
+  color: #fff;
+}
+html.theme-dark .bb-tv-wd .bb-tv-wd__title {
+  background: var(--bg-surface, #161B22);
+  color: var(--text-muted, #71757A);
+}
+
+html.theme-light .bb-tv-wd.dialog-nnDbXk_L {
+  background-color: #fff;
+}
+html.theme-light .bb-tv-wd .main-MQCwyEL_ {
+  color: #121214;
+}
+html.theme-light .bb-tv-wd .bb-tv-wd__title {
+  background: #F3F5F7;
+  color: #ADB1B8;
+}
+
+.bb-tv-wd .content-MQCwyEL_ {
+  height: 270px;
+  overflow: auto;
+  padding-top: 0;
+}
+.bb-tv-wd .title-MQCwyEL_ {
+  margin-top: 12px;
+}
+.bb-tv-wd .footer-MQCwyEL_ {
+  display: none;
+}
+.bb-tv-wd .bb-tv-wd__table {
+  font-weight: 400;
+  font-size: 12px;
+}
+.bb-tv-wd .bb-tv-wd__title {
+  position: sticky;
+  top: 0;
+  left: 0;
+}
+.bb-tv-wd__table td {
+  padding: 8px 12px;
+  line-height: 18px;
+}
+.bb-tv-wd__title,
+.bb-tv-wd__row {
+  font-size: 12px;
+}
+
+/* ── Drawing toolbar (dark) ───────────────────────────────────────────── */
+html.theme-dark {
+  .toggleButton-OhcB9eH7 {
+    .container-Wp9adlfh {
+      .background-Wp9adlfh {
+        stroke: #ADB1B8 !important;
+        fill: #ADB1B8 !important;
+      }
+      .arrow-Wp9adlfh {
+        stroke: var(--bg-base, #000) !important;
+      }
+    }
+    &:hover {
+      .container-Wp9adlfh {
+        .background-Wp9adlfh {
+          stroke: #fff !important;
+          fill: #fff !important;
+        }
+        .arrow-Wp9adlfh {
+          stroke: var(--bg-base, #000) !important;
+        }
+      }
+    }
+  }
+
+  .button-KTgbfaP5.accessible-KTgbfaP5.isActive-KTgbfaP5:not(.isTransparent-KTgbfaP5) {
+    .bg-KTgbfaP5 {
+      color: #fff;
+    }
+    .icon-KTgbfaP5 {
+      color: var(--bg-base, #000);
+    }
+  }
+}
+
+/* ── Drawing toolbar (light) ──────────────────────────────────────────── */
+html.theme-light {
+  .toggleButton-OhcB9eH7 {
+    .container-Wp9adlfh {
+      .background-Wp9adlfh {
+        stroke: #ADB1B8 !important;
+        fill: #ADB1B8 !important;
+      }
+      .arrow-Wp9adlfh {
+        stroke: #fff !important;
+      }
+    }
+    &:hover {
+      .container-Wp9adlfh {
+        .background-Wp9adlfh {
+          stroke: #121214 !important;
+          fill: #121214 !important;
+        }
+        .arrow-Wp9adlfh {
+          stroke: #fff !important;
+        }
+      }
+    }
+  }
+
+  .button-KTgbfaP5.accessible-KTgbfaP5.isActive-KTgbfaP5:not(.isTransparent-KTgbfaP5) {
+    .bg-KTgbfaP5 {
+      color: #595D59;
+    }
+    .icon-KTgbfaP5 {
+      color: #fff;
+    }
+  }
+}
+
+.drawingToolbar-BfVZxb4b {
+  overflow: visible;
+}
+.container-Wp9adlfh.mirror-Wp9adlfh {
+  cursor: pointer;
+}
+
+/* ── Chart series title ───────────────────────────────────────────────── */
+.series-l31H9iuA .titleWrapper-l31H9iuA .title-l31H9iuA {
+  font-size: 13px;
+}

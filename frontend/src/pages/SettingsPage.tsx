@@ -171,7 +171,7 @@ export default function SettingsPage() {
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+            className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               activeTab === t.id ? 'text-white' : 'hover:opacity-90'
             }`}
             style={{
@@ -188,7 +188,7 @@ export default function SettingsPage() {
         <button
           type="button"
           onClick={save}
-          className="px-4 py-2 rounded-xl text-sm font-medium"
+          className="px-4 py-2 rounded-lg text-sm font-medium"
           style={{ background: 'var(--success)', color: 'white' }}
         >
           Сохранить
@@ -196,7 +196,7 @@ export default function SettingsPage() {
         <button
           type="button"
           onClick={reset}
-          className="px-4 py-2 rounded-xl text-sm font-medium"
+          className="px-4 py-2 rounded-lg text-sm font-medium"
           style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
         >
           Отмена
@@ -206,13 +206,13 @@ export default function SettingsPage() {
       <div className="space-y-6">
         {activeTab === 'connections' && (
           <>
-            <div className="rounded-2xl p-4 shadow-sm" style={{ ...miniCardStyle, borderLeft: '4px solid var(--warning)' }}>
+            <div className="rounded-lg p-4 shadow-sm" style={{ ...miniCardStyle, borderLeft: '4px solid var(--warning)' }}>
               <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>🔐 Безопасность</p>
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                 Используйте только права «Trading». Отключите «Withdraw» на бирже.
               </p>
             </div>
-            <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+            <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
               <div className="flex items-center gap-3 mb-5">
                 <span className="text-2xl">📈</span>
                 <div>
@@ -230,7 +230,7 @@ export default function SettingsPage() {
                 </label>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="rounded-xl p-3" style={miniCardStyle}>
+                <div className="rounded-lg p-3" style={miniCardStyle}>
                   <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>API Key</label>
                   <input
                     type="password"
@@ -240,7 +240,7 @@ export default function SettingsPage() {
                     className="input-field w-full rounded-lg"
                   />
                 </div>
-                <div className="rounded-xl p-3" style={miniCardStyle}>
+                <div className="rounded-lg p-3" style={miniCardStyle}>
                   <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Secret</label>
                   <input
                     type="password"
@@ -250,7 +250,7 @@ export default function SettingsPage() {
                     className="input-field w-full rounded-lg"
                   />
                 </div>
-                <div className="rounded-xl p-3 sm:col-span-2" style={miniCardStyle}>
+                <div className="rounded-lg p-3 sm:col-span-2" style={miniCardStyle}>
                   <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Passphrase</label>
                   <input
                     type="password"
@@ -260,7 +260,7 @@ export default function SettingsPage() {
                     className="input-field w-full rounded-lg"
                   />
                 </div>
-                <div className="rounded-xl p-3 sm:col-span-2" style={miniCardStyle}>
+                <div className="rounded-lg p-3 sm:col-span-2" style={miniCardStyle}>
                   <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Прокси</label>
                   <input
                     type="text"
@@ -276,7 +276,7 @@ export default function SettingsPage() {
                 <button
                   onClick={checkConnection}
                   disabled={connStatus.okx?.checking}
-                  className="px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
                   style={{ background: 'var(--accent)', color: 'white' }}
                 >
                   {connStatus.okx?.checking ? 'Проверка…' : 'Проверить подключение'}
@@ -284,7 +284,7 @@ export default function SettingsPage() {
                 <button
                   onClick={saveOkxForTrading}
                   disabled={saveOkxStatus.saving}
-                  className="px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
                   style={{ background: 'var(--success)', color: 'white' }}
                 >
                   {saveOkxStatus.saving ? 'Сохранение…' : 'Сохранить для торговли Real'}
@@ -292,7 +292,7 @@ export default function SettingsPage() {
                 <button
                   onClick={testPublicApi}
                   disabled={connStatus.public_okx?.checking}
-                  className="px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
                   style={{ background: 'var(--bg-card-solid)', color: 'var(--text-secondary)' }}
                 >
                   {connStatus.public_okx?.checking ? '…' : 'Тест публичного API'}
@@ -308,7 +308,7 @@ export default function SettingsPage() {
                 <p className={`mt-1 text-sm ${connStatus.public_okx.ok ? 'text-[var(--success)]' : 'text-[var(--warning)]'}`}>Публичный API: {connStatus.public_okx.msg}</p>
               )}
             </section>
-            <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+            <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
               <div className="flex items-center gap-3 mb-3">
                 <span className="text-2xl">📊</span>
                 <div className="flex-1">
@@ -326,7 +326,7 @@ export default function SettingsPage() {
                 </label>
               </div>
             </section>
-            <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+            <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
               <div className="flex items-center gap-3 mb-4">
                 <span className="text-2xl">🔗</span>
                 <div className="flex-1">
@@ -343,7 +343,7 @@ export default function SettingsPage() {
                   <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Включено</span>
                 </label>
               </div>
-              <div className="rounded-xl p-3" style={miniCardStyle}>
+              <div className="rounded-lg p-3" style={miniCardStyle}>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>API Key</label>
                 <input
                   type="text"
@@ -359,7 +359,7 @@ export default function SettingsPage() {
         )}
 
         {activeTab === 'analysis' && (
-          <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+          <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
             <div className="flex items-center gap-3 mb-5">
               <span className="text-2xl">📊</span>
               <div>
@@ -368,7 +368,7 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="rounded-xl p-3" style={miniCardStyle}>
+              <div className="rounded-lg p-3" style={miniCardStyle}>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Таймфрейм</label>
                 <select
                   value={settings.analysis.timeframe}
@@ -383,7 +383,7 @@ export default function SettingsPage() {
                   <option value="1d">1d</option>
                 </select>
               </div>
-              <div className="rounded-xl p-3" style={miniCardStyle}>
+              <div className="rounded-lg p-3" style={miniCardStyle}>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Мин. уверенность (%)</label>
                 <input
                   type="number"
@@ -394,7 +394,7 @@ export default function SettingsPage() {
                   className="input-field w-full rounded-lg"
                 />
               </div>
-              <div className="rounded-xl p-3" style={miniCardStyle}>
+              <div className="rounded-lg p-3" style={miniCardStyle}>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Минимальный R:R</label>
                 <input
                   type="number"
@@ -412,7 +412,7 @@ export default function SettingsPage() {
                 { key: 'orderbookAnalysis' as const, label: 'Анализ стакана ордеров' },
                 { key: 'volumeAnalysis' as const, label: 'Анализ объёма' }
               ].map(({ key, label }) => (
-                <label key={key} className="flex items-center gap-3 py-2 px-3 rounded-xl cursor-pointer" style={miniCardStyle}>
+                <label key={key} className="flex items-center gap-3 py-2 px-3 rounded-lg cursor-pointer" style={miniCardStyle}>
                   <input
                     type="checkbox"
                     checked={settings.analysis[key]}
@@ -428,7 +428,7 @@ export default function SettingsPage() {
 
         {activeTab === 'notifications' && (
           <>
-            <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+            <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
               <div className="flex items-center gap-3 mb-5">
                 <span className="text-2xl">🔔</span>
                 <div>
@@ -437,7 +437,7 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="flex items-center gap-3 py-2 px-3 rounded-xl cursor-pointer" style={miniCardStyle}>
+                <label className="flex items-center gap-3 py-2 px-3 rounded-lg cursor-pointer" style={miniCardStyle}>
                   <input
                     type="checkbox"
                     checked={settings.notifications.desktop}
@@ -455,7 +455,7 @@ export default function SettingsPage() {
                     <button type="button" onClick={() => Notification.requestPermission().catch(() => {})} className="text-xs ml-auto" style={{ color: 'var(--accent)' }}>Разрешить</button>
                   )}
                 </label>
-                <label className="flex items-center gap-3 py-2 px-3 rounded-xl cursor-pointer" style={miniCardStyle}>
+                <label className="flex items-center gap-3 py-2 px-3 rounded-lg cursor-pointer" style={miniCardStyle}>
                   <input
                     type="checkbox"
                     checked={settings.notifications.sound}
@@ -465,7 +465,7 @@ export default function SettingsPage() {
                   <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Звук</span>
                 </label>
               </div>
-              <div className="mt-4 rounded-xl p-3" style={miniCardStyle}>
+              <div className="mt-4 rounded-lg p-3" style={miniCardStyle}>
                 <p className="text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>Типы сигналов</p>
                 <div className="flex gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -478,7 +478,7 @@ export default function SettingsPage() {
                   </label>
                 </div>
               </div>
-              <div className="mt-4 rounded-xl p-3" style={miniCardStyle}>
+              <div className="mt-4 rounded-lg p-3" style={miniCardStyle}>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Мин. уверенность (%)</label>
                 <input
                   type="number"
@@ -490,7 +490,7 @@ export default function SettingsPage() {
                 />
               </div>
             </section>
-            <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+            <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
               <div className="flex items-center gap-3 mb-4">
                 <span className="text-2xl">📱</span>
                 <div>
@@ -513,7 +513,7 @@ export default function SettingsPage() {
                 </label>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="rounded-xl p-3" style={miniCardStyle}>
+                <div className="rounded-lg p-3" style={miniCardStyle}>
                   <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Токен бота</label>
                   <input
                     type="password"
@@ -528,7 +528,7 @@ export default function SettingsPage() {
                     className="input-field w-full rounded-lg"
                   />
                 </div>
-                <div className="rounded-xl p-3" style={miniCardStyle}>
+                <div className="rounded-lg p-3" style={miniCardStyle}>
                   <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Chat ID</label>
                   <input
                     type="text"
@@ -548,7 +548,7 @@ export default function SettingsPage() {
                 <button
                   onClick={testTelegram}
                   disabled={tgTestStatus.testing || !settings.notifications.telegram?.botToken?.trim() || !settings.notifications.telegram?.chatId?.trim()}
-                  className="px-4 py-2 rounded-xl text-sm font-medium disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
                   style={{ background: 'var(--accent)', color: 'white' }}
                 >
                   {tgTestStatus.testing ? 'Отправка…' : 'Отправить тест'}
@@ -562,7 +562,7 @@ export default function SettingsPage() {
         )}
 
         {activeTab === 'display' && (
-          <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+          <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
             <div className="flex items-center gap-3 mb-5">
               <span className="text-2xl">🎨</span>
               <div>
@@ -571,7 +571,7 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="rounded-xl p-3" style={miniCardStyle}>
+              <div className="rounded-lg p-3" style={miniCardStyle}>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Тема</label>
                 <select
                   value={settings.display.theme}
@@ -582,7 +582,7 @@ export default function SettingsPage() {
                   <option value="light">Светлая</option>
                 </select>
               </div>
-              <div className="rounded-xl p-3" style={miniCardStyle}>
+              <div className="rounded-lg p-3" style={miniCardStyle}>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Язык</label>
                 <select
                   value={settings.display.language}
@@ -593,7 +593,7 @@ export default function SettingsPage() {
                   <option value="en">English</option>
                 </select>
               </div>
-              <div className="rounded-xl p-3" style={miniCardStyle}>
+              <div className="rounded-lg p-3" style={miniCardStyle}>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Стиль графика</label>
                 <select
                   value={settings.display.chartStyle}
@@ -605,7 +605,7 @@ export default function SettingsPage() {
                   <option value="line">Линия</option>
                 </select>
               </div>
-              <div className="rounded-xl p-3" style={miniCardStyle}>
+              <div className="rounded-lg p-3" style={miniCardStyle}>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Стиль стакана</label>
                 <select
                   value={settings.display.orderbookStyle}
@@ -622,7 +622,7 @@ export default function SettingsPage() {
         )}
 
         {activeTab === 'risk' && (
-          <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--warning)' }}>
+          <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--warning)' }}>
             <div className="flex items-center gap-3 mb-5">
               <span className="text-2xl">🛡️</span>
               <div>
@@ -631,7 +631,7 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="rounded-xl p-3" style={miniCardStyle}>
+              <div className="rounded-lg p-3" style={miniCardStyle}>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Макс. размер позиции (%)</label>
                 <input
                   type="number"
@@ -642,7 +642,7 @@ export default function SettingsPage() {
                   className="input-field w-full rounded-lg"
                 />
               </div>
-              <div className="rounded-xl p-3" style={miniCardStyle}>
+              <div className="rounded-lg p-3" style={miniCardStyle}>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Стоп-лосс по умолчанию (%)</label>
                 <input
                   type="number"
@@ -653,7 +653,7 @@ export default function SettingsPage() {
                   className="input-field w-full rounded-lg"
                 />
               </div>
-              <div className="rounded-xl p-3" style={miniCardStyle}>
+              <div className="rounded-lg p-3" style={miniCardStyle}>
                 <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Уровни тейк-профита (%)</label>
                 <input
                   type="text"
@@ -663,7 +663,7 @@ export default function SettingsPage() {
                   className="input-field w-full rounded-lg"
                 />
               </div>
-              <div className="rounded-xl p-3 sm:col-span-2 flex items-center gap-4 flex-wrap" style={miniCardStyle}>
+              <div className="rounded-lg p-3 sm:col-span-2 flex items-center gap-4 flex-wrap" style={miniCardStyle}>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"

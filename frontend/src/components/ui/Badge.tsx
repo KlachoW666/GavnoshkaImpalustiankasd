@@ -8,22 +8,22 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   pulse?: boolean;
 }
 
-const variantStyles: Record<BadgeVariant, { bg: string; color: string; border: string }> = {
-  success: { bg: 'var(--success-dim)', color: 'var(--success)', border: 'rgba(14,203,129,0.25)' },
-  danger: { bg: 'var(--danger-dim)', color: 'var(--danger)', border: 'rgba(246,70,93,0.25)' },
-  warning: { bg: 'var(--warning-dim)', color: 'var(--warning)', border: 'rgba(252,213,53,0.25)' },
-  info: { bg: 'var(--info-dim)', color: 'var(--info)', border: 'rgba(30,144,255,0.25)' },
-  long: { bg: 'var(--success-dim)', color: 'var(--success)', border: 'rgba(14,203,129,0.25)' },
-  short: { bg: 'var(--danger-dim)', color: 'var(--danger)', border: 'rgba(246,70,93,0.25)' },
-  neutral: { bg: 'var(--bg-hover-strong)', color: 'var(--text-secondary)', border: 'var(--border)' },
+const variantStyles: Record<BadgeVariant, { bg: string; color: string }> = {
+  success: { bg: 'var(--success-dim)', color: 'var(--success)' },
+  danger: { bg: 'var(--danger-dim)', color: 'var(--danger)' },
+  warning: { bg: 'var(--accent-dim)', color: 'var(--accent)' },
+  info: { bg: 'var(--info-dim)', color: 'var(--info)' },
+  long: { bg: 'var(--success-dim)', color: 'var(--success)' },
+  short: { bg: 'var(--danger-dim)', color: 'var(--danger)' },
+  neutral: { bg: 'var(--bg-hover-strong)', color: 'var(--text-secondary)' },
 };
 
 export function Badge({ variant, dot, pulse, className = '', children, ...rest }: BadgeProps) {
   const s = variantStyles[variant];
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold uppercase tracking-wider ${className}`}
-      style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}` }}
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wider ${className}`}
+      style={{ background: s.bg, color: s.color }}
       {...rest}
     >
       {dot && (

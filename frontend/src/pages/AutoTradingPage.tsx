@@ -963,7 +963,7 @@ export default function AutoTradingPage() {
     return (
       <div className="max-w-2xl mx-auto py-6 px-4">
         <section
-          className="rounded-2xl overflow-hidden"
+          className="rounded-lg overflow-hidden"
           style={{
             background: 'var(--bg-card-solid)',
             border: '1px solid var(--border)',
@@ -973,7 +973,7 @@ export default function AutoTradingPage() {
         >
           <div className="p-6 md:p-8">
             <div className="flex items-start gap-4 mb-6">
-              <span className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{ background: 'var(--warning)', color: 'white', opacity: 0.9 }}>🔑</span>
+              <span className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl shrink-0" style={{ background: 'var(--warning)', color: 'white', opacity: 0.9 }}>🔑</span>
               <div>
                 <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Нужны API ключи OKX</h2>
                 <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -985,14 +985,14 @@ export default function AutoTradingPage() {
               <p className="leading-relaxed">
                 Укажите API ключи OKX в разделе <strong>Настройки → Подключения</strong>. Ключи нужны для отображения баланса и (по желанию) исполнения ордеров.
               </p>
-              <div className="rounded-xl p-5 space-y-3" style={{ background: 'var(--bg-hover)', borderLeft: '4px solid var(--accent)' }}>
+              <div className="rounded-lg p-5 space-y-3" style={{ background: 'var(--bg-hover)', borderLeft: '4px solid var(--accent)' }}>
                 <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Нет аккаунта OKX?</p>
                 <p className="leading-relaxed">Зарегистрируйтесь по ссылке, создайте API ключи (OKX → API → Trading) и введите их в Настройках.</p>
-                <a href={OKX_AFFILIATE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium" style={{ background: 'var(--accent)', color: 'white' }}>
+                <a href={OKX_AFFILIATE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: 'white' }}>
                   Зарегистрироваться на OKX
                 </a>
               </div>
-              <div className="rounded-xl p-5 space-y-2" style={{ background: 'var(--bg-hover)' }}>
+              <div className="rounded-lg p-5 space-y-2" style={{ background: 'var(--bg-hover)' }}>
                 <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Как ввести ключи</p>
                 <ol className="list-decimal list-inside space-y-1.5 pl-1 text-sm">
                   <li>Настройки → Подключения → блок OKX.</li>
@@ -1002,7 +1002,7 @@ export default function AutoTradingPage() {
               </div>
             </div>
             <div className="mt-6">
-              <button type="button" onClick={() => navigateTo('settings')} className="px-5 py-2.5 rounded-xl text-sm font-medium" style={{ background: 'var(--accent)', color: 'white' }}>
+              <button type="button" onClick={() => navigateTo('settings')} className="px-5 py-2.5 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: 'white' }}>
                 Перейти в Настройки
               </button>
             </div>
@@ -1022,7 +1022,7 @@ export default function AutoTradingPage() {
       <Card variant="glass" padding="normal">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 ${enabled ? 'animate-pulse-glow' : ''}`} style={{ background: 'var(--accent-dim)' }}>
+            <div className={`w-14 h-14 rounded-lg flex items-center justify-center shrink-0 ${enabled ? 'animate-pulse-glow' : ''}`} style={{ background: 'var(--accent-dim)' }}>
               <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} style={{ color: 'var(--accent)' }}>
                 <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -1078,16 +1078,16 @@ export default function AutoTradingPage() {
           </Badge>
             {enabled && status === 'running' && settings.fullAuto && (
               <>
-                <span className="text-xs px-4 py-2 rounded-xl" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
+                <span className="text-xs px-4 py-2 rounded-lg" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
                   Ожидание сигнала ≥{FULL_AUTO_DEFAULTS.minConfidence}% · цикл каждые {FULL_AUTO_DEFAULTS.intervalMs >= 60000 ? `${FULL_AUTO_DEFAULTS.intervalMs / 60000} мин` : `${FULL_AUTO_DEFAULTS.intervalMs / 1000} сек`}
                 </span>
                 {cycleTimer && (
-                  <span className="text-xs px-4 py-2 rounded-xl tabular-nums font-medium" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }} title="Время последнего цикла анализа и до следующего">
+                  <span className="text-xs px-4 py-2 rounded-lg tabular-nums font-medium" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }} title="Время последнего цикла анализа и до следующего">
                     Цикл: {Math.max(0, Math.floor((Date.now() - cycleTimer.lastCycleAt) / 1000))} сек назад · След. через {Math.max(0, Math.floor((cycleTimer.intervalMs - (Date.now() - cycleTimer.lastCycleAt) % cycleTimer.intervalMs) / 1000))} сек
                   </span>
                 )}
                 {settings.fullAuto && settings.useScanner !== false && (
-                  <span className="text-xs px-4 py-2 rounded-xl" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }} title="Список из 30 монет: BTC, ETH, SOL, BNB, XRP, ADA, DOGE, ATOM, … По объёму и волатильности отбираем топ-5, по ним строим лучший сигнал.">
+                  <span className="text-xs px-4 py-2 rounded-lg" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }} title="Список из 30 монет: BTC, ETH, SOL, BNB, XRP, ADA, DOGE, ATOM, … По объёму и волатильности отбираем топ-5, по ним строим лучший сигнал.">
                     Сканируем 30 монет → топ-10 по скорингу → лучший сигнал
                   </span>
                 )}
@@ -1103,7 +1103,7 @@ export default function AutoTradingPage() {
         {enabled && settings.executeOrders && lastExecution && (
           <div className="mt-4 pt-4 border-t text-sm" style={{ borderColor: 'var(--border)' }}>
             {(lastExecution.lastAiProb != null || lastExecution.lastExternalAiUsed) && (
-              <div className="mb-3 p-3 rounded-xl" style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)' }}>
+              <div className="mb-3 p-3 rounded-lg" style={{ background: 'var(--accent-dim)', border: '1px solid var(--accent)' }}>
                 <p className="font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Используется AI</p>
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                   Внутренняя ML-оценка (уверенность):{' '}
@@ -1157,7 +1157,7 @@ export default function AutoTradingPage() {
         <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Режим и настройки</h2>
         <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Полный автомат (скринер + исполнение на OKX) или ручной режим: пары, плечо, порог уверенности. Торговля только на реальном счёте.</p>
         <div className="flex flex-wrap items-center gap-4 sm:gap-6 mb-6">
-          <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition hover:border-[var(--accent)]/50 shrink-0" style={{ borderColor: settings.fullAuto ? 'var(--accent)' : 'var(--border)', background: settings.fullAuto ? 'var(--accent-dim)' : 'var(--bg-hover)' }}>
+          <label className="flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition hover:border-[var(--accent)]/50 shrink-0" style={{ borderColor: settings.fullAuto ? 'var(--accent)' : 'var(--border)', background: settings.fullAuto ? 'var(--accent-dim)' : 'var(--bg-hover)' }}>
             <input
               type="checkbox"
               checked={settings.fullAuto}
@@ -1178,7 +1178,7 @@ export default function AutoTradingPage() {
             <span className="font-semibold">Полный автомат</span>
           </label>
           {settings.fullAuto && (
-            <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition hover:border-[var(--accent)]/50 shrink-0" style={{ borderColor: settings.useScanner ? 'var(--accent)' : 'var(--border)', background: settings.useScanner ? 'var(--accent-dim)' : 'var(--bg-card-solid)' }}>
+            <label className="flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition hover:border-[var(--accent)]/50 shrink-0" style={{ borderColor: settings.useScanner ? 'var(--accent)' : 'var(--border)', background: settings.useScanner ? 'var(--accent-dim)' : 'var(--bg-card-solid)' }}>
               <input
                 type="checkbox"
                 checked={settings.useScanner !== false}
@@ -1188,7 +1188,7 @@ export default function AutoTradingPage() {
               <span className="font-medium">Скринер: топ монет по волатильности/объёму</span>
             </label>
           )}
-          <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition hover:border-[var(--accent)]/50 shrink-0" style={{ borderColor: settings.executeOrders ? 'var(--accent)' : 'var(--border)', background: settings.executeOrders ? 'var(--accent-dim)' : 'var(--bg-card-solid)' }}>
+          <label className="flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition hover:border-[var(--accent)]/50 shrink-0" style={{ borderColor: settings.executeOrders ? 'var(--accent)' : 'var(--border)', background: settings.executeOrders ? 'var(--accent-dim)' : 'var(--bg-card-solid)' }}>
             <input
               type="checkbox"
               checked={settings.executeOrders === true}
@@ -1381,12 +1381,12 @@ export default function AutoTradingPage() {
         </div>
         </div>
 
-        <div className="my-6 py-4 px-5 rounded-xl text-sm" style={{ background: 'var(--bg-hover)', borderLeft: '3px solid var(--text-muted)' }}>
+        <div className="my-6 py-4 px-5 rounded-lg text-sm" style={{ background: 'var(--bg-hover)', borderLeft: '3px solid var(--text-muted)' }}>
           <span style={{ color: 'var(--text-muted)' }}>«Принятие риска — фундамент. Правота ≠ прибыль» — Douglas</span>
         </div>
 
         {settings.fullAuto && (
-          <div className="mb-6 p-5 rounded-xl border-2" style={{ borderColor: 'var(--accent)', background: 'var(--accent-dim)' }}>
+          <div className="mb-6 p-5 rounded-lg border-2" style={{ borderColor: 'var(--accent)', background: 'var(--accent-dim)' }}>
             <p className="text-sm font-semibold mb-1" style={{ color: 'var(--accent)' }}>Автоматические настройки</p>
             <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
               Динамический размер (риск 2%) · Плечо {FULL_AUTO_DEFAULTS.leverage}x · Мин. уверенность {FULL_AUTO_DEFAULTS.minConfidence}% · TP/SL из анализа · Макс. {FULL_AUTO_DEFAULTS.maxPositions} позиций{FULL_AUTO_DEFAULTS.maxDailyLossPercent > 0 ? ` · Hard Stop при просадке ${FULL_AUTO_DEFAULTS.maxDailyLossPercent}%` : ''}
@@ -1395,7 +1395,7 @@ export default function AutoTradingPage() {
         )}
 
         {settings.executeOrders && (
-          <div className="mb-6 p-5 rounded-xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
+          <div className="mb-6 p-5 rounded-lg border" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
             <p className={sectionTitleClass} style={sectionTitleStyle}>Позиции и баланс OKX</p>
             <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
               <p className="text-sm font-medium">
@@ -1534,19 +1534,19 @@ export default function AutoTradingPage() {
         {/* Опции и интервал */}
         {!settings.fullAuto && (
         <div className="flex flex-wrap gap-4 mb-6">
-          <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+          <label className="flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
             <input type="checkbox" checked={settings.scalpingMode} onChange={(e) => { const on = e.target.checked; updateSetting('scalpingMode', on); if (on) { updateSetting('intervalMs', SCALPING_PRESET.intervalMs); updateSetting('sizePercent', SCALPING_PRESET.sizePercent); updateSetting('minConfidence', SCALPING_PRESET.minConfidence); updateSetting('autoCloseTp', SCALPING_PRESET.autoCloseTp); updateSetting('autoCloseSl', SCALPING_PRESET.autoCloseSl); updateSetting('tpMultiplier', SCALPING_PRESET.tpMultiplier); updateSetting('cooldownSec', SCALPING_PRESET.cooldownSec); updateSetting('maxPositions', SCALPING_PRESET.maxPositions); } }} className="rounded w-4 h-4 accent-[var(--accent)]" />
             <div><span className="font-medium">Быстрый скальпинг</span><p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>15 сек цикл, TP 1.2%, SL 0.6%, быстрый выход</p></div>
           </label>
-          <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+          <label className="flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
             <input type="checkbox" checked={settings.useSignalSLTP} onChange={(e) => updateSetting('useSignalSLTP', e.target.checked)} className="rounded w-4 h-4 accent-[var(--accent)]" />
             <div><span className="font-medium">SL/TP из сигнала</span><p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Цены из анализа</p></div>
           </label>
-          <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+          <label className="flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
             <input type="checkbox" checked={settings.autoClose} onChange={(e) => updateSetting('autoClose', e.target.checked)} className="rounded w-4 h-4 accent-[var(--accent)]" />
             <div><span className="font-medium">Авто-закрытие %</span><p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>TP/SL в % после 1 мин</p></div>
           </label>
-          <div className="flex items-center gap-3 p-4 rounded-xl border shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+          <div className="flex items-center gap-3 p-4 rounded-lg border shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
             <span className="text-sm font-medium whitespace-nowrap">Trailing Stop</span>
             <input type="range" min={0} max={10} step={0.5} value={settings.trailingStopPercent} onChange={(e) => updateSetting('trailingStopPercent', Math.max(0, parseFloat(e.target.value) || 0))} className="slider-track w-24" />
             <span className="text-sm font-bold tabular-nums w-10">{settings.trailingStopPercent}%</span>
@@ -1618,40 +1618,40 @@ export default function AutoTradingPage() {
           </p>
           <div className="grid grid-cols-2 gap-3">
             {settings.executeOrders && okxData && !okxData.balanceError && (
-              <div className="p-4 rounded-xl" style={{ background: 'var(--accent-dim)', borderLeft: '3px solid var(--accent)' }}>
+              <div className="p-4 rounded-lg" style={{ background: 'var(--accent-dim)', borderLeft: '3px solid var(--accent)' }}>
                 <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Баланс OKX (реальный счёт)</p>
                 <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>${(okxData.balance ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</p>
               </div>
             )}
             {!settings.fullAuto && !token && (
-              <div className="p-4 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
+              <div className="p-4 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
                 <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Локальный баланс (демо)</p>
                 <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>${balance.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</p>
               </div>
             )}
-            <div className="p-4 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
+            <div className="p-4 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
               <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>P&L</p>
               <p className={`text-xl font-bold tabular-nums ${totalPnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
                 {totalPnl >= 0 ? '+' : ''}${totalPnl.toLocaleString('ru-RU', { minimumFractionDigits: 2 })} <span className="text-base">({totalPnlPercent >= 0 ? '+' : ''}{totalPnlPercent.toFixed(2)}%)</span>
               </p>
             </div>
-            <div className="p-3 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
+            <div className="p-3 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
               <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Сделок / Win Rate</p>
               <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{totalTrades} / {winRate.toFixed(0)}%</p>
             </div>
-            <div className="p-3 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
+            <div className="p-3 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
               <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Profit Factor</p>
               <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{profitFactor.toFixed(2)}</p>
             </div>
-            <div className="p-3 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
+            <div className="p-3 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
               <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Средний доход</p>
               <p className="font-semibold text-[var(--success)]">+${avgWin.toFixed(2)}</p>
             </div>
-            <div className="p-3 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
+            <div className="p-3 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
               <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Средний убыток</p>
               <p className="font-semibold text-[var(--danger)]">-${avgLoss.toFixed(2)}</p>
             </div>
-            <div className="col-span-2 p-3 rounded-xl flex justify-between items-center" style={{ background: 'var(--bg-hover)' }}>
+            <div className="col-span-2 p-3 rounded-lg flex justify-between items-center" style={{ background: 'var(--bg-hover)' }}>
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Лучшая / Худшая</span>
               <span className="text-sm font-medium">
                 <span className="text-[var(--success)]">+${bestTrade.toFixed(2)}</span>
@@ -1667,7 +1667,7 @@ export default function AutoTradingPage() {
           <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>Последний пришедший сигнал по выбранным парам или из скринера</p>
           {lastSignal ? (
             <div className="space-y-4">
-              <div className="rounded-xl border p-5" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+              <div className="rounded-lg border p-5" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
                 <p className="font-medium text-lg mb-2">{lastSignal.symbol} {lastSignal.direction}</p>
                 <p className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Вход: {lastSignal.entry_price?.toLocaleString('ru-RU')} | Уверенность: {((lastSignal.confidence ?? 0) * 100).toFixed(0)}%</p>
                 {((lastSignal.confidence ?? 0) * 100) < settings.minConfidence && (

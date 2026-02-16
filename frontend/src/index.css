@@ -3,73 +3,121 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   CLABX — Modern Dark Crypto Trading UI
-   Binance/Bybit-inspired design system with glassmorphism
+   CLABX — Bybit-inspired Crypto Trading UI
+   BDS (Bybit Design System) tokens + CLABX glassmorphism
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @layer base {
   :root {
-    /* Base backgrounds — deep Binance-style blacks */
-    --bg-base: #0B0E11;
-    --bg-surface: #161B22;
-    --bg-topbar: #0D1117;
-    --bg-elevated: rgba(22, 27, 34, 0.85);
-    --bg-card: rgba(22, 27, 34, 0.7);
-    --bg-card-solid: #161B22;
-    --bg-hover: rgba(255, 255, 255, 0.04);
-    --bg-hover-strong: rgba(255, 255, 255, 0.08);
-    --bg-sidebar: #0D1117;
+    /* ── Base backgrounds — Bybit dark palette ───────────────────────── */
+    --bg-base: #000;
+    --bg-surface: #101014;
+    --bg-topbar: #101014;
+    --bg-elevated: rgba(16, 16, 20, 0.92);
+    --bg-card: rgba(22, 23, 26, 0.85);
+    --bg-card-solid: #16171A;
+    --bg-hover: rgba(192, 210, 231, 0.06);
+    --bg-hover-strong: rgba(192, 210, 231, 0.12);
+    --bg-sidebar: #101014;
 
-    /* Accent — professional crypto green */
-    --accent: #2ECC71;
-    --accent-dark: #27AE60;
-    --accent-gradient: linear-gradient(135deg, #2ECC71 0%, #27AE60 100%);
-    --accent-dim: rgba(46, 204, 113, 0.12);
-    --accent-hover: #3DDB80;
-    --accent-glow: rgba(46, 204, 113, 0.25);
+    /* ── Accent — Bybit gold ─────────────────────────────────────────── */
+    --accent: #FF9C2E;
+    --accent-dark: #F0960E;
+    --accent-gradient: linear-gradient(90deg, #FFD748 0%, #F7A600 100%);
+    --accent-dim: rgba(255, 156, 46, 0.16);
+    --accent-hover: #FFC35C;
+    --accent-glow: rgba(255, 156, 46, 0.25);
 
-    /* Buttons */
-    --btn-primary: linear-gradient(135deg, #2ECC71 0%, #27AE60 100%);
+    /* ── Buttons ─────────────────────────────────────────────────────── */
+    --btn-primary: #FF9C2E;
 
-    /* Semantic colors — trading */
-    --success: #0ECB81;
-    --success-dim: rgba(14, 203, 129, 0.12);
-    --danger: #F6465D;
-    --danger-dim: rgba(246, 70, 93, 0.12);
+    /* ── Semantic colors — Bybit trading ──────────────────────────────── */
+    --success: #20B26C;
+    --success-dim: rgba(32, 178, 108, 0.16);
+    --danger: #EF454A;
+    --danger-dim: rgba(239, 69, 74, 0.16);
     --warning: #FCD535;
     --warning-dim: rgba(252, 213, 53, 0.12);
     --info: #1E90FF;
     --info-dim: rgba(30, 144, 255, 0.12);
-    --chart-line: #0ECB81;
+    --chart-line: #20B26C;
 
-    /* Text — high contrast hierarchy */
-    --text-primary: #EAECEF;
-    --text-secondary: rgba(234, 236, 239, 0.7);
-    --text-muted: rgba(234, 236, 239, 0.4);
-    --text-inverse: #0B0E11;
+    /* ── Text — Bybit hierarchy ──────────────────────────────────────── */
+    --text-primary: #fff;
+    --text-secondary: #ADB1B8;
+    --text-muted: #71757A;
+    --text-inverse: #121214;
 
-    /* Borders — subtle separators */
-    --border: rgba(255, 255, 255, 0.06);
-    --border-hover: rgba(255, 255, 255, 0.12);
-    --border-accent: rgba(46, 204, 113, 0.3);
-    --border-input: 1px solid rgba(255, 255, 255, 0.1);
+    /* ── Borders — Bybit separators ──────────────────────────────────── */
+    --border: #25282C;
+    --border-hover: #404347;
+    --border-accent: rgba(255, 156, 46, 0.3);
+    --border-input: 1px solid #404347;
 
-    /* Shadows — layered depth */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-    --shadow-glow: 0 0 20px rgba(46, 204, 113, 0.15);
-    --shadow-glow-danger: 0 0 20px rgba(246, 70, 93, 0.15);
+    /* ── Shadows ─────────────────────────────────────────────────────── */
+    --shadow-sm: 0 0 4px 0 rgba(18, 18, 20, 0.1);
+    --shadow-md: 0 0 12px 0 rgba(18, 18, 20, 0.15);
+    --shadow-lg: 0 0 24px 0 rgba(18, 18, 20, 0.2);
+    --shadow-glow: 0 0 20px rgba(255, 156, 46, 0.15);
+    --shadow-glow-danger: 0 0 20px rgba(239, 69, 74, 0.15);
 
-    /* Radii */
-    --radius-sm: 6px;
-    --radius: 8px;
-    --radius-md: 10px;
-    --radius-lg: 12px;
-    --radius-xl: 16px;
-    --radius-2xl: 20px;
+    /* ── Radii — Bybit compact ───────────────────────────────────────── */
+    --radius-sm: 4px;
+    --radius: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 8px;
+    --radius-2xl: 12px;
 
-    /* Aliases for backward compatibility */
+    /* ═════════════════════════════════════════════════════════════════
+       BDS — Bybit Design System tokens
+       ═════════════════════════════════════════════════════════════════ */
+    --bds-static-black: #121214;
+    --bds-static-white: #fff;
+    --bds-font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu;
+
+    --bds-green-normal: #20B26C;
+    --bds-green-hover: #41BF7E;
+    --bds-green-pressed: #00944F;
+    --bds-green-bg: rgba(32, 178, 108, 0.16);
+    --bds-red-normal: #EF454A;
+    --bds-red-hover: #FC7272;
+    --bds-red-pressed: #CC3939;
+    --bds-red-bg: rgba(239, 69, 74, 0.16);
+
+    --bds-brand-normal: #FF9C2E;
+    --bds-brand-hover: #FFC35C;
+    --bds-brand-pressed: #F0960E;
+    --bds-brand-text: #FF9C2E;
+    --bds-brand-bg: rgba(247, 166, 0, 0.16);
+
+    --bds-gray-t1: #fff;
+    --bds-gray-t2: #ADB1B8;
+    --bds-gray-t3: #71757A;
+    --bds-gray-t4: #595D61;
+    --bds-gray-border: #404347;
+    --bds-gray-line: #25282C;
+    --bds-gray-edge: #1E2023;
+    --bds-gray-page: #000;
+    --bds-gray-area: #101014;
+    --bds-gray-card: #16171A;
+    --bds-gray-float: #333537;
+
+    --bds-trans-mask: rgba(1, 3, 5, 0.8);
+    --bds-trans-hover: rgba(192, 210, 231, 0.12);
+
+    --bds-gradient-brand: linear-gradient(90deg, #FFD748 0%, #F7A600 100%);
+    --bds-gradient-ruby: linear-gradient(90deg, #FC7272 0%, #F03339 100%);
+    --bds-gradient-reddish: linear-gradient(90deg, #F90 0%, #FF6A59 100%);
+
+    --bds-shadow-l1: 0 0 4px 0 rgba(18, 18, 20, 10%);
+    --bds-shadow-l2: 0 0 24px 0 rgba(18, 18, 20, 10%);
+
+    --bds-halo-brand: 0 0 0 5px var(--bds-brand-bg);
+    --bds-halo-green: 0 0 0 5px var(--bds-green-bg);
+    --bds-halo-red: 0 0 0 5px var(--bds-red-bg);
+
+    /* ── Aliases for backward compatibility ──────────────────────────── */
     --primary: var(--accent);
     --link-color: var(--accent);
     --text-section: var(--text-muted);
@@ -78,53 +126,69 @@
     --danger-light: var(--danger);
     --gradient-button: var(--btn-primary);
     --gradient-cyan: var(--btn-primary);
-    --gradient-green: linear-gradient(135deg, #0ECB81 0%, #02A566 100%);
-    --gradient-magenta: linear-gradient(135deg, #F6465D 0%, #CF304A 100%);
+    --gradient-green: linear-gradient(135deg, #20B26C 0%, #00944F 100%);
+    --gradient-magenta: linear-gradient(135deg, #EF454A 0%, #CC3939 100%);
     --bg-modal: var(--bg-card-solid);
     --bg-card-hover: var(--bg-hover);
     --glow-primary-soft: var(--shadow-glow);
   }
 
-  /* Light theme */
+  /* ── Light theme ────────────────────────────────────────────────────── */
   :root[data-theme='light'] {
-    --bg-base: #F5F5F5;
+    --bg-base: #F5F7FA;
     --bg-surface: #FFFFFF;
     --bg-topbar: #FFFFFF;
-    --bg-elevated: rgba(255, 255, 255, 0.9);
-    --bg-card: rgba(255, 255, 255, 0.8);
+    --bg-elevated: rgba(255, 255, 255, 0.95);
+    --bg-card: rgba(255, 255, 255, 0.9);
     --bg-card-solid: #FFFFFF;
-    --bg-hover: rgba(0, 0, 0, 0.03);
-    --bg-hover-strong: rgba(0, 0, 0, 0.06);
+    --bg-hover: rgba(56, 68, 82, 0.06);
+    --bg-hover-strong: rgba(56, 68, 82, 0.1);
     --bg-sidebar: #FFFFFF;
 
-    --accent: #27AE60;
-    --accent-dark: #1E8449;
-    --accent-gradient: linear-gradient(135deg, #2ECC71 0%, #27AE60 100%);
-    --accent-dim: rgba(39, 174, 96, 0.1);
-    --accent-hover: #2ECC71;
-    --accent-glow: rgba(39, 174, 96, 0.15);
+    --accent: #FF9C2E;
+    --accent-dark: #F0960E;
+    --accent-dim: rgba(247, 166, 0, 0.12);
+    --accent-hover: #FFC35C;
+    --accent-glow: rgba(247, 166, 0, 0.15);
 
-    --btn-primary: linear-gradient(135deg, #2ECC71 0%, #27AE60 100%);
+    --btn-primary: #FF9C2E;
 
-    --success: #0ECB81;
-    --success-dim: rgba(14, 203, 129, 0.1);
-    --danger: #F6465D;
-    --danger-dim: rgba(246, 70, 93, 0.08);
+    --success: #20B26C;
+    --success-dim: rgba(32, 178, 108, 0.12);
+    --danger: #EF454A;
+    --danger-dim: rgba(239, 69, 74, 0.1);
     --warning: #F0B90B;
-    --chart-line: #0ECB81;
+    --chart-line: #20B26C;
 
-    --text-primary: #1E2329;
-    --text-secondary: rgba(30, 35, 41, 0.7);
-    --text-muted: rgba(30, 35, 41, 0.45);
+    --text-primary: #121214;
+    --text-secondary: #81858C;
+    --text-muted: #ADB1B8;
     --text-inverse: #FFFFFF;
 
-    --border: rgba(0, 0, 0, 0.06);
-    --border-hover: rgba(0, 0, 0, 0.12);
+    --border: #E9EDF2;
+    --border-hover: #D5DAE0;
 
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+    --shadow-sm: 0 0 4px rgba(18, 18, 20, 0.06);
+    --shadow-md: 0 0 12px rgba(18, 18, 20, 0.08);
+    --shadow-lg: 0 0 24px rgba(18, 18, 20, 0.1);
     --shadow-glow: none;
+
+    --bds-gray-t1: #121214;
+    --bds-gray-t2: #81858C;
+    --bds-gray-t3: #ADB1B8;
+    --bds-gray-t4: #D5DAE0;
+    --bds-gray-border: #E9EDF2;
+    --bds-gray-line: #F3F5F7;
+    --bds-gray-edge: #F9FAFB;
+    --bds-gray-page: #F5F7FA;
+    --bds-gray-area: #fff;
+    --bds-gray-card: #fff;
+    --bds-gray-float: #fff;
+    --bds-trans-mask: rgba(56, 58, 61, 0.6);
+    --bds-trans-hover: rgba(56, 68, 82, 0.06);
+    --bds-green-bg: rgba(32, 178, 108, 0.12);
+    --bds-red-bg: rgba(239, 69, 74, 0.12);
+    --bds-brand-bg: rgba(247, 166, 0, 0.12);
   }
 
   #root {
@@ -148,108 +212,100 @@
     box-sizing: border-box;
   }
 
-  /* Tabular nums for all numeric data */
   .tabular-nums { font-variant-numeric: tabular-nums; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Components
+   Components — Bybit style + CLABX glassmorphism
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @layer components {
 
-  /* ── Glass effect ────────────────────────────────────────────────────── */
+  /* ── Glass effect (CLABX signature) ────────────────────────────────── */
   .glass {
-    background: rgba(22, 27, 34, 0.6);
+    background: rgba(16, 16, 20, 0.65);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border);
   }
 
   /* ── Cards ───────────────────────────────────────────────────────────── */
   .card {
-    background: var(--bg-card);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: var(--bg-card-solid);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
-    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    transition: border-color 0.15s;
   }
   .card:hover {
     border-color: var(--border-hover);
-    box-shadow: var(--shadow-md);
   }
 
   .card-highlight {
     border-left: 3px solid var(--accent);
-    background: linear-gradient(90deg, rgba(46, 204, 113, 0.06) 0%, transparent 40%);
+    background: linear-gradient(90deg, rgba(255, 156, 46, 0.06) 0%, transparent 40%);
   }
   .card-danger {
     border-left: 3px solid var(--danger);
-    background: linear-gradient(90deg, rgba(246, 70, 93, 0.06) 0%, transparent 40%);
+    background: linear-gradient(90deg, rgba(239, 69, 74, 0.06) 0%, transparent 40%);
   }
 
   .card-glass {
-    background: rgba(22, 27, 34, 0.5);
+    background: rgba(16, 16, 20, 0.55);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    @apply p-6;
+    @apply p-5;
   }
 
   .panel {
-    background: var(--bg-card);
-    backdrop-filter: blur(8px);
+    background: var(--bg-card-solid);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.15s;
   }
   .panel:hover {
     border-color: var(--border-hover);
-    box-shadow: var(--shadow-md);
   }
 
-  /* ── Buttons ─────────────────────────────────────────────────────────── */
+  /* ── Buttons — Bybit solid style ────────────────────────────────────── */
   .btn-primary {
     background: var(--btn-primary);
     color: var(--text-inverse);
-    @apply font-semibold px-5 py-2.5 rounded-lg transition-all duration-200;
+    @apply font-semibold px-5 py-2.5 transition-all duration-150;
     border: none;
-    box-shadow: 0 2px 8px rgba(46, 204, 113, 0.3);
+    border-radius: var(--radius);
   }
   .btn-primary:hover:not(:disabled) {
-    filter: brightness(1.12);
-    box-shadow: 0 4px 16px rgba(46, 204, 113, 0.4);
-    transform: translateY(-1px);
+    background: var(--accent-hover);
   }
   .btn-primary:active:not(:disabled) {
-    transform: translateY(0);
+    background: var(--accent-dark);
   }
   .btn-primary:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
   }
 
   .btn-secondary {
-    background: var(--bg-hover-strong);
+    background: transparent;
     color: var(--text-secondary);
-    border: 1px solid var(--border);
-    @apply font-medium px-4 py-2 rounded-lg transition-all duration-200;
+    border: 1px solid var(--border-hover);
+    @apply font-medium px-4 py-2 transition-all duration-150;
+    border-radius: var(--radius);
   }
   .btn-secondary:hover:not(:disabled) {
-    background: var(--bg-hover-strong);
+    background: var(--bg-hover);
     color: var(--text-primary);
-    border-color: var(--border-hover);
+    border-color: var(--bds-gray-t3);
   }
 
   .btn-ghost {
     background: transparent;
     color: var(--text-secondary);
     border: none;
-    @apply font-medium px-4 py-2 rounded-lg transition-all duration-200;
+    @apply font-medium px-4 py-2 transition-all duration-150;
+    border-radius: var(--radius);
   }
   .btn-ghost:hover:not(:disabled) {
     background: var(--bg-hover);
@@ -257,105 +313,102 @@
   }
 
   .btn-danger {
-    background: linear-gradient(135deg, #F6465D 0%, #CF304A 100%);
+    background: var(--danger);
     color: white;
-    @apply font-semibold px-5 py-2.5 rounded-lg transition-all duration-200;
+    @apply font-semibold px-5 py-2.5 transition-all duration-150;
     border: none;
-    box-shadow: 0 2px 8px rgba(246, 70, 93, 0.3);
+    border-radius: var(--radius);
   }
   .btn-danger:hover:not(:disabled) {
-    filter: brightness(1.12);
-    box-shadow: 0 4px 16px rgba(246, 70, 93, 0.4);
-    transform: translateY(-1px);
+    background: var(--bds-red-hover);
+  }
+  .btn-danger:active:not(:disabled) {
+    background: var(--bds-red-pressed);
   }
 
-  /* ── Badges ──────────────────────────────────────────────────────────── */
+  /* ── Badges — Bybit ─────────────────────────────────────────────────── */
   .badge-long {
     background: var(--success-dim);
     color: var(--success);
-    border: 1px solid rgba(14, 203, 129, 0.25);
-    @apply font-semibold text-xs uppercase tracking-wider px-2.5 py-1 rounded-md;
+    @apply font-semibold text-xs uppercase tracking-wider px-2.5 py-1;
+    border-radius: var(--radius-sm);
   }
   .badge-short {
     background: var(--danger-dim);
     color: var(--danger);
-    border: 1px solid rgba(246, 70, 93, 0.25);
-    @apply font-semibold text-xs uppercase tracking-wider px-2.5 py-1 rounded-md;
+    @apply font-semibold text-xs uppercase tracking-wider px-2.5 py-1;
+    border-radius: var(--radius-sm);
   }
 
-  /* ── Inputs ──────────────────────────────────────────────────────────── */
+  /* ── Inputs — Bybit ─────────────────────────────────────────────────── */
   .input-field {
-    background: rgba(11, 14, 17, 0.6);
-    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-hover);
     color: var(--text-primary);
-    @apply w-full px-4 py-2.5 rounded-lg outline-none transition-all duration-200;
+    @apply w-full px-4 py-2.5 outline-none transition-all duration-150;
+    border-radius: var(--radius);
   }
   .input-field:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-dim);
-    background: rgba(11, 14, 17, 0.8);
   }
   .input-field::placeholder {
     color: var(--text-muted);
   }
 
-  /* ── Slider ──────────────────────────────────────────────────────────── */
+  /* ── Slider — Bybit ─────────────────────────────────────────────────── */
   .slider-track {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
-    height: 6px;
-    background: rgba(255, 255, 255, 0.06);
-    border-radius: 3px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
     outline: none;
   }
   .slider-track::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     background: var(--accent);
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: 0 0 8px var(--accent-glow);
-    transition: transform 0.15s, box-shadow 0.15s;
+    transition: transform 0.15s;
   }
   .slider-track::-webkit-slider-thumb:hover {
     transform: scale(1.15);
-    box-shadow: 0 0 16px var(--accent-glow);
   }
   .slider-track::-moz-range-thumb {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     background: var(--accent);
     border-radius: 50%;
     cursor: pointer;
     border: none;
-    box-shadow: 0 0 8px var(--accent-glow);
   }
 
-  /* ── Tables ──────────────────────────────────────────────────────────── */
+  /* ── Tables — Bybit ─────────────────────────────────────────────────── */
   .table-panel thead tr {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--bg-surface);
   }
   .table-panel th {
-    padding: 0.75rem 1rem;
-    font-weight: 600;
-    font-size: 0.7rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    padding: 8px 12px;
+    font-weight: 500;
+    font-size: 12px;
     color: var(--text-muted);
     border-bottom: 1px solid var(--border);
   }
   .table-panel tbody tr {
     border-bottom: 1px solid var(--border);
-    transition: background 0.15s;
+    transition: background 0.1s;
   }
   .table-panel tbody tr:hover {
     background: var(--bg-hover);
   }
   .table-panel td {
-    padding: 0.75rem 1rem;
-    font-size: 0.875rem;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
     color: var(--text-primary);
   }
   .table-panel .action-link {
@@ -364,56 +417,55 @@
     transition: opacity 0.15s;
   }
   .table-panel .action-link:hover {
-    opacity: 0.85;
-    text-decoration: underline;
+    opacity: 0.8;
   }
 
-  /* ── Navigation ──────────────────────────────────────────────────────── */
+  /* ── Navigation — Bybit horizontal ──────────────────────────────────── */
   .nav-item {
-    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200;
+    @apply flex items-center gap-2 px-3 py-2 text-sm font-medium transition-all duration-150;
     color: var(--text-muted);
+    border-radius: var(--radius);
   }
   .nav-item:hover {
-    color: var(--text-secondary);
+    color: var(--text-primary);
     background: var(--bg-hover);
   }
   .nav-item.active {
     color: var(--accent);
     background: var(--accent-dim);
-    box-shadow: inset 3px 0 0 var(--accent);
   }
 
   .tab-btn {
-    @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200;
+    @apply px-3 py-2 text-sm font-medium transition-all duration-150;
     color: var(--text-muted);
     background: transparent;
+    border-radius: var(--radius);
   }
   .tab-btn:hover {
-    color: var(--text-secondary);
+    color: var(--text-primary);
     background: var(--bg-hover);
   }
   .tab-btn.active {
-    color: var(--text-primary);
-    background: var(--bg-hover-strong);
+    color: var(--accent);
+    background: var(--accent-dim);
   }
 
-  /* ── Section titles ──────────────────────────────────────────────────── */
+  /* ── Section titles ─────────────────────────────────────────────────── */
   .section-title {
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-size: 12px;
+    font-weight: 500;
     color: var(--text-muted);
   }
 
-  /* ── Notification ────────────────────────────────────────────────────── */
+  /* ── Notification badge ─────────────────────────────────────────────── */
   .notification-badge {
-    background: var(--accent);
-    color: var(--text-inverse);
-    @apply rounded-md px-2 py-0.5 text-xs font-semibold;
+    background: var(--danger);
+    color: #fff;
+    @apply px-2 py-0.5 text-xs font-semibold;
+    border-radius: var(--radius-sm);
   }
 
-  /* ── Toast ───────────────────────────────────────────────────────────── */
+  /* ── Toast ──────────────────────────────────────────────────────────── */
   .toast {
     background: var(--bg-card-solid);
     backdrop-filter: blur(12px);
@@ -424,9 +476,9 @@
     animation: toastSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  /* ── Content layout ──────────────────────────────────────────────────── */
+  /* ── Content layout ─────────────────────────────────────────────────── */
   .content-wrap {
-    @apply max-w-6xl mx-auto w-full;
+    @apply max-w-7xl mx-auto w-full;
     padding-left: 1.5rem;
     padding-right: 1.5rem;
   }
@@ -436,12 +488,11 @@
   .content-section h2,
   .content-section h3 {
     @apply mb-4;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
     line-height: 1.4;
   }
   .content-section p {
     line-height: 1.6;
-    letter-spacing: 0.01em;
   }
 }
 
@@ -455,11 +506,11 @@
 }
 
 @keyframes pageIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-page-in {
-  animation: pageIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: pageIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes fadeIn {
@@ -467,15 +518,15 @@
   to { opacity: 1; }
 }
 .animate-fade-in {
-  animation: fadeIn 0.3s ease-out;
+  animation: fadeIn 0.2s ease-out;
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(16px); }
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-slide-up {
-  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes shimmer {
@@ -516,22 +567,24 @@
   display: none;
 }
 
-/* Custom scrollbar for content areas */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bds-gray-t4) transparent;
+}
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
+  background: var(--bds-gray-t4);
+  border-radius: 2px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--bds-gray-t3);
 }
 
-/* Glow effects */
-.glow-success { box-shadow: 0 0 12px rgba(14, 203, 129, 0.3); }
-.glow-danger { box-shadow: 0 0 12px rgba(246, 70, 93, 0.3); }
+.glow-success { box-shadow: 0 0 12px rgba(32, 178, 108, 0.3); }
+.glow-danger { box-shadow: 0 0 12px rgba(239, 69, 74, 0.3); }
 .glow-accent { box-shadow: 0 0 12px var(--accent-glow); }

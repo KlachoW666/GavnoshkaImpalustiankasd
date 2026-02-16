@@ -87,7 +87,7 @@ export default function BacktestPage() {
         Проверка стратегии (RSI + направление свечи) на исторических данных. Метрики: winrate, profit factor, max drawdown.
       </p>
 
-      <section className="rounded-2xl p-6" style={cardStyle}>
+      <section className="rounded-lg p-6" style={cardStyle}>
         <h2 className="text-lg font-semibold mb-4">Параметры</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
@@ -211,7 +211,7 @@ export default function BacktestPage() {
         <button
           onClick={run}
           disabled={loading}
-          className="mt-4 px-6 py-2.5 rounded-xl font-semibold transition disabled:opacity-50"
+          className="mt-4 px-6 py-2.5 rounded-lg font-semibold transition disabled:opacity-50"
           style={{ background: 'var(--accent)', color: 'white' }}
         >
           {loading ? 'Запуск…' : 'Запустить бэктест'}
@@ -221,7 +221,7 @@ export default function BacktestPage() {
       {loading && (
         <div className="space-y-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="rounded-xl p-5 animate-pulse" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+            <div key={i} className="rounded-lg p-5 animate-pulse" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
               <div className="h-4 rounded w-1/3 mb-3" style={{ background: 'var(--bg-hover)' }} />
               <div className="h-3 rounded w-2/3 mb-2" style={{ background: 'var(--bg-hover)' }} />
               <div className="h-3 rounded w-1/2" style={{ background: 'var(--bg-hover)' }} />
@@ -231,13 +231,13 @@ export default function BacktestPage() {
       )}
 
       {error && (
-        <div className="p-4 rounded-xl" style={{ background: 'var(--danger)', color: 'white', opacity: 0.9 }}>
+        <div className="p-4 rounded-lg" style={{ background: 'var(--danger)', color: 'white', opacity: 0.9 }}>
           {error}
         </div>
       )}
 
       {result && (
-        <section className="rounded-2xl p-6" style={cardStyle}>
+        <section className="rounded-lg p-6" style={cardStyle}>
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
             <h2 className="text-lg font-semibold">Результаты: {result.symbol} {result.timeframe}</h2>
             <button
@@ -257,7 +257,7 @@ export default function BacktestPage() {
                 a.click();
                 URL.revokeObjectURL(url);
               }}
-              className="px-4 py-2 rounded-xl text-sm font-medium"
+              className="px-4 py-2 rounded-lg text-sm font-medium"
               style={{ background: 'var(--accent)', color: 'white' }}
             >
               Экспорт CSV
@@ -290,7 +290,7 @@ export default function BacktestPage() {
             Сделок: {result.totalTrades} (плюс: {result.wins}, минус: {result.losses}). Баров: {result.bars}.
           </p>
           {result.trades.length > 0 && (
-            <div className="overflow-x-auto rounded-xl border mt-4" style={{ borderColor: 'var(--border)' }}>
+            <div className="overflow-x-auto rounded-lg border mt-4" style={{ borderColor: 'var(--border)' }}>
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>

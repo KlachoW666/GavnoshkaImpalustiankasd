@@ -112,7 +112,7 @@ export default function TradeHistory({
 
   return (
     <section
-      className="rounded-2xl overflow-hidden p-6 md:p-8"
+      className="rounded-lg overflow-hidden p-6 md:p-8"
       style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}
     >
       <h3
@@ -127,7 +127,7 @@ export default function TradeHistory({
 
       {loading ? (
         <div
-          className="overflow-x-auto rounded-xl border"
+          className="overflow-x-auto rounded-lg border"
           style={{ borderColor: 'var(--border)' }}
         >
           <table className="w-full text-sm">
@@ -159,7 +159,7 @@ export default function TradeHistory({
         </div>
       ) : history.length === 0 ? (
         <div
-          className="py-10 px-4 rounded-xl text-center"
+          className="py-10 px-4 rounded-lg text-center"
           style={{
             background: 'var(--bg-hover)',
             color: 'var(--text-muted)',
@@ -173,7 +173,7 @@ export default function TradeHistory({
         </div>
       ) : (
         <div
-          className="overflow-x-auto rounded-xl border"
+          className="overflow-x-auto rounded-lg border"
           style={{ borderColor: 'var(--border)' }}
         >
           <table className="w-full text-sm">

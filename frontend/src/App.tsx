@@ -98,7 +98,6 @@ function getPageFromUrl(): Page {
   return (candidate as Page) ?? 'dashboard';
 }
 
-/* ── SVG Icon paths ─────────────────────────────────────────────────── */
 const NAV_ICONS: Record<string, string> = {
   dashboard: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4',
   signals: 'M13 10V3L4 14h7v7l9-11h-7z',
@@ -130,7 +129,6 @@ function NavIcon({ name, className }: { name: string; className?: string }) {
   );
 }
 
-/* ── Nav groups ─────────────────────────────────────────────────────── */
 interface NavItem { id: Page; label: string; group: 'trading' | 'analytics' | 'account' }
 
 const ALL_PAGES: NavItem[] = [
@@ -224,7 +222,6 @@ function useSignalToasts() {
 
 const FALLBACK_TABS: Page[] = ['dashboard', 'settings'];
 
-/* ── Loading spinner ────────────────────────────────────────────────── */
 function LoadingSpinner() {
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-base)' }}>
@@ -236,8 +233,78 @@ function LoadingSpinner() {
   );
 }
 
+/* ── Dropdown component for top-nav groups ─────────────────────────── */
+function NavDropdown({
+  label,
+  items,
+  activePage,
+  onSelect,
+  open,
+  onToggle,
+}: {
+  label: string;
+  items: NavItem[];
+  activePage: Page;
+  onSelect: (p: Page) => void;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const hasActive = items.some((i) => i.id === activePage);
+  if (items.length === 0) return null;
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors rounded"
+        style={{ color: hasActive ? 'var(--accent)' : 'var(--text-secondary)' }}
+      >
+        {label}
+        <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={onToggle} />
+          <div
+            className="absolute left-0 top-full mt-1 py-1 min-w-[200px] z-50 animate-fade-in"
+            style={{
+              background: 'var(--bg-card-solid)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-lg)',
+              boxShadow: 'var(--shadow-lg)',
+            }}
+          >
+            {items.map((item) => {
+              const active = activePage === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => { onSelect(item.id); onToggle(); }}
+                  className="w-full px-4 py-2 text-left text-sm flex items-center gap-2.5 transition-colors"
+                  style={{
+                    color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                    background: active ? 'var(--accent-dim)' : 'transparent',
+                  }}
+                  onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                  onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <NavIcon name={item.id} className="w-4 h-4 shrink-0" />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════════════════
-   Main App
+   Main App — Bybit-style horizontal navigation
    ══════════════════════════════════════════════════════════════════════ */
 export default function App() {
   const year = new Date().getFullYear();
@@ -277,7 +344,7 @@ export default function App() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const { toasts, clearAll } = useNotifications();
 
   useSignalToasts();
@@ -335,6 +402,7 @@ export default function App() {
     }
     setPage(p);
     setMobileMenuOpen(false);
+    setOpenDropdown(null);
   };
 
   const navigateToTrader = (userId: string) => {
@@ -388,113 +456,192 @@ export default function App() {
     );
   }
 
-  const sidebarW = sidebarCollapsed ? 'w-[68px]' : 'w-[240px]';
-
   return (
     <NavigationProvider onNavigate={stableNavigateTo} onNavigateToTrader={stableNavigateToTrader}>
-    <div className="min-h-screen flex" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
 
-      {/* ── Desktop Sidebar ─────────────────────────────────────────── */}
-      <aside
-        className={`hidden lg:flex flex-col shrink-0 ${sidebarW} transition-all duration-300 border-r h-screen sticky top-0`}
-        style={{ background: 'var(--bg-sidebar)', borderColor: 'var(--border)' }}
+      {/* ══ Bybit-style Horizontal Top Nav ═══════════════════════════ */}
+      <header
+        className="h-12 shrink-0 flex items-center justify-between px-4 lg:px-6 border-b sticky top-0 z-30"
+        style={{ background: 'var(--bg-topbar)', borderColor: 'var(--border)' }}
       >
-        {/* Logo */}
-        <div className="h-14 flex items-center gap-2.5 px-4 shrink-0 border-b" style={{ borderColor: 'var(--border)' }}>
-          <img src="/logo.svg" alt="CLABX" className="h-7 w-7 object-contain shrink-0" />
-          {!sidebarCollapsed && (
-            <span className="text-base font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>CLABX</span>
-          )}
+        {/* Left: Logo + Nav groups (desktop) */}
+        <div className="flex items-center gap-1">
+          {/* Mobile hamburger */}
           <button
             type="button"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="ml-auto p-1 rounded-md hover:bg-[var(--bg-hover)] transition-colors"
-            style={{ color: 'var(--text-muted)' }}
-            title={sidebarCollapsed ? 'Развернуть' : 'Свернуть'}
+            onClick={() => setMobileMenuOpen(true)}
+            className="lg:hidden p-2 -ml-2 rounded transition-colors hover:bg-[var(--bg-hover)]"
+            style={{ color: 'var(--text-secondary)' }}
+            aria-label="Меню"
           >
-            <svg className={`w-4 h-4 transition-transform ${sidebarCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path d="M11 19l-7-7 7-7M18 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <NavIcon name="menu" className="w-5 h-5" />
           </button>
+
+          {/* Logo */}
+          <div className="flex items-center gap-2 mr-4 cursor-pointer" onClick={() => setPageSafe('dashboard')}>
+            <img src="/logo.svg" alt="CLABX" className="h-6 w-6 object-contain" />
+            <span className="font-bold text-sm tracking-tight hidden sm:block" style={{ color: 'var(--accent)' }}>CLABX</span>
+          </div>
+
+          {/* Desktop dropdown nav groups */}
+          <nav className="hidden lg:flex items-center gap-0.5">
+            {(['trading', 'analytics', 'account'] as const).map((group) => {
+              const items = PAGES.filter((p) => p.group === group);
+              if (items.length === 0) return null;
+              return (
+                <NavDropdown
+                  key={group}
+                  label={GROUP_LABELS[group]}
+                  items={items}
+                  activePage={safePage}
+                  onSelect={setPageSafe}
+                  open={openDropdown === group}
+                  onToggle={() => setOpenDropdown(openDropdown === group ? null : group)}
+                />
+              );
+            })}
+          </nav>
         </div>
 
-        {/* Nav groups */}
-        <nav className="flex-1 overflow-y-auto custom-scrollbar py-3 px-2">
-          {(['trading', 'analytics', 'account'] as const).map((group) => {
-            const items = PAGES.filter((p) => p.group === group);
-            if (items.length === 0) return null;
-            return (
-              <div key={group} className="mb-4">
-                {!sidebarCollapsed && (
-                  <p className="text-[10px] font-semibold uppercase tracking-widest px-3 mb-2" style={{ color: 'var(--text-muted)' }}>
-                    {GROUP_LABELS[group]}
-                  </p>
-                )}
-                {items.map((p) => {
-                  const active = safePage === p.id;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setPageSafe(p.id)}
-                      title={sidebarCollapsed ? p.label : undefined}
-                      className={`w-full flex items-center gap-3 rounded-lg transition-all duration-200 mb-0.5 ${
-                        sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'
-                      } ${
-                        active
-                          ? 'bg-[var(--accent-dim)] text-[var(--accent)]'
-                          : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
-                      }`}
-                    >
-                      <NavIcon name={p.id} className={`shrink-0 ${sidebarCollapsed ? 'w-5 h-5' : 'w-[18px] h-[18px]'}`} />
-                      {!sidebarCollapsed && <span className="text-sm font-medium truncate">{p.label}</span>}
-                      {active && !sidebarCollapsed && (
-                        <span className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: 'var(--accent)' }} />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </nav>
-
-        {/* Sidebar footer — user */}
-        <div className="shrink-0 border-t px-2 py-3" style={{ borderColor: 'var(--border)' }}>
+        {/* Right: Notifications + User */}
+        <div className="flex items-center gap-1">
+          {/* Notifications */}
           <button
             type="button"
-            onClick={() => setPageSafe('profile')}
-            className={`w-full flex items-center gap-2.5 rounded-lg hover:bg-[var(--bg-hover)] transition-colors ${sidebarCollapsed ? 'justify-center p-2' : 'px-3 py-2'}`}
+            onClick={() => { setNotifOpen(!notifOpen); setUserMenuOpen(false); setOpenDropdown(null); }}
+            className="relative p-2 rounded transition-colors hover:bg-[var(--bg-hover)]"
+            aria-label="Уведомления"
           >
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>
-              {(user.username || '?')[0].toUpperCase()}
-            </div>
-            {!sidebarCollapsed && (
-              <div className="min-w-0 text-left">
-                <p className="text-sm font-medium truncate">{user.username}</p>
-                <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>
-                  {user.allowedTabs?.includes('admin') ? 'Администратор' : 'Трейдер'}
-                </p>
-              </div>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} style={{ color: 'var(--text-secondary)' }}>
+              <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {toasts.length > 0 && (
+              <span
+                className="absolute top-1 right-1 min-w-[14px] h-[14px] rounded-full flex items-center justify-center text-[9px] font-bold"
+                style={{ background: 'var(--danger)', color: '#fff' }}
+              >
+                {Math.min(toasts.length, 99)}
+              </span>
             )}
           </button>
-        </div>
-      </aside>
 
-      {/* ── Mobile drawer overlay ────────────────────────────────────── */}
+          {/* User menu */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => { setUserMenuOpen(!userMenuOpen); setNotifOpen(false); setOpenDropdown(null); }}
+              className="flex items-center gap-2 p-1.5 rounded transition-colors hover:bg-[var(--bg-hover)]"
+            >
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>
+                {(user.username || '?')[0].toUpperCase()}
+              </div>
+              <span className="hidden sm:block text-sm font-medium max-w-[100px] truncate" style={{ color: 'var(--text-secondary)' }}>{user.username}</span>
+              <svg className="w-3 h-3 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} style={{ color: 'var(--text-muted)' }}>
+                <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            {userMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                <div
+                  className="absolute right-0 top-full mt-1 py-1 min-w-[180px] z-50 animate-fade-in"
+                  style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)' }}
+                >
+                  <div className="px-4 py-2.5 border-b" style={{ borderColor: 'var(--border)' }}>
+                    <p className="text-sm font-medium truncate">{user.username}</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                      {user.allowedTabs?.includes('admin') ? 'Администратор' : 'Трейдер'}
+                    </p>
+                  </div>
+                  {[
+                    { id: 'profile' as Page, label: 'Профиль', icon: 'profile' },
+                    { id: 'wallet' as Page, label: 'Кошелёк', icon: 'wallet' },
+                    { id: 'settings' as Page, label: 'Настройки', icon: 'settings' },
+                    { id: 'help' as Page, label: 'Помощь', icon: 'help' },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => { setPageSafe(item.id); setUserMenuOpen(false); }}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2.5"
+                    >
+                      <NavIcon name={item.icon} className="w-4 h-4" />
+                      {item.label}
+                    </button>
+                  ))}
+                  <div className="border-t my-1" style={{ borderColor: 'var(--border)' }} />
+                  <button
+                    type="button"
+                    onClick={() => { setUserMenuOpen(false); logout(); }}
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2.5"
+                    style={{ color: 'var(--danger)' }}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    Выйти
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* ── Notifications dropdown ────────────────────────────────────── */}
+      {notifOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+          <div
+            className="fixed right-4 sm:right-6 top-14 w-80 z-50 overflow-hidden animate-fade-in"
+            style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)' }}
+          >
+            <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border)' }}>
+              <span className="font-semibold text-sm">Уведомления</span>
+              {toasts.length > 0 && (
+                <button type="button" onClick={clearAll} className="text-xs font-medium hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
+                  Очистить
+                </button>
+              )}
+            </div>
+            <div className="max-h-72 overflow-y-auto custom-scrollbar">
+              {toasts.length === 0 ? (
+                <div className="px-5 py-8 text-center">
+                  <svg className="w-8 h-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: 'var(--text-muted)' }}>
+                    <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Нет уведомлений</p>
+                </div>
+              ) : (
+                toasts.slice().reverse().map((t) => (
+                  <div
+                    key={t.id}
+                    className="px-4 py-3 border-b hover:bg-[var(--bg-hover)] transition-colors"
+                    style={{ borderColor: 'var(--border)' }}
+                  >
+                    <p className="font-medium text-sm leading-snug">{t.title}</p>
+                    {t.message && <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>{t.message}</p>}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Mobile drawer overlay ──────────────────────────────────────── */}
       {mobileMenuOpen && (
         <>
-          <div className="fixed inset-0 z-40 bg-black/60 lg:hidden animate-fade-in" onClick={() => setMobileMenuOpen(false)} />
+          <div className="fixed inset-0 z-40 lg:hidden animate-fade-in" style={{ background: 'var(--bds-trans-mask)' }} onClick={() => setMobileMenuOpen(false)} />
           <div
             className="fixed top-0 left-0 z-50 w-72 max-w-[85vw] h-full overflow-y-auto lg:hidden animate-slide-up custom-scrollbar"
-            style={{ background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}
+            style={{ background: 'var(--bg-card-solid)', borderRight: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}
           >
-            <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)' }}>
+            <div className="h-12 px-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)' }}>
               <div className="flex items-center gap-2">
-                <img src="/logo.svg" alt="CLABX" className="h-6 w-6" />
-                <span className="font-bold text-sm">CLABX</span>
+                <img src="/logo.svg" alt="CLABX" className="h-5 w-5" />
+                <span className="font-bold text-sm" style={{ color: 'var(--accent)' }}>CLABX</span>
               </div>
-              <button type="button" onClick={() => setMobileMenuOpen(false)} className="p-2 rounded-lg hover:bg-[var(--bg-hover)]" style={{ color: 'var(--text-muted)' }}>
+              <button type="button" onClick={() => setMobileMenuOpen(false)} className="p-2 rounded hover:bg-[var(--bg-hover)]" style={{ color: 'var(--text-muted)' }}>
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -503,8 +650,8 @@ export default function App() {
                 const items = PAGES.filter((p) => p.group === group);
                 if (items.length === 0) return null;
                 return (
-                  <div key={group} className="mb-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-widest px-3 mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                  <div key={group} className="mb-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wider px-3 mb-1 mt-2" style={{ color: 'var(--text-muted)' }}>
                       {GROUP_LABELS[group]}
                     </p>
                     {items.map((p) => {
@@ -514,11 +661,14 @@ export default function App() {
                           key={p.id}
                           type="button"
                           onClick={() => setPageSafe(p.id)}
-                          className={`w-full px-3 py-2.5 rounded-lg text-left text-sm font-medium flex items-center gap-3 min-h-[44px] transition-all duration-200 ${
-                            active ? 'bg-[var(--accent-dim)] text-[var(--accent)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
-                          }`}
+                          className="w-full px-3 py-2.5 text-left text-sm font-medium flex items-center gap-3 min-h-[40px] transition-colors"
+                          style={{
+                            color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                            background: active ? 'var(--accent-dim)' : 'transparent',
+                            borderRadius: 'var(--radius)',
+                          }}
                         >
-                          <NavIcon name={p.id} className="w-5 h-5 shrink-0" />
+                          <NavIcon name={p.id} className="w-[18px] h-[18px] shrink-0" />
                           {p.label}
                         </button>
                       );
@@ -531,228 +681,65 @@ export default function App() {
         </>
       )}
 
-      {/* ── Right content area ──────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-
-        {/* ── Top bar ───────────────────────────────────────────────── */}
-        <header
-          className="h-14 shrink-0 flex items-center justify-between px-4 sm:px-6 border-b sticky top-0 z-30"
-          style={{ background: 'var(--bg-topbar)', borderColor: 'var(--border)' }}
-        >
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
-              style={{ color: 'var(--text-secondary)' }}
-              aria-label="Меню"
-            >
-              <NavIcon name="menu" className="w-5 h-5" />
-            </button>
-            <div className="lg:hidden flex items-center gap-2">
-              <img src="/logo.svg" alt="CLABX" className="h-6 w-6" />
-              <span className="font-bold text-sm">CLABX</span>
-            </div>
-            <h2 className="hidden lg:block text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-              {PAGES.find((p) => p.id === safePage)?.label ?? ''}
-            </h2>
+      {/* ══ Main content ═══════════════════════════════════════════════ */}
+      <main className="flex-1 min-h-0 overflow-auto px-4 sm:px-6 lg:px-8 py-5 pb-24 lg:pb-5">
+        <Suspense fallback={
+          <div className="flex items-center justify-center py-20">
+            <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin-slow" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }} />
           </div>
-
-          <div className="flex items-center gap-1">
-            {/* Notifications */}
-            <button
-              type="button"
-              onClick={() => { setNotifOpen(!notifOpen); setUserMenuOpen(false); }}
-              className="relative p-2 rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
-              aria-label="Уведомления"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} style={{ color: 'var(--text-secondary)' }}>
-                <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              {toasts.length > 0 && (
-                <span
-                  className="absolute top-1 right-1 min-w-[16px] h-[16px] rounded-full flex items-center justify-center text-[10px] font-bold"
-                  style={{ background: 'var(--danger)', color: '#fff' }}
-                >
-                  {Math.min(toasts.length, 99)}
-                </span>
-              )}
-            </button>
-
-            {/* User menu */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => { setUserMenuOpen(!userMenuOpen); setNotifOpen(false); }}
-                className="flex items-center gap-2 p-1.5 rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
-              >
-                <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>
-                  {(user.username || '?')[0].toUpperCase()}
-                </div>
-                <span className="hidden sm:block text-sm font-medium max-w-[100px] truncate" style={{ color: 'var(--text-secondary)' }}>{user.username}</span>
-                <svg className="w-3.5 h-3.5 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} style={{ color: 'var(--text-muted)' }}>
-                  <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-              {userMenuOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
-                  <div
-                    className="absolute right-0 top-full mt-1.5 py-1 min-w-[180px] rounded-xl border z-50 animate-slide-up"
-                    style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}
-                  >
-                    <div className="px-4 py-2.5 border-b" style={{ borderColor: 'var(--border)' }}>
-                      <p className="text-sm font-medium truncate">{user.username}</p>
-                      <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                        {user.allowedTabs?.includes('admin') ? 'Администратор' : 'Трейдер'}
-                      </p>
-                    </div>
-                    {[
-                      { id: 'profile' as Page, label: 'Профиль', icon: 'profile' },
-                      { id: 'wallet' as Page, label: 'Кошелёк', icon: 'wallet' },
-                      { id: 'settings' as Page, label: 'Настройки', icon: 'settings' },
-                      { id: 'help' as Page, label: 'Помощь', icon: 'help' },
-                    ].map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => { setPageSafe(item.id); setUserMenuOpen(false); }}
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2.5"
-                      >
-                        <NavIcon name={item.icon} className="w-4 h-4" />
-                        {item.label}
-                      </button>
-                    ))}
-                    <div className="border-t my-1" style={{ borderColor: 'var(--border)' }} />
-                    <button
-                      type="button"
-                      onClick={() => { setUserMenuOpen(false); logout(); }}
-                      className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2.5"
-                      style={{ color: 'var(--danger)' }}
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                      Выйти
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+        }>
+          <div key={safePage} className="animate-page-in max-w-7xl mx-auto">
+            {safePage === 'dashboard' && <Dashboard />}
+            {safePage === 'signals' && <SignalFeed />}
+            {safePage === 'chart' && <ChartView />}
+            {safePage === 'demo' && <DemoPage />}
+            {safePage === 'autotrade' && <AutoTradingPage />}
+            {safePage === 'scanner' && <ScannerPage />}
+            {safePage === 'pnl' && <PnlCalculatorPage />}
+            {safePage === 'analytics' && <MyAnalyticsPage />}
+            {safePage === 'backtest' && <BacktestPage />}
+            {safePage === 'copy' && <CopyTradingPage />}
+            {safePage === 'social' && <SocialPage />}
+            {safePage === 'trader' && (
+              <TraderProfilePage
+                traderId={getTraderIdFromPath()}
+                onBackToSocial={() => setPageSafe('social')}
+              />
+            )}
+            {safePage === 'settings' && <SettingsPage />}
+            {safePage === 'activate' && <ActivatePage />}
+            {safePage === 'admin' && <AdminPanel />}
+            {safePage === 'profile' && <ProfilePage />}
+            {safePage === 'wallet' && <WalletPage />}
+            {safePage === 'help' && <HelpPage />}
+            {safePage === 'privacy' && <PrivacyPage />}
+            {safePage === 'terms' && <TermsPage />}
           </div>
-        </header>
+        </Suspense>
+      </main>
 
-        {/* Notifications dropdown */}
-        {notifOpen && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
-            <div
-              className="fixed right-4 sm:right-6 top-16 w-80 rounded-xl border z-50 overflow-hidden animate-slide-up"
-              style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-lg)' }}
-            >
-              <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border)' }}>
-                <span className="font-semibold text-sm">Уведомления</span>
-                {toasts.length > 0 && (
-                  <button type="button" onClick={clearAll} className="text-xs font-medium hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
-                    Очистить
-                  </button>
-                )}
-              </div>
-              <div className="max-h-72 overflow-y-auto custom-scrollbar">
-                {toasts.length === 0 ? (
-                  <div className="px-5 py-8 text-center">
-                    <svg className="w-8 h-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: 'var(--text-muted)' }}>
-                      <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Нет уведомлений</p>
-                  </div>
-                ) : (
-                  toasts.slice().reverse().map((t) => (
-                    <div
-                      key={t.id}
-                      className="px-4 py-3 border-b hover:bg-[var(--bg-hover)] transition-colors"
-                      style={{ borderColor: 'var(--border)' }}
-                    >
-                      <p className="font-medium text-sm leading-snug">{t.title}</p>
-                      {t.message && <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>{t.message}</p>}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* ── Main content ──────────────────────────────────────────── */}
-        <main className="flex-1 min-h-0 overflow-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 lg:pb-6">
-          <Suspense fallback={
-            <div className="flex items-center justify-center py-20">
-              <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin-slow" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }} />
-            </div>
-          }>
-            <div key={safePage} className="animate-page-in max-w-7xl mx-auto">
-              {safePage === 'dashboard' && <Dashboard />}
-              {safePage === 'signals' && <SignalFeed />}
-              {safePage === 'chart' && <ChartView />}
-              {safePage === 'demo' && <DemoPage />}
-              {safePage === 'autotrade' && <AutoTradingPage />}
-              {safePage === 'scanner' && <ScannerPage />}
-              {safePage === 'pnl' && <PnlCalculatorPage />}
-              {safePage === 'analytics' && <MyAnalyticsPage />}
-              {safePage === 'backtest' && <BacktestPage />}
-              {safePage === 'copy' && <CopyTradingPage />}
-              {safePage === 'social' && <SocialPage />}
-              {safePage === 'trader' && (
-                <TraderProfilePage
-                  traderId={getTraderIdFromPath()}
-                  onBackToSocial={() => setPageSafe('social')}
-                />
-              )}
-              {safePage === 'settings' && <SettingsPage />}
-              {safePage === 'activate' && <ActivatePage />}
-              {safePage === 'admin' && <AdminPanel />}
-              {safePage === 'profile' && <ProfilePage />}
-              {safePage === 'wallet' && <WalletPage />}
-              {safePage === 'help' && <HelpPage />}
-              {safePage === 'privacy' && <PrivacyPage />}
-              {safePage === 'terms' && <TermsPage />}
-            </div>
-          </Suspense>
-        </main>
-
-        {/* ── Footer ────────────────────────────────────────────────── */}
-        <footer
-          className="hidden lg:block shrink-0 border-t px-6 py-3"
-          style={{ borderColor: 'var(--border)', background: 'var(--bg-sidebar)', color: 'var(--text-muted)' }}
-        >
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[11px]">
-            <p>
-              © {year} <span style={{ color: 'var(--accent)' }}>CLABX</span> — Crypto Trading Platform
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <a href="https://clabx.ru" target="_blank" rel="noreferrer" className="hover:text-[var(--text-secondary)] transition-colors">clabx.ru</a>
-              <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" className="hover:text-[var(--text-secondary)] transition-colors">@clabx_bot</a>
-              <a
-                href="/privacy"
-                onClick={(e) => { e.preventDefault(); setPageSafe('privacy'); }}
-                className="hover:text-[var(--text-secondary)] transition-colors"
-              >
-                Конфиденциальность
-              </a>
-              <a
-                href="/terms"
-                onClick={(e) => { e.preventDefault(); setPageSafe('terms'); }}
-                className="hover:text-[var(--text-secondary)] transition-colors"
-              >
-                Условия
-              </a>
-            </div>
+      {/* ══ Footer ═══════════════════════════════════════════════════ */}
+      <footer
+        className="hidden lg:block shrink-0 border-t px-6 py-2.5"
+        style={{ borderColor: 'var(--border)', background: 'var(--bg-topbar)', color: 'var(--text-muted)' }}
+      >
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[11px]">
+          <p>
+            © {year} <span style={{ color: 'var(--accent)' }}>CLABX</span> — Crypto Trading Platform
+          </p>
+          <div className="flex flex-wrap gap-4">
+            <a href="https://clabx.ru" target="_blank" rel="noreferrer" className="hover:text-[var(--text-secondary)] transition-colors">clabx.ru</a>
+            <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" className="hover:text-[var(--text-secondary)] transition-colors">@clabx_bot</a>
+            <a href="/privacy" onClick={(e) => { e.preventDefault(); setPageSafe('privacy'); }} className="hover:text-[var(--text-secondary)] transition-colors">Конфиденциальность</a>
+            <a href="/terms" onClick={(e) => { e.preventDefault(); setPageSafe('terms'); }} className="hover:text-[var(--text-secondary)] transition-colors">Условия</a>
           </div>
-        </footer>
-      </div>
+        </div>
+      </footer>
 
-      {/* ── Mobile bottom tab bar ───────────────────────────────────── */}
+      {/* ══ Mobile bottom tab bar ═══════════════════════════════════ */}
       <nav
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around h-16 border-t"
-        style={{ background: 'var(--bg-sidebar)', borderColor: 'var(--border)' }}
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around h-14 border-t"
+        style={{ background: 'var(--bg-topbar)', borderColor: 'var(--border)' }}
       >
         {MOBILE_TABS.filter((id) => allowedSet.has(id)).map((id) => {
           const active = safePage === id;
@@ -762,13 +749,13 @@ export default function App() {
               key={id}
               type="button"
               onClick={() => setPageSafe(id)}
-              className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors"
+              className="flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 transition-colors relative"
               style={{ color: active ? 'var(--accent)' : 'var(--text-muted)' }}
             >
               <NavIcon name={id} className="w-5 h-5" />
               <span className="text-[10px] font-medium">{info?.label ?? id}</span>
               {active && (
-                <span className="absolute bottom-1.5 w-4 h-0.5 rounded-full" style={{ background: 'var(--accent)' }} />
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full" style={{ background: 'var(--accent)' }} />
               )}
             </button>
           );
@@ -776,7 +763,7 @@ export default function App() {
         <button
           type="button"
           onClick={() => setMobileMenuOpen(true)}
-          className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors"
+          className="flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 transition-colors"
           style={{ color: 'var(--text-muted)' }}
         >
           <NavIcon name="menu" className="w-5 h-5" />

@@ -113,7 +113,7 @@ export default function Dashboard() {
     return (
       <div className="max-w-lg mx-auto py-12 px-4">
         <Card variant="glass" padding="spacious" className="text-center">
-          <div className="w-16 h-16 mx-auto mb-6 rounded-2xl flex items-center justify-center animate-pulse-glow" style={{ background: 'var(--accent-dim)' }}>
+          <div className="w-14 h-14 mx-auto mb-6 rounded-lg flex items-center justify-center animate-pulse-glow" style={{ background: 'var(--accent-dim)' }}>
             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} style={{ color: 'var(--accent)' }}>
               <path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -131,7 +131,7 @@ export default function Dashboard() {
               'Вставьте ключ во вкладку «Активировать»'
             ].map((text, i) => (
               <div key={i} className="flex items-start gap-3">
-                <span className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: 'var(--accent)', color: '#0B0E11' }}>
+                <span className="shrink-0 w-7 h-7 rounded flex items-center justify-center text-xs font-bold" style={{ background: 'var(--accent)', color: 'var(--text-inverse)' }}>
                   {i + 1}
                 </span>
                 <p className="text-sm pt-1" style={{ color: 'var(--text-muted)' }}>{text}</p>
@@ -143,7 +143,7 @@ export default function Dashboard() {
             href="https://t.me/clabx_bot"
             target="_blank"
             rel="noreferrer"
-            className="btn-primary inline-flex items-center gap-2 text-base px-8 py-3 rounded-xl"
+            className="btn-primary inline-flex items-center gap-2 text-base px-8 py-3"
           >
             @clabx_bot — приобрести ключ
           </a>
@@ -172,7 +172,7 @@ export default function Dashboard() {
             {/* Volume */}
             <Card variant="glass" padding="normal" className="col-span-2 lg:col-span-1">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--accent-dim)' }}>
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--accent-dim)' }}>
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} style={{ color: 'var(--accent)' }}>
                     <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 10v1m9-9a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -272,7 +272,7 @@ export default function Dashboard() {
             { n: 3, title: 'Скринер и Авто', desc: 'Топ монет в «Скринер», автоматические сделки в «Авто-трейд».' },
           ].map((s) => (
             <div key={s.n} className="flex gap-3">
-              <span className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold" style={{ background: 'var(--accent)', color: '#0B0E11' }}>
+              <span className="shrink-0 w-8 h-8 rounded flex items-center justify-center text-sm font-bold" style={{ background: 'var(--accent)', color: 'var(--text-inverse)' }}>
                 {s.n}
               </span>
               <div>

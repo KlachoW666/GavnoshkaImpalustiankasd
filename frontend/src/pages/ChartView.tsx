@@ -231,29 +231,29 @@ export default function ChartView() {
     if (!chartRef.current) return;
     const el = chartRef.current;
     const chart = createChart(el, {
-      layout: { background: { color: '#0B0E11' }, textColor: 'rgba(234,236,239,0.5)' },
-      grid: { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
-      rightPriceScale: { scaleMargins: { top: 0.05, bottom: 0.15 }, borderColor: 'rgba(255,255,255,0.06)' },
+      layout: { background: { color: '#000' }, textColor: '#71757A' },
+      grid: { vertLines: { color: '#1E2023' }, horzLines: { color: '#1E2023' } },
+      rightPriceScale: { scaleMargins: { top: 0.05, bottom: 0.15 }, borderColor: '#25282C' },
       timeScale: {
         visible: true,
         rightOffset: 12,
         timeVisible: true,
-        borderColor: 'rgba(255,255,255,0.06)'
+        borderColor: '#25282C'
       },
-      crosshair: { vertLine: { color: 'rgba(46,204,113,0.2)' }, horzLine: { color: 'rgba(46,204,113,0.2)' } },
+      crosshair: { vertLine: { color: 'rgba(255,156,46,0.2)' }, horzLine: { color: 'rgba(255,156,46,0.2)' } },
       handleScale: { axisPressedMouseMove: true, pinch: true },
       handleScroll: { vertTouchDrag: true, horzTouchDrag: true }
     });
     const isLine = chartStyle === 'line';
     const series = isLine
-      ? chart.addLineSeries({ color: '#2ECC71', lineWidth: 2 })
+      ? chart.addLineSeries({ color: '#FF9C2E', lineWidth: 2 })
       : chart.addCandlestickSeries({
-          upColor: '#0ECB81',
-          downColor: '#F6465D',
-          borderUpColor: '#0ECB81',
-          borderDownColor: '#F6465D',
-          wickUpColor: '#0ECB81',
-          wickDownColor: '#F6465D'
+          upColor: '#20B26C',
+          downColor: '#EF454A',
+          borderUpColor: '#20B26C',
+          borderDownColor: '#EF454A',
+          wickUpColor: '#20B26C',
+          wickDownColor: '#EF454A'
         });
     if (!isLine) series.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.15 } });
     const volumeSeries = chart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' });
@@ -539,7 +539,7 @@ export default function ChartView() {
   return (
     <div className="flex flex-col gap-3">
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 shrink-0 rounded-xl p-3 glass border" style={{ borderColor: 'var(--border)' }}>
+      <div className="flex flex-wrap items-center justify-between gap-3 shrink-0 rounded-lg p-3 glass border" style={{ borderColor: 'var(--border)' }}>
         <div className="flex items-center gap-3">
           <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} style={{ color: 'var(--accent)' }}>
             <path d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16" strokeLinecap="round" strokeLinejoin="round" />
@@ -672,7 +672,7 @@ export default function ChartView() {
 
       <div className="w-full lg:w-72 space-y-4 shrink-0 flex flex-col">
         <div
-          className="rounded-xl p-4 shrink-0"
+          className="rounded-lg p-4 shrink-0"
           style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}
         >
           <div className="flex justify-between items-center mb-3">
@@ -717,7 +717,7 @@ export default function ChartView() {
         </div>
 
         <div
-          className="rounded-xl p-4 shrink-0"
+          className="rounded-lg p-4 shrink-0"
           style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}
         >
           <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Сделки (Trades)</h3>
@@ -742,7 +742,7 @@ export default function ChartView() {
 
         {lastSignal && (
           <div
-            className={`rounded-xl p-4 shrink-0 border-l-4 ${lastSignal.direction === 'LONG' ? 'border-l-[var(--success)]' : 'border-l-[var(--danger)]'}`}
+            className={`rounded-lg p-4 shrink-0 border-l-4 ${lastSignal.direction === 'LONG' ? 'border-l-[var(--success)]' : 'border-l-[var(--danger)]'}`}
             style={lastSignal.direction === 'LONG' ? { background: 'var(--success-bg)' } : { background: 'var(--danger-bg)' }}
           >
             <h3 className="font-semibold mb-3">Прогноз</h3>

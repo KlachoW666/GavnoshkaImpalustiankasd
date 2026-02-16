@@ -1,0 +1,490 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Exchange-grade component styles
+   Adapted from Bybit design system for professional trading UI
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Orderbook ────────────────────────────────────────────────────────── */
+
+.orderbook {
+  font-family: var(--bds-font-family, 'Inter', system-ui);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.orderbook-header {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  height: 32px;
+  color: var(--bds-gray-t2, var(--text-muted));
+  font-size: 12px;
+}
+
+.orderbook-header li {
+  display: flex;
+  align-items: center;
+  flex: 10;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  height: 24px;
+}
+
+.orderbook-header li:not(:first-child) {
+  justify-content: flex-end;
+}
+
+.orderbook-header li:first-child {
+  flex: 11;
+}
+
+.orderbook-row {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  height: 24px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.orderbook-row:hover {
+  background: var(--bds-trans-hover, var(--bg-hover));
+}
+
+.orderbook-row .price {
+  flex: 11;
+  font-weight: 500;
+}
+
+.orderbook-row .qty,
+.orderbook-row .total {
+  flex: 10;
+  text-align: right;
+  color: var(--bds-gray-t2, var(--text-secondary));
+}
+
+.orderbook-row.ask .price {
+  color: var(--bds-red-normal, var(--danger));
+}
+
+.orderbook-row.bid .price {
+  color: var(--bds-green-normal, var(--success));
+}
+
+/* Depth bar backgrounds */
+.orderbook-row .depth-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  pointer-events: none;
+  opacity: 0.12;
+}
+
+.orderbook-row.ask .depth-bar {
+  background: var(--bds-red-normal, var(--danger));
+}
+
+.orderbook-row.bid .depth-bar {
+  background: var(--bds-green-normal, var(--success));
+}
+
+/* Mid price / spread row */
+.orderbook-spread {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bds-gray-t2, var(--text-muted));
+  border-top: 1px solid var(--bds-gray-line, var(--border));
+  border-bottom: 1px solid var(--bds-gray-line, var(--border));
+}
+
+.orderbook-spread .mid-price {
+  font-size: 16px;
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+.orderbook-spread .mid-price.up {
+  color: var(--bds-green-normal, var(--success));
+}
+
+.orderbook-spread .mid-price.down {
+  color: var(--bds-red-normal, var(--danger));
+}
+
+/* ── Trade history (recent trades) ────────────────────────────────────── */
+
+.trade-history-row {
+  display: flex;
+  align-items: center;
+  padding: 2px 12px;
+  height: 22px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.1s;
+}
+
+.trade-history-row:hover {
+  background: var(--bds-trans-hover, var(--bg-hover));
+}
+
+.trade-history-row .price.buy {
+  color: var(--bds-green-normal, var(--success));
+}
+
+.trade-history-row .price.sell {
+  color: var(--bds-red-normal, var(--danger));
+}
+
+.trade-history-row .time {
+  color: var(--bds-gray-t3, var(--text-muted));
+}
+
+/* ── Ticker bar ───────────────────────────────────────────────────────── */
+
+.ticker-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid var(--bds-gray-line, var(--border));
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ticker-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.ticker-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.ticker-stat .label {
+  font-size: 10px;
+  color: var(--bds-gray-t3, var(--text-muted));
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ticker-stat .value {
+  font-weight: 600;
+  color: var(--bds-gray-t1, var(--text-primary));
+}
+
+.ticker-stat .value.positive {
+  color: var(--bds-green-normal, var(--success));
+}
+
+.ticker-stat .value.negative {
+  color: var(--bds-red-normal, var(--danger));
+}
+
+/* ── Trading pair header ──────────────────────────────────────────────── */
+
+.pair-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.pair-header .pair-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--bds-gray-t1, var(--text-primary));
+}
+
+.pair-header .pair-price {
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pair-header .pair-price.up {
+  color: var(--bds-green-normal, var(--success));
+}
+
+.pair-header .pair-price.down {
+  color: var(--bds-red-normal, var(--danger));
+}
+
+.pair-header .pair-change {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.pair-header .pair-change.up {
+  color: var(--bds-green-normal, var(--success));
+  background: var(--bds-green-bg, var(--success-dim));
+}
+
+.pair-header .pair-change.down {
+  color: var(--bds-red-normal, var(--danger));
+  background: var(--bds-red-bg, var(--danger-dim));
+}
+
+/* ── Exchange scrollbar (thin, minimal) ───────────────────────────────── */
+
+.exchange-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bds-gray-t4, #595D61) transparent;
+}
+
+.exchange-scroll::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.exchange-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.exchange-scroll::-webkit-scrollbar-thumb {
+  background: var(--bds-gray-t4, #595D61);
+  border-radius: 4px;
+}
+
+.exchange-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--bds-gray-t3, #71757A);
+}
+
+.exchange-scroll::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* ── PnL display ──────────────────────────────────────────────────────── */
+
+.pnl-positive {
+  color: var(--bds-green-normal, var(--success));
+}
+
+.pnl-negative {
+  color: var(--bds-red-normal, var(--danger));
+}
+
+.pnl-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.pnl-badge.positive {
+  color: var(--bds-green-normal, var(--success));
+  background: var(--bds-green-bg, var(--success-dim));
+}
+
+.pnl-badge.negative {
+  color: var(--bds-red-normal, var(--danger));
+  background: var(--bds-red-bg, var(--danger-dim));
+}
+
+/* ── Trading action buttons (buy/sell) ────────────────────────────────── */
+
+.btn-buy {
+  background: var(--bds-green-normal, var(--success));
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 24px;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.btn-buy:hover:not(:disabled) {
+  background: var(--bds-green-hover, #41BF7E);
+  box-shadow: 0 4px 12px rgba(32, 178, 108, 0.3);
+}
+
+.btn-buy:active:not(:disabled) {
+  background: var(--bds-green-pressed, #00944F);
+}
+
+.btn-sell {
+  background: var(--bds-red-normal, var(--danger));
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 24px;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.btn-sell:hover:not(:disabled) {
+  background: var(--bds-red-hover, #FC7272);
+  box-shadow: 0 4px 12px rgba(239, 69, 74, 0.3);
+}
+
+.btn-sell:active:not(:disabled) {
+  background: var(--bds-red-pressed, #CC3939);
+}
+
+.btn-buy:disabled,
+.btn-sell:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Leverage badge ───────────────────────────────────────────────────── */
+
+.leverage-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 4px;
+  color: var(--bds-brand-text, #FF9C2E);
+  background: var(--bds-brand-bg, rgba(247, 166, 0, 0.16));
+  letter-spacing: 0.02em;
+}
+
+/* ── Position side indicators ─────────────────────────────────────────── */
+
+.side-long {
+  color: var(--bds-green-normal, var(--success));
+}
+
+.side-short {
+  color: var(--bds-red-normal, var(--danger));
+}
+
+.side-long-bg {
+  color: var(--bds-green-normal, var(--success));
+  background: var(--bds-green-bg, var(--success-dim));
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.side-short-bg {
+  color: var(--bds-red-normal, var(--danger));
+  background: var(--bds-red-bg, var(--danger-dim));
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* ── Tree table (for nested positions/orders) ─────────────────────────── */
+
+.treetable-cell {
+  display: flex;
+  position: relative;
+  align-items: center;
+  line-height: 16px;
+}
+
+.treetable-cell.header {
+  padding: 10px 6px;
+  color: var(--bds-gray-t2, var(--text-muted));
+  font-size: 12px;
+}
+
+.treetable-cell.body {
+  padding: 6px;
+  font-size: 12px;
+}
+
+.treetable-indent {
+  position: relative;
+  cursor: pointer;
+  font-size: 12px;
+  margin-right: 4px;
+}
+
+.treetable-indent-line {
+  position: absolute;
+  top: 0;
+  bottom: 2px;
+  border: 1px dashed var(--bds-gray-border, var(--border));
+}
+
+/* ── Error boundary (exchange-style) ──────────────────────────────────── */
+
+.exchange-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  padding: 24px;
+}
+
+.exchange-error .tip {
+  color: var(--bds-gray-t2, var(--text-muted));
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+.exchange-error .retry-btn {
+  margin-top: 16px;
+  color: var(--bds-brand-text, #FF9C2E);
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  transition: opacity 0.15s;
+}
+
+.exchange-error .retry-btn:hover {
+  opacity: 0.8;
+}
+
+/* ── Alert/tips bar (brand colored) ───────────────────────────────────── */
+
+.exchange-alert {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--bds-brand-bg, rgba(247, 166, 0, 0.16));
+  border-radius: 4px;
+  color: var(--bds-brand-text, #FF9C2E);
+  font-size: 14px;
+  line-height: 22px;
+  gap: 8px;
+}
+
+.exchange-alert .alert-text {
+  flex: 1;
+  color: var(--bds-gray-t1, var(--text-primary));
+}
+
+.exchange-alert .alert-action {
+  color: var(--bds-brand-text, #FF9C2E);
+  cursor: pointer;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.exchange-alert .alert-close {
+  cursor: pointer;
+  color: var(--bds-gray-t3, var(--text-muted));
+  transition: color 0.15s;
+}
+
+.exchange-alert .alert-close:hover {
+  color: var(--bds-gray-t1, var(--text-primary));
+}

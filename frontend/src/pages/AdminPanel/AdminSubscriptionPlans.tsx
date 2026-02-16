@@ -98,7 +98,7 @@ export default function AdminSubscriptionPlans() {
         </div>
       </div>
 
-      <div className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <div className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <div className="flex items-center gap-3 mb-4">
           <span className="text-2xl">🔗</span>
           <div>
@@ -120,13 +120,13 @@ export default function AdminSubscriptionPlans() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
           <span>⚠</span>
           <span>{error}</span>
         </div>
       )}
 
-      <div className="rounded-2xl overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+      <div className="rounded-lg overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
         <div className="flex items-center gap-3 p-4 border-b" style={{ borderColor: 'var(--border)' }}>
           <span className="text-2xl">📅</span>
           <div>

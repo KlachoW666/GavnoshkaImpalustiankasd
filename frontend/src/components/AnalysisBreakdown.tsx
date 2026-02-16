@@ -70,7 +70,7 @@ export default function AnalysisBreakdown({ data }: { data: AnalysisBreakdown })
   const tapeWinOrder = ['1m', '5m', '15m', '1h'] as const;
 
   return (
-    <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+    <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
       <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
         <span className="font-semibold text-sm">Прогноз анализа</span>
         <div className="flex items-center gap-2">

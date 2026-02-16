@@ -9,14 +9,14 @@ interface StatProps {
 }
 
 export function Stat({ label, value, change, prefix, suffix, icon, size = 'md' }: StatProps) {
-  const valueSize = size === 'lg' ? 'text-2xl' : size === 'sm' ? 'text-base' : 'text-xl';
+  const valueSize = size === 'lg' ? 'text-xl' : size === 'sm' ? 'text-sm' : 'text-lg';
   const isPositive = change != null && change >= 0;
 
   return (
     <div className="flex items-start gap-3">
       {icon && (
         <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+          className="w-9 h-9 rounded flex items-center justify-center shrink-0"
           style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}
         >
           {icon}
@@ -28,7 +28,7 @@ export function Stat({ label, value, change, prefix, suffix, icon, size = 'md' }
           {prefix}{typeof value === 'number' ? value.toLocaleString('en-US') : value}{suffix}
         </p>
         {change != null && (
-          <p className="text-xs font-medium mt-1 tabular-nums" style={{ color: isPositive ? 'var(--success)' : 'var(--danger)' }}>
+          <p className="text-xs font-medium mt-0.5 tabular-nums" style={{ color: isPositive ? 'var(--success)' : 'var(--danger)' }}>
             {isPositive ? '+' : ''}{change.toFixed(2)}%
           </p>
         )}

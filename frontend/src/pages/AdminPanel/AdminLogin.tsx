@@ -66,7 +66,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--bg-base)' }}>
       <div
-        className="w-full max-w-md rounded-2xl border-2 p-8 shadow-xl"
+        className="w-full max-w-md rounded-lg border-2 p-8 shadow-xl"
         style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}
       >
         <div className="flex items-center gap-3 mb-6">
@@ -88,7 +88,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-0 focus:ring-offset-[var(--bg-card-solid)]"
+              className="w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-0 focus:ring-offset-[var(--bg-card-solid)]"
               style={{
                 background: 'var(--bg-base)',
                 borderColor: 'var(--border)',
@@ -107,7 +107,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-0 focus:ring-offset-[var(--bg-card-solid)]"
+              className="w-full px-4 py-3 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-0 focus:ring-offset-[var(--bg-card-solid)]"
               style={{
                 background: 'var(--bg-base)',
                 borderColor: 'var(--border)',
@@ -136,7 +136,7 @@ export default function AdminLogin({ onSuccess }: AdminLoginProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl font-semibold text-white transition-opacity hover:opacity-95 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--accent)]"
+            className="w-full py-3 rounded-lg font-semibold text-white transition-opacity hover:opacity-95 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--accent)]"
             style={{ background: 'var(--accent)' }}
           >
             {loading ? 'Вход…' : 'Войти'}

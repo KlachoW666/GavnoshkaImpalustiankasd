@@ -100,7 +100,7 @@ export default function TraderProfilePage({ traderId, onBackToSocial }: TraderPr
         ← Назад к рейтингу
       </button>
 
-      <section className="rounded-2xl p-6 shadow-lg border-l-4" style={{ ...cardStyle, borderLeftColor: 'var(--accent)' }}>
+      <section className="rounded-lg p-6 shadow-lg border-l-4" style={{ ...cardStyle, borderLeftColor: 'var(--accent)' }}>
         <div className="flex flex-wrap items-center gap-4">
           <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold" style={{ background: 'var(--accent)', color: 'white' }}>
             {profile.username.slice(0, 2).toUpperCase()}
@@ -116,21 +116,21 @@ export default function TraderProfilePage({ traderId, onBackToSocial }: TraderPr
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
-          <div className="rounded-xl p-4" style={{ background: 'var(--bg-hover)' }}>
+          <div className="rounded-lg p-4" style={{ background: 'var(--bg-hover)' }}>
             <p className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>PnL</p>
             <p className={`text-xl font-bold tabular-nums ${profile.totalPnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
               {profile.totalPnl >= 0 ? '+' : ''}{profile.totalPnl.toFixed(2)} $
             </p>
           </div>
-          <div className="rounded-xl p-4" style={{ background: 'var(--bg-hover)' }}>
+          <div className="rounded-lg p-4" style={{ background: 'var(--bg-hover)' }}>
             <p className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Сделок</p>
             <p className="text-xl font-bold tabular-nums">{profile.trades}</p>
           </div>
-          <div className="rounded-xl p-4" style={{ background: 'var(--bg-hover)' }}>
+          <div className="rounded-lg p-4" style={{ background: 'var(--bg-hover)' }}>
             <p className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Winrate</p>
             <p className="text-xl font-bold tabular-nums">{profile.winRate.toFixed(1)}%</p>
           </div>
-          <div className="rounded-xl p-4" style={{ background: 'var(--bg-hover)' }}>
+          <div className="rounded-lg p-4" style={{ background: 'var(--bg-hover)' }}>
             <p className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Прибыльных / убыточных</p>
             <p className="text-lg font-bold tabular-nums">
               <span style={{ color: 'var(--success)' }}>{profile.wins}+</span>

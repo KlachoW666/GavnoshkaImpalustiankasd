@@ -39,7 +39,7 @@ const cardStyle = {
 function SkeletonCard() {
   return (
     <div
-      className="rounded-xl border p-4 flex flex-col gap-2 animate-pulse"
+      className="rounded-lg border p-4 flex flex-col gap-2 animate-pulse"
       style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}
     >
       <div className="flex items-center justify-between">
@@ -64,7 +64,7 @@ export default function PositionsTable({
   if (loading) {
     return (
       <section
-        className="rounded-2xl overflow-hidden p-6 md:p-8"
+        className="rounded-lg overflow-hidden p-6 md:p-8"
         style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}
       >
         <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>
@@ -86,7 +86,7 @@ export default function PositionsTable({
   if (positions.length === 0) {
     return (
       <section
-        className="rounded-2xl overflow-hidden p-6 md:p-8"
+        className="rounded-lg overflow-hidden p-6 md:p-8"
         style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}
       >
         <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>
@@ -98,7 +98,7 @@ export default function PositionsTable({
           </p>
         )}
         <div
-          className="py-10 px-4 rounded-xl text-center"
+          className="py-10 px-4 rounded-lg text-center"
           style={{
             background: 'var(--bg-hover)',
             color: 'var(--text-muted)',
@@ -117,7 +117,7 @@ export default function PositionsTable({
 
   return (
     <section
-      className="rounded-2xl overflow-hidden p-6 md:p-8"
+      className="rounded-lg overflow-hidden p-6 md:p-8"
       style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}
     >
       <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>
@@ -158,7 +158,7 @@ export default function PositionsTable({
               return (
                 <div
                   key={pos.id}
-                  className="rounded-xl border p-4 flex flex-col gap-1"
+                  className="rounded-lg border p-4 flex flex-col gap-1"
                   style={{
                     borderColor: 'var(--accent)',
                     background: 'var(--accent-dim)',
@@ -260,7 +260,7 @@ export default function PositionsTable({
               return (
                 <div
                   key={pos.id}
-                  className="rounded-xl border p-4 flex flex-col gap-1"
+                  className="rounded-lg border p-4 flex flex-col gap-1"
                   style={{
                     borderColor: 'var(--border)',
                     background: 'var(--bg-hover)',

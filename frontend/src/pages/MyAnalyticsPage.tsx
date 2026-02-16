@@ -117,7 +117,7 @@ export default function MyAnalyticsPage() {
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
       {alerts.length > 0 && (
-        <div className="rounded-xl p-4 border" style={{ background: 'var(--danger)', borderColor: 'rgba(255,255,255,0.3)', color: 'white' }}>
+        <div className="rounded-lg p-4 border" style={{ background: 'var(--danger)', borderColor: 'rgba(255,255,255,0.3)', color: 'white' }}>
           <p className="font-semibold">⚠️ Алерты</p>
           <ul className="mt-1 list-disc list-inside text-sm">
             {alerts.map((a, i) => (
@@ -134,7 +134,7 @@ export default function MyAnalyticsPage() {
         </div>
       </div>
 
-      <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <div className="flex items-center gap-3 mb-5">
           <span className="text-3xl">📊</span>
           <div>
@@ -144,7 +144,7 @@ export default function MyAnalyticsPage() {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {metrics.map((row) => (
-            <div key={row.label} className="rounded-xl p-3 flex flex-col" style={miniCardStyle}>
+            <div key={row.label} className="rounded-lg p-3 flex flex-col" style={miniCardStyle}>
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{row.label}</span>
               <span className="text-sm font-semibold mt-0.5 tabular-nums" style={{ color: row.color }}>{row.value}</span>
             </div>
@@ -153,7 +153,7 @@ export default function MyAnalyticsPage() {
       </section>
 
       {curve.length > 0 && (
-        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+        <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
           <h3 className="text-lg font-bold mb-3" style={{ color: 'var(--text-primary)' }}>Кривая эквити</h3>
           <svg width="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet" className="max-h-40">
             <path d={pathD} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -162,7 +162,7 @@ export default function MyAnalyticsPage() {
       )}
 
       {(a.pairCorrelation ?? []).length > 0 && (
-        <section className="rounded-2xl overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--warning)' }}>
+        <section className="rounded-lg overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--warning)' }}>
           <div className="flex items-center gap-3 p-4 border-b" style={{ borderColor: 'var(--border)' }}>
             <span className="text-2xl">🔗</span>
             <div>
@@ -196,7 +196,7 @@ export default function MyAnalyticsPage() {
       )}
 
       {(a.byDay ?? []).length > 0 && (
-        <section className="rounded-2xl overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--warning)' }}>
+        <section className="rounded-lg overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--warning)' }}>
           <div className="flex items-center gap-3 p-4 border-b" style={{ borderColor: 'var(--border)' }}>
             <span className="text-2xl">📅</span>
             <div>

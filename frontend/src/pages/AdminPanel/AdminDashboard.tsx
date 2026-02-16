@@ -145,7 +145,7 @@ export default function AdminDashboard() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
           <span>⚠</span>
           <span>{error}</span>
         </div>
@@ -161,7 +161,7 @@ export default function AdminDashboard() {
           📈 Управление торговлей
         </button>
         {/* Техническое обслуживание */}
-        <div className="flex items-center gap-3 px-4 py-2 rounded-xl border" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
+        <div className="flex items-center gap-3 px-4 py-2 rounded-lg border" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
           <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
             {maintenanceEnabled === null ? '…' : maintenanceEnabled ? '🔧 Сайт закрыт на ТО' : '✅ Сайт открыт'}
           </span>
@@ -183,7 +183,7 @@ export default function AdminDashboard() {
       {/* Верхний ряд: System, Trading, Risk */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* System Status */}
-        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+        <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
           <div className="flex items-center gap-3 mb-5">
             <span className="text-3xl">{d.system.online ? '🟢' : '🔴'}</span>
             <div>
@@ -200,7 +200,7 @@ export default function AdminDashboard() {
               { label: 'БД', value: `${d.system.database}${d.system.databaseMode === 'memory' ? ' (memory)' : d.system.databaseMode === 'sqlite' ? ' (SQLite)' : ''}`, ok: d.system.database === 'ok' },
               { label: 'Uptime', value: formatUptime(d.system.uptimeSeconds), ok: true }
             ].map((row) => (
-              <div key={row.label} className="flex justify-between items-center py-2 px-3 rounded-xl text-sm" style={miniCardStyle}>
+              <div key={row.label} className="flex justify-between items-center py-2 px-3 rounded-lg text-sm" style={miniCardStyle}>
                 <span style={{ color: 'var(--text-muted)' }}>{row.label}</span>
                 <span style={{ color: row.ok ? 'var(--success)' : 'var(--text-secondary)', fontWeight: 600 }}>{row.value}</span>
               </div>
@@ -209,7 +209,7 @@ export default function AdminDashboard() {
         </section>
 
         {/* Trading Summary */}
-        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+        <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
           <div className="flex items-center gap-3 mb-5">
             <span className="text-3xl">📊</span>
             <div>
@@ -218,16 +218,16 @@ export default function AdminDashboard() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 mb-3">
-            <div className="rounded-xl p-3 text-center" style={miniCardStyle}>
+            <div className="rounded-lg p-3 text-center" style={miniCardStyle}>
               <p className="text-xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{d.trading.totalTrades24h}</p>
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>сделок</p>
             </div>
-            <div className="rounded-xl p-3 text-center" style={miniCardStyle}>
+            <div className="rounded-lg p-3 text-center" style={miniCardStyle}>
               <p className="text-xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{formatNum4(d.trading.winRate)}%</p>
               <p className="text-xs mt-0.5 tabular-nums" style={{ color: 'var(--text-muted)' }}>Win ({formatNum4Signed(d.trading.wins)} / -{formatNum4(d.trading.losses)})</p>
             </div>
           </div>
-          <div className="rounded-xl p-3 mb-2" style={miniCardStyle}>
+          <div className="rounded-lg p-3 mb-2" style={miniCardStyle}>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Total PnL</p>
             <p className="text-lg font-bold tabular-nums" style={{ color: d.trading.totalPnl >= 0 ? 'var(--success)' : 'var(--danger)' }}>
               {formatNum4Signed(d.trading.totalPnl)} $ ({formatNum4Signed(d.trading.totalPnlPercent)}%)
@@ -236,14 +236,14 @@ export default function AdminDashboard() {
           {(d.trading.bestTrade || d.trading.worstTrade) && (
             <div className="grid grid-cols-2 gap-2">
               {d.trading.bestTrade && (
-                <div className="rounded-xl p-2 text-center" style={miniCardStyle}>
+                <div className="rounded-lg p-2 text-center" style={miniCardStyle}>
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Лучшая</p>
                   <p className="text-sm font-semibold tabular-nums" style={{ color: 'var(--success)' }}>{formatNum4Signed(d.trading.bestTrade.pnl)} $</p>
                   <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{d.trading.bestTrade.pair}</p>
                 </div>
               )}
               {d.trading.worstTrade && (
-                <div className="rounded-xl p-2 text-center" style={miniCardStyle}>
+                <div className="rounded-lg p-2 text-center" style={miniCardStyle}>
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Худшая</p>
                   <p className="text-sm font-semibold tabular-nums" style={{ color: 'var(--danger)' }}>-{formatNum4(Math.abs(d.trading.worstTrade.pnl))} $</p>
                   <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{d.trading.worstTrade.pair}</p>
@@ -251,14 +251,14 @@ export default function AdminDashboard() {
               )}
             </div>
           )}
-          <div className="mt-2 rounded-xl py-2 px-3 flex justify-between text-sm" style={miniCardStyle}>
+          <div className="mt-2 rounded-lg py-2 px-3 flex justify-between text-sm" style={miniCardStyle}>
             <span style={{ color: 'var(--text-muted)' }}>Открыто позиций</span>
             <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{d.trading.openPositionsCount}</span>
           </div>
         </section>
 
         {/* Risk Indicators */}
-        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--warning)' }}>
+        <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--warning)' }}>
           <div className="flex items-center gap-3 mb-5">
             <span className="text-3xl">🛡️</span>
             <div>
@@ -267,21 +267,21 @@ export default function AdminDashboard() {
             </div>
           </div>
           <div className="space-y-2">
-            <div className="rounded-xl p-3 flex justify-between items-center text-sm" style={miniCardStyle}>
+            <div className="rounded-lg p-3 flex justify-between items-center text-sm" style={miniCardStyle}>
               <span style={{ color: 'var(--text-muted)' }}>Просадка дня</span>
               <span className="font-semibold" style={{ color: d.risk.dailyDrawdownPercent >= d.risk.dailyDrawdownLimitPercent ? 'var(--danger)' : 'var(--success)' }}>
                 {formatNum4(d.risk.dailyDrawdownPercent)}% / {d.risk.dailyDrawdownLimitPercent}%
               </span>
             </div>
-            <div className="rounded-xl p-3 flex justify-between items-center text-sm" style={miniCardStyle}>
+            <div className="rounded-lg p-3 flex justify-between items-center text-sm" style={miniCardStyle}>
               <span style={{ color: 'var(--text-muted)' }}>Позиции</span>
               <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{d.risk.openPositions} / {d.risk.maxPositions}</span>
             </div>
-            <div className="rounded-xl p-3 flex justify-between items-center text-sm" style={miniCardStyle}>
+            <div className="rounded-lg p-3 flex justify-between items-center text-sm" style={miniCardStyle}>
               <span style={{ color: 'var(--text-muted)' }}>Подряд убытков</span>
               <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{d.risk.consecutiveLosses} / {d.risk.maxConsecutiveLosses}</span>
             </div>
-            <div className="rounded-xl p-3 flex justify-between items-center text-sm" style={miniCardStyle}>
+            <div className="rounded-lg p-3 flex justify-between items-center text-sm" style={miniCardStyle}>
               <span style={{ color: 'var(--text-muted)' }}>Можно открыть сделку</span>
               <span className="font-semibold" style={{ color: d.risk.canOpenTrade ? 'var(--success)' : 'var(--danger)' }}>{d.risk.canOpenTrade ? 'Да' : 'Нет'}</span>
             </div>
@@ -295,7 +295,7 @@ export default function AdminDashboard() {
       {/* Нижний ряд: ключи, топ пользователей, пользователи */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 1) Покупки ключей */}
-        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+        <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
           <div className="flex items-center gap-3 mb-5">
             <span className="text-3xl">🔑</span>
             <div>
@@ -304,12 +304,12 @@ export default function AdminDashboard() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="rounded-xl p-4 flex flex-col items-center text-center" style={miniCardStyle}>
+            <div className="rounded-lg p-4 flex flex-col items-center text-center" style={miniCardStyle}>
               <span className="text-2xl mb-1">📦</span>
               <span className="text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{d.keysStats.totalCreated}</span>
               <span className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>создано</span>
             </div>
-            <div className="rounded-xl p-4 flex flex-col items-center text-center" style={miniCardStyle}>
+            <div className="rounded-lg p-4 flex flex-col items-center text-center" style={miniCardStyle}>
               <span className="text-2xl mb-1">✅</span>
               <span className="text-2xl font-bold tabular-nums" style={{ color: 'var(--success)' }}>{d.keysStats.totalUsed}</span>
               <span className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>использовано</span>
@@ -326,7 +326,7 @@ export default function AdminDashboard() {
                   .map(([days, { used, total }]) => (
                     <div
                       key={days}
-                      className="rounded-xl px-3 py-2.5 flex items-center justify-between"
+                      className="rounded-lg px-3 py-2.5 flex items-center justify-between"
                       style={miniCardStyle}
                     >
                       <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{days} дн.</span>
@@ -341,7 +341,7 @@ export default function AdminDashboard() {
         </section>
 
         {/* 2) Топ 5 пользователей */}
-        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+        <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
           <div className="flex items-center gap-3 mb-5">
             <span className="text-3xl">👥</span>
             <div>
@@ -350,7 +350,7 @@ export default function AdminDashboard() {
             </div>
           </div>
           {d.topUsers.length === 0 ? (
-            <div className="py-10 text-center rounded-xl" style={miniCardStyle}>
+            <div className="py-10 text-center rounded-lg" style={miniCardStyle}>
               <span className="text-4xl opacity-50">💰</span>
               <p className="text-sm mt-2 tabular-nums" style={{ color: 'var(--text-muted)' }}>Сводка PnL: {formatNum4Signed(0)} $</p>
               <p className="text-xs mt-1" style={{ color: 'var(--text-muted)', opacity: 0.8 }}>Данные появятся после закрытия ордеров</p>
@@ -358,7 +358,7 @@ export default function AdminDashboard() {
           ) : (
             <ul className="space-y-2">
               {d.topUsers.map((u, i) => (
-                <li key={u.userId} className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-xl text-sm" style={miniCardStyle}>
+                <li key={u.userId} className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-lg text-sm" style={miniCardStyle}>
                   <span className="flex items-center gap-2 min-w-0">
                     <span className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--accent)', color: 'white' }}>{i + 1}</span>
                     <button
@@ -380,7 +380,7 @@ export default function AdminDashboard() {
         </section>
 
         {/* 3) Пользователи */}
-        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+        <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
           <div className="flex items-center gap-3 mb-5">
             <span className="text-3xl">👤</span>
             <div>
@@ -389,22 +389,22 @@ export default function AdminDashboard() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl p-4 flex flex-col items-center text-center" style={miniCardStyle}>
+            <div className="rounded-lg p-4 flex flex-col items-center text-center" style={miniCardStyle}>
               <span className="text-2xl mb-1">📋</span>
               <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{d.usersStats.total}</p>
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Всего</p>
             </div>
-            <div className="rounded-xl p-4 flex flex-col items-center text-center" style={miniCardStyle}>
+            <div className="rounded-lg p-4 flex flex-col items-center text-center" style={miniCardStyle}>
               <span className="text-2xl mb-1">⭐</span>
               <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--success)' }}>{d.usersStats.premium}</p>
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>PREMIUM</p>
             </div>
-            <div className="rounded-xl p-4 flex flex-col items-center text-center" style={miniCardStyle}>
+            <div className="rounded-lg p-4 flex flex-col items-center text-center" style={miniCardStyle}>
               <span className="text-2xl mb-1">👤</span>
               <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--text-secondary)' }}>{d.usersStats.inactive}</p>
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Обычные</p>
             </div>
-            <div className="rounded-xl p-4 flex flex-col items-center text-center" style={miniCardStyle}>
+            <div className="rounded-lg p-4 flex flex-col items-center text-center" style={miniCardStyle}>
               <span className="text-2xl mb-1">🟢</span>
               <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{d.usersStats.online}</p>
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Онлайн</p>

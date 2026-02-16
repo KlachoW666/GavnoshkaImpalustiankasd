@@ -200,7 +200,7 @@ export default function AuthPage() {
   if (urlMode.mode === 'register-telegram') {
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--bg-base)' }}>
-        <div className="w-full max-w-sm rounded-2xl border p-8" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
+        <div className="w-full max-w-sm rounded-lg border p-8" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
           <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Регистрация через Telegram</h2>
           <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Аккаунт будет привязан к вашему Telegram. Синхронизация с покупкой ключей.</p>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -270,7 +270,7 @@ export default function AuthPage() {
         {showTerms && (
           <>
             <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setShowTerms(false)} />
-            <div className="fixed inset-4 md:inset-10 z-50 rounded-2xl border overflow-hidden flex flex-col" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
+            <div className="fixed inset-4 md:inset-10 z-50 rounded-lg border overflow-hidden flex flex-col" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
               <div className="p-4 border-b flex justify-between items-center shrink-0" style={{ borderColor: 'var(--border)' }}>
                 <h3 className="text-lg font-semibold">Правила и конфиденциальность</h3>
                 <button type="button" onClick={() => setShowTerms(false)} className="px-3 py-1.5 rounded-lg text-sm" style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}>Закрыть</button>
@@ -287,7 +287,7 @@ export default function AuthPage() {
   if (urlMode.mode === 'reset-password') {
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--bg-base)' }}>
-        <div className="w-full max-w-sm rounded-2xl border p-8" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
+        <div className="w-full max-w-sm rounded-lg border p-8" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
           <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Новый пароль</h2>
           <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Задайте новый пароль для входа на clabx.ru</p>
           {resetSuccess ? (
@@ -359,7 +359,7 @@ export default function AuthPage() {
         </div>
         {/* Статистика платформы для новых пользователей (с сервера, растёт автоматически) */}
         {displayStats && (
-          <div className="mb-6 rounded-xl p-4 border" style={{ background: 'var(--bg-hover)', borderColor: 'var(--border)' }}>
+          <div className="mb-6 rounded-lg p-4 border" style={{ background: 'var(--bg-hover)', borderColor: 'var(--border)' }}>
             <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Платформа в цифрах</p>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
@@ -420,7 +420,7 @@ export default function AuthPage() {
           </form>
         ) : (
           <div className="space-y-4">
-            <div className="rounded-xl p-5 border" style={{ background: 'var(--bg-hover)', borderColor: 'var(--border)' }}>
+            <div className="rounded-lg p-5 border" style={{ background: 'var(--bg-hover)', borderColor: 'var(--border)' }}>
               <p className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
                 Регистрация только через Telegram-бота
               </p>
@@ -457,7 +457,7 @@ export default function AuthPage() {
             onClick={() => setShowTerms(false)}
           />
           <div
-            className="fixed inset-4 md:inset-10 z-50 rounded-2xl border overflow-hidden flex flex-col"
+            className="fixed inset-4 md:inset-10 z-50 rounded-lg border overflow-hidden flex flex-col"
             style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}
           >
             <div className="p-4 border-b flex justify-between items-center shrink-0" style={{ borderColor: 'var(--border)' }}>

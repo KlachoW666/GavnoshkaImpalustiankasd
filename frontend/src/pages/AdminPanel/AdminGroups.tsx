@@ -142,7 +142,7 @@ export default function AdminGroups() {
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Доступ по вкладкам для каждой группы. Группу назначайте в «Пользователи». При включённом «Авто» пользователь также получает Бэктест, Копитрейдинг и Соц. торговля.</p>
         </div>
       </div>
-      <div className="rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row gap-3 items-center" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <div className="rounded-lg p-4 shadow-lg flex flex-col sm:flex-row gap-3 items-center" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
@@ -160,7 +160,7 @@ export default function AdminGroups() {
         </button>
       </div>
       {error && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
           <span>⚠</span>
           <span>{error}</span>
         </div>
@@ -169,7 +169,7 @@ export default function AdminGroups() {
         {groups.map((g) => (
           <div
             key={g.id}
-            className="rounded-2xl p-6 shadow-lg"
+            className="rounded-lg p-6 shadow-lg"
             style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}
           >
             <div className="flex items-center justify-between mb-4">

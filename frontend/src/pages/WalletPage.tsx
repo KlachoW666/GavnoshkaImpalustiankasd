@@ -213,7 +213,7 @@ export default function WalletPage() {
 
       {/* Баланс */}
       <div
-        className="rounded-2xl p-6 mb-6 flex flex-col items-center justify-center"
+        className="rounded-lg p-6 mb-6 flex flex-col items-center justify-center"
         style={{ background: 'linear-gradient(135deg, var(--accent) 0%, #EA580C 100%)', color: '#fff', minHeight: 120 }}
       >
         <span className="text-sm opacity-90">Баланс</span>
@@ -227,7 +227,7 @@ export default function WalletPage() {
 
       {/* Пополнить */}
       <section
-        className="rounded-xl p-5 mb-6"
+        className="rounded-lg p-5 mb-6"
         style={{ border: '1px solid var(--border)', background: 'var(--bg-card-solid)' }}
       >
         <h2 className="font-medium mb-4" style={{ color: 'var(--text-primary)' }}>Пополнить</h2>
@@ -274,7 +274,7 @@ export default function WalletPage() {
 
       {/* Внутренняя торговля */}
       <section
-        className="rounded-xl p-5 mb-6"
+        className="rounded-lg p-5 mb-6"
         style={{ border: '1px solid var(--border)', background: 'var(--bg-card-solid)' }}
       >
         <h2 className="font-medium mb-4" style={{ color: 'var(--text-primary)' }}>Торговля</h2>
@@ -413,7 +413,7 @@ export default function WalletPage() {
 
       {/* Вывести */}
       <section
-        className="rounded-xl p-5"
+        className="rounded-lg p-5"
         style={{ border: '1px solid var(--border)', background: 'var(--bg-card-solid)' }}
       >
         <h2 className="font-medium mb-4" style={{ color: 'var(--text-primary)' }}>Вывести</h2>

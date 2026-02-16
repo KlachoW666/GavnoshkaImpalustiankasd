@@ -58,7 +58,7 @@ export default function ActivatePage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Где купить ключ */}
-      <div className="rounded-2xl border-2 p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--accent)' }}>
+      <div className="rounded-lg border-2 p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--accent)' }}>
         <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Где купить ключ</h3>
         <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
           Ключ активации приобретается в нашем Telegram-боте. Оплата — через Telegram Stars, ключ приходит в чат сразу после оплаты. Затем вставьте его в поле ниже.
@@ -74,7 +74,7 @@ export default function ActivatePage() {
         </a>
       </div>
 
-      <div className="rounded-2xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
+      <div className="rounded-lg border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
         <h2 className="text-xl font-bold tracking-tight">Активация доступа</h2>
         <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>
           Введите ключ, который вы получили в Telegram-боте после оплаты. После активации откроются все вкладки сервиса на указанный в ключе срок.
@@ -105,7 +105,7 @@ export default function ActivatePage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
+      <div className="rounded-lg border p-6" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
         <h3 className="text-lg font-semibold">Статус</h3>
         {!activation.expiresAt ? (
           <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>

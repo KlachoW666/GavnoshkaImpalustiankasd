@@ -93,19 +93,19 @@ export default function AdminLogs() {
         <button
           type="button"
           onClick={() => { setLoading(true); fetchLogs(); }}
-          className="px-4 py-2 rounded-xl text-sm font-medium"
+          className="px-4 py-2 rounded-lg text-sm font-medium"
           style={{ background: 'var(--accent)', color: 'white' }}
         >
           Обновить
         </button>
       </div>
       {error && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
           <span>⚠</span>
           <span>{error}</span>
         </div>
       )}
-      <section className="rounded-2xl overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <section className="rounded-lg overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <div className="flex flex-wrap items-center gap-4 p-4 border-b" style={{ borderColor: 'var(--border)' }}>
           <span className="text-2xl">🖥️</span>
           <div className="flex-1 min-w-0">

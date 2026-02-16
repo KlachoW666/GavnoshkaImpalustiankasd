@@ -6,6 +6,8 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import ToastContainer from './components/ToastContainer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
+import './styles/trading-chart.css';
+import './styles/exchange.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

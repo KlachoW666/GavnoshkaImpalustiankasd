@@ -28,7 +28,7 @@ export default function MaintenancePage() {
           href="https://t.me/clabx_bot"
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-opacity hover:opacity-95"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-white transition-opacity hover:opacity-95"
           style={{ background: 'var(--accent)' }}
         >
           Telegram: @clabx_bot

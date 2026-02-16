@@ -288,13 +288,13 @@ export default function AdminUsers() {
         <button
           type="button"
           onClick={closeProfile}
-          className="flex items-center gap-2 text-sm font-medium rounded-xl px-4 py-2 transition-opacity hover:opacity-90"
+          className="flex items-center gap-2 text-sm font-medium rounded-lg px-4 py-2 transition-opacity hover:opacity-90"
           style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
         >
           ← К списку пользователей
         </button>
 
-        <section className="rounded-2xl p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+        <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3">
               <span className="text-2xl">👤</span>
@@ -306,7 +306,7 @@ export default function AdminUsers() {
             <button
               type="button"
               onClick={closeProfile}
-              className="px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-90"
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-90"
               style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
             >
               Закрыть
@@ -320,7 +320,7 @@ export default function AdminUsers() {
               <button
                 type="button"
                 onClick={() => selectedUserId && fetchUserDetail(selectedUserId)}
-                className="px-4 py-2 rounded-xl text-sm font-medium"
+                className="px-4 py-2 rounded-lg text-sm font-medium"
                 style={{ background: 'var(--accent)', color: 'white' }}
               >
                 Повторить
@@ -329,35 +329,35 @@ export default function AdminUsers() {
           ) : userDetail ? (
             <div className="space-y-6">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="rounded-xl p-4" style={miniCardStyle}>
+                <div className="rounded-lg p-4" style={miniCardStyle}>
                   <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>User ID</p>
                   <p className="text-sm font-mono truncate" style={{ color: 'var(--text-primary)' }}>{userDetail.id}</p>
                 </div>
-                <div className="rounded-xl p-4" style={miniCardStyle}>
+                <div className="rounded-lg p-4" style={miniCardStyle}>
                   <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Логин</p>
                   <p className="text-sm font-semibold" style={{ color: 'var(--accent)' }}>{userDetail.username}</p>
                 </div>
-                <div className="rounded-xl p-4" style={miniCardStyle}>
+                <div className="rounded-lg p-4" style={miniCardStyle}>
                   <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Telegram ID</p>
                   <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{userDetail.telegramId ?? '—'}</p>
                 </div>
-                <div className="rounded-xl p-4" style={miniCardStyle}>
+                <div className="rounded-lg p-4" style={miniCardStyle}>
                   <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Подписка до</p>
                   <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
                     {userDetail.activationExpiresAt ? new Date(userDetail.activationExpiresAt).toLocaleString('ru-RU') : 'не активирована'}
                   </p>
                 </div>
-                <div className="rounded-xl p-4" style={miniCardStyle}>
+                <div className="rounded-lg p-4" style={miniCardStyle}>
                   <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Прибыль (PnL)</p>
                   <p className="text-lg font-bold tabular-nums" style={{ color: userDetail.totalPnl >= 0 ? 'var(--success)' : 'var(--danger)' }}>
                     {formatNum4Signed(userDetail.totalPnl)} $
                   </p>
                 </div>
-                <div className="rounded-xl p-4" style={miniCardStyle}>
+                <div className="rounded-lg p-4" style={miniCardStyle}>
                   <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Сделок</p>
                   <p className="text-lg font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{userDetail.ordersCount}</p>
                 </div>
-                <div className="rounded-xl p-4" style={miniCardStyle}>
+                <div className="rounded-lg p-4" style={miniCardStyle}>
                   <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>OKX баланс (USDT)</p>
                   {userDetail.okxBalanceError ? (
                     <p className="text-sm font-medium" style={{ color: 'var(--danger)' }} title={userDetail.okxBalanceError}>Ошибка</p>
@@ -369,7 +369,7 @@ export default function AdminUsers() {
                 </div>
               </div>
 
-              <div className="rounded-xl p-4" style={miniCardStyle}>
+              <div className="rounded-lg p-4" style={miniCardStyle}>
                 <h4 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Добавить время подписки</h4>
                 <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Формат: 1h (час), 99d (дней), 30m (минут). Примеры: 1h, 7d, 99d</p>
                 <div className="flex flex-wrap gap-2 items-center">
@@ -403,7 +403,7 @@ export default function AdminUsers() {
                 </div>
               </div>
 
-              <div className="rounded-xl p-4" style={miniCardStyle}>
+              <div className="rounded-lg p-4" style={miniCardStyle}>
                 <h4 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Изменить логин и пароль</h4>
                 <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Новый логин от 2 символов, пароль от 4. Оставьте пустым, чтобы не менять.</p>
                 <div className="flex flex-wrap gap-2 items-center">
@@ -436,9 +436,9 @@ export default function AdminUsers() {
               <div>
                 <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Ордера (последние 100)</h4>
                 {userDetail.orders.length === 0 ? (
-                  <div className="py-8 text-center rounded-xl text-sm" style={miniCardStyle}>Нет сделок</div>
+                  <div className="py-8 text-center rounded-lg text-sm" style={miniCardStyle}>Нет сделок</div>
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
+                  <div className="overflow-x-auto rounded-lg border" style={{ borderColor: 'var(--border)' }}>
                     <table className="w-full text-xs">
                       <thead>
                         <tr style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
@@ -492,7 +492,7 @@ export default function AdminUsers() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Поиск: user_id, ник, Telegram ID..."
-            className="input-field w-72 pl-10 rounded-xl border"
+            className="input-field w-72 pl-10 rounded-lg border"
             style={{ background: 'var(--bg-card)', backdropFilter: 'blur(12px)', borderColor: 'var(--border)' }}
           />
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--text-muted)' }}>🔍</span>
@@ -500,14 +500,14 @@ export default function AdminUsers() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
           <span>⚠</span>
           <span>{error}</span>
         </div>
       )}
 
       <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-      <div className="rounded-2xl overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <div className="rounded-lg overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>

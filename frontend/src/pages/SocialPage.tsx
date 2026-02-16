@@ -51,7 +51,7 @@ export default function SocialPage() {
         Рейтинг трейдеров по суммарному PnL. Можно подписаться на топовых и копировать их сделки в разделе Копитрейдинг.
       </p>
 
-      <section className="rounded-2xl p-6" style={cardStyle}>
+      <section className="rounded-lg p-6" style={cardStyle}>
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
           <h2 className="text-lg font-semibold">Лидерборд</h2>
           <div className="flex gap-1 rounded-lg p-0.5" style={{ background: 'var(--bg-hover)' }}>
@@ -76,7 +76,7 @@ export default function SocialPage() {
         ) : leaderboard.length === 0 ? (
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Пока нет данных. Закройте сделки — появятся в рейтинге.</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
+          <div className="overflow-x-auto rounded-lg border" style={{ borderColor: 'var(--border)' }}>
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderColor: 'var(--border)', background: 'var(--bg-card)', backdropFilter: 'blur(12px)' }}>

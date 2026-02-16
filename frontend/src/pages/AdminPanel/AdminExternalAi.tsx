@@ -102,7 +102,7 @@ export default function AdminExternalAi() {
 
   if (config == null) {
     return (
-      <div className="rounded-2xl p-6" style={cardStyle}>
+      <div className="rounded-lg p-6" style={cardStyle}>
         <p style={{ color: 'var(--text-muted)' }}>Загрузка настроек…</p>
       </div>
     );
@@ -128,7 +128,7 @@ export default function AdminExternalAi() {
 
       {message && (
         <div
-          className="p-4 rounded-xl border text-sm"
+          className="p-4 rounded-lg border text-sm"
           style={{
             background: message.startsWith('Ошибка') ? 'var(--danger-dim)' : 'var(--accent-dim)',
             borderColor: message.startsWith('Ошибка') ? 'var(--danger)' : 'var(--accent)',
@@ -139,7 +139,7 @@ export default function AdminExternalAi() {
         </div>
       )}
 
-      <section className="rounded-2xl p-6 shadow-lg border-l-4" style={{ ...cardStyle, borderLeftColor: 'var(--accent)' }}>
+      <section className="rounded-lg p-6 shadow-lg border-l-4" style={{ ...cardStyle, borderLeftColor: 'var(--accent)' }}>
         <div className="space-y-4">
           <label className="flex items-center gap-3 cursor-pointer">
             <input
