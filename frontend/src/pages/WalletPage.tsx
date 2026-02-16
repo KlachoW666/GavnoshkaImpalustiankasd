@@ -1,29 +1,17 @@
 /**
- * Кошелёк — баланс USDT, пополнение, вывод, внутренняя торговля
+ * Кошелёк — баланс USDT, пополнение, вывод.
+ * Торговля (открытие/закрытие позиций) на странице «Торговля».
  * BIP44/HD: Trust Wallet с seed-фразой видит все средства.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../utils/api';
-
-type InternalPosition = {
-  id: string;
-  symbol: string;
-  direction: 'LONG' | 'SHORT';
-  size_usdt: number;
-  leverage: number;
-  open_price: number;
-  status: string;
-  close_price?: number;
-  pnl_usdt?: number;
-  pnl_percent?: number;
-};
-
-const TRADE_PAIRS = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'XRP-USDT', 'DOGE-USDT'];
+import { useNavigation } from '../contexts/NavigationContext';
 
 export default function WalletPage() {
   const { token } = useAuth();
+  const { navigateTo } = useNavigation();
   const [balance, setBalance] = useState<number | null>(null);
   const [walletEnabled, setWalletEnabled] = useState(false);
   const [depositAddresses, setDepositAddresses] = useState<Array<{ network: string; label: string; address: string }>>([]);
@@ -34,16 +22,6 @@ export default function WalletPage() {
   const [withdrawError, setWithdrawError] = useState('');
   const [withdrawSuccess, setWithdrawSuccess] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
-
-  const [positions, setPositions] = useState<{ open: InternalPosition[]; closed: InternalPosition[] }>({ open: [], closed: [] });
-  const [loadingPositions, setLoadingPositions] = useState(false);
-  const [tradeSymbol, setTradeSymbol] = useState(TRADE_PAIRS[0]);
-  const [tradeDirection, setTradeDirection] = useState<'LONG' | 'SHORT'>('LONG');
-  const [tradeSize, setTradeSize] = useState('');
-  const [tradeLeverage, setTradeLeverage] = useState(5);
-  const [loadingOpen, setLoadingOpen] = useState(false);
-  const [loadingClose, setLoadingClose] = useState<string | null>(null);
-  const [tradeError, setTradeError] = useState('');
 
   const apiOpts = token ? { headers: { Authorization: `Bearer ${token}` } as HeadersInit } : {};
 
@@ -62,26 +40,6 @@ export default function WalletPage() {
     }, 15000);
     return () => clearInterval(id);
   }, [token]);
-
-  const fetchPositions = useCallback(async () => {
-    if (!token) return;
-    setLoadingPositions(true);
-    try {
-      const r = await api.get<{ open: InternalPosition[]; closed: InternalPosition[] }>('/wallet/positions', apiOpts);
-      setPositions({ open: r.open || [], closed: r.closed || [] });
-    } catch {
-      setPositions({ open: [], closed: [] });
-    } finally {
-      setLoadingPositions(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    if (!token) return;
-    fetchPositions();
-    const id = setInterval(fetchPositions, 10000);
-    return () => clearInterval(id);
-  }, [token, fetchPositions]);
 
   const fetchDepositAddress = async () => {
     if (!token) return;
@@ -140,62 +98,11 @@ export default function WalletPage() {
     }
   };
 
-  const handleOpenPosition = async () => {
-    const sizeUsdt = parseFloat(tradeSize);
-    setTradeError('');
-    if (!sizeUsdt || sizeUsdt < 1) {
-      setTradeError('Минимум 1 USDT');
-      return;
+  const goToTrade = () => {
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', '/trade');
     }
-    const margin = sizeUsdt / tradeLeverage;
-    if (balance != null && balance < margin) {
-      setTradeError(`Недостаточно средств. Маржа: ${margin.toFixed(2)} USDT`);
-      return;
-    }
-    if (!token) return;
-    setLoadingOpen(true);
-    try {
-      const r = await api.post<{ ok: boolean; id?: string; openPrice?: number; error?: string }>(
-        '/wallet/open-position',
-        { symbol: tradeSymbol, direction: tradeDirection, sizeUsdt, leverage: tradeLeverage },
-        apiOpts
-      );
-      if ((r as any).ok) {
-        setTradeSize('');
-        setBalance((prev) => (prev != null ? prev - margin : null));
-        await fetchPositions();
-      } else {
-        setTradeError((r as any).error || 'Ошибка открытия');
-      }
-    } catch (e) {
-      setTradeError((e as Error).message);
-    } finally {
-      setLoadingOpen(false);
-    }
-  };
-
-  const handleClosePosition = async (pos: InternalPosition) => {
-    if (!token) return;
-    setLoadingClose(pos.id);
-    try {
-      const r = await api.post<{ ok: boolean; pnl?: number; pnlPercent?: number; error?: string }>(
-        '/wallet/close-position',
-        { id: pos.id },
-        apiOpts
-      );
-      if ((r as any).ok) {
-        const margin = pos.size_usdt / pos.leverage;
-        const pnl = (r as any).pnl ?? 0;
-        setBalance((prev) => (prev != null ? prev + margin + pnl : null));
-        await fetchPositions();
-      } else {
-        setTradeError((r as any).error || 'Ошибка закрытия');
-      }
-    } catch (e) {
-      setTradeError((e as Error).message);
-    } finally {
-      setLoadingClose(null);
-    }
+    navigateTo('trade');
   };
 
   if (!token) {
@@ -223,6 +130,13 @@ export default function WalletPage() {
         {!walletEnabled && (
           <p className="text-xs mt-3 opacity-90">HD-кошелёк не настроен. Обратитесь к администратору.</p>
         )}
+        <button
+          type="button"
+          onClick={goToTrade}
+          className="mt-4 px-4 py-2 rounded-lg font-medium bg-white/20 hover:bg-white/30 transition-colors text-sm"
+        >
+          Перейти к торговле →
+        </button>
       </div>
 
       {/* Пополнить */}
@@ -269,145 +183,6 @@ export default function WalletPage() {
               </div>
             )}
           </>
-        )}
-      </section>
-
-      {/* Внутренняя торговля */}
-      <section
-        className="rounded-lg p-5 mb-6"
-        style={{ border: '1px solid var(--border)', background: 'var(--bg-card-solid)' }}
-      >
-        <h2 className="font-medium mb-4" style={{ color: 'var(--text-primary)' }}>Торговля</h2>
-        <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
-          Открытие и закрытие ордеров только на сайте. Маржа списывается с баланса.
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Пара</label>
-            <select
-              value={tradeSymbol}
-              onChange={(e) => setTradeSymbol(e.target.value)}
-              className="input-field w-full rounded-lg"
-            >
-              {TRADE_PAIRS.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Плечо</label>
-            <select
-              value={tradeLeverage}
-              onChange={(e) => setTradeLeverage(parseInt(e.target.value, 10))}
-              className="input-field w-full rounded-lg"
-            >
-              {[1, 2, 3, 5, 10, 20, 50].map((x) => (
-                <option key={x} value={x}>{x}x</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="flex gap-2 mb-4">
-          <button
-            onClick={() => setTradeDirection('LONG')}
-            className="flex-1 py-2 rounded-lg font-medium"
-            style={{
-              background: tradeDirection === 'LONG' ? 'var(--success)' : 'var(--bg)',
-              color: tradeDirection === 'LONG' ? '#fff' : 'var(--text-muted)',
-              border: `1px solid ${tradeDirection === 'LONG' ? 'var(--success)' : 'var(--border)'}`,
-            }}
-          >
-            Long
-          </button>
-          <button
-            onClick={() => setTradeDirection('SHORT')}
-            className="flex-1 py-2 rounded-lg font-medium"
-            style={{
-              background: tradeDirection === 'SHORT' ? 'var(--danger)' : 'var(--bg)',
-              color: tradeDirection === 'SHORT' ? '#fff' : 'var(--text-muted)',
-              border: `1px solid ${tradeDirection === 'SHORT' ? 'var(--danger)' : 'var(--border)'}`,
-            }}
-          >
-            Short
-          </button>
-        </div>
-        <div className="mb-4">
-          <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Размер (USDT)</label>
-          <input
-            type="number"
-            value={tradeSize}
-            onChange={(e) => setTradeSize(e.target.value)}
-            placeholder="10"
-            min={1}
-            max={10000}
-            step={1}
-            className="input-field w-full rounded-lg"
-          />
-          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-            Маржа: {tradeSize && parseFloat(tradeSize) ? (parseFloat(tradeSize) / tradeLeverage).toFixed(2) : '—'} USDT
-          </p>
-        </div>
-        {tradeError && <p className="text-sm mb-3" style={{ color: 'var(--danger)' }}>{tradeError}</p>}
-        <button
-          onClick={handleOpenPosition}
-          disabled={loadingOpen || !tradeSize || balance == null || balance < 1}
-          className="w-full py-2.5 rounded-lg font-medium disabled:opacity-50"
-          style={{ background: tradeDirection === 'LONG' ? 'var(--success)' : 'var(--danger)', color: '#fff' }}
-        >
-          {loadingOpen ? 'Открытие…' : `Открыть ${tradeDirection}`}
-        </button>
-
-        {loadingPositions ? (
-          <p className="text-sm mt-4" style={{ color: 'var(--text-muted)' }}>Загрузка позиций…</p>
-        ) : positions.open.length > 0 && (
-          <div className="mt-4">
-            <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Открытые позиции</h3>
-            <div className="space-y-2">
-              {positions.open.map((pos) => (
-                <div
-                  key={pos.id}
-                  className="p-3 rounded-lg flex flex-wrap items-center justify-between gap-2"
-                  style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
-                >
-                  <div>
-                    <span className="font-medium">{pos.symbol}</span>
-                    <span className={`ml-2 text-sm ${pos.direction === 'LONG' ? 'text-green-500' : 'text-red-500'}`}>
-                      {pos.direction}
-                    </span>
-                    <span className="ml-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-                      {pos.size_usdt} USDT · {pos.leverage}x · вход {pos.open_price.toFixed(2)}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => handleClosePosition(pos)}
-                    disabled={loadingClose === pos.id}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium"
-                    style={{ background: 'var(--accent)', color: '#fff' }}
-                  >
-                    {loadingClose === pos.id ? '…' : 'Закрыть'}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {positions.closed.length > 0 && (
-          <div className="mt-4">
-            <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>История</h3>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {positions.closed.map((pos) => (
-                <div
-                  key={pos.id}
-                  className="p-2 rounded text-sm"
-                  style={{ background: 'var(--bg)', color: 'var(--text-muted)' }}
-                >
-                  {pos.symbol} {pos.direction} · PnL: {(pos.pnl_usdt ?? 0) >= 0 ? '+' : ''}{(pos.pnl_usdt ?? 0).toFixed(2)} USDT
-                  ({(pos.pnl_percent ?? 0) >= 0 ? '+' : ''}{(pos.pnl_percent ?? 0).toFixed(1)}%)
-                </div>
-              ))}
-            </div>
-          </div>
         )}
       </section>
 

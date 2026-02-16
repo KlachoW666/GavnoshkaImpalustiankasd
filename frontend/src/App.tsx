@@ -27,15 +27,17 @@ const CopyTradingPage = lazy(() => import('./pages/CopyTradingPage'));
 const SocialPage = lazy(() => import('./pages/SocialPage'));
 const TraderProfilePage = lazy(() => import('./pages/TraderProfilePage'));
 const WalletPage = lazy(() => import('./pages/WalletPage'));
+const TradePage = lazy(() => import('./pages/TradePage'));
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { OfflineBanner } from './components/OfflineBanner';
 
-type Page = 'dashboard' | 'signals' | 'chart' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'analytics' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms' | 'help' | 'backtest' | 'copy' | 'social' | 'trader' | 'wallet';
+type Page = 'dashboard' | 'signals' | 'chart' | 'trade' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'analytics' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms' | 'help' | 'backtest' | 'copy' | 'social' | 'trader' | 'wallet';
 
 const PAGE_PATHS: Record<Page, string> = {
   dashboard: '/',
   signals: '/signals',
   chart: '/chart',
+  trade: '/trade',
   demo: '/demo',
   autotrade: '/auto',
   scanner: '/scanner',
@@ -102,6 +104,7 @@ const NAV_ICONS: Record<string, string> = {
   dashboard: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4',
   signals: 'M13 10V3L4 14h7v7l9-11h-7z',
   chart: 'M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16',
+  trade: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6',
   demo: 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664zM21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   autotrade: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15',
   scanner: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
@@ -133,6 +136,7 @@ interface NavItem { id: Page; label: string; group: 'trading' | 'analytics' | 'a
 
 const ALL_PAGES: NavItem[] = [
   { id: 'dashboard', label: 'Главная', group: 'trading' },
+  { id: 'trade', label: 'Торговля', group: 'trading' },
   { id: 'signals', label: 'Сигналы', group: 'trading' },
   { id: 'chart', label: 'График', group: 'trading' },
   { id: 'autotrade', label: 'Авто-трейд', group: 'trading' },
@@ -304,7 +308,7 @@ function NavDropdown({
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   Main App — Bybit-style horizontal navigation
+   Main App — Bitget-style horizontal navigation
    ══════════════════════════════════════════════════════════════════════ */
 export default function App() {
   const year = new Date().getFullYear();
@@ -317,6 +321,9 @@ export default function App() {
     set.add('profile' as Page);
     set.add('help' as Page);
     set.add('wallet' as Page);
+    if (set.has('autotrade') || set.has('chart')) {
+      set.add('trade');
+    }
     if (set.has('autotrade')) {
       set.add('backtest');
       set.add('copy');
@@ -460,7 +467,7 @@ export default function App() {
     <NavigationProvider onNavigate={stableNavigateTo} onNavigateToTrader={stableNavigateToTrader}>
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
 
-      {/* ══ Bybit-style Horizontal Top Nav ═══════════════════════════ */}
+      {/* ══ Bitget-style Horizontal Top Nav ═══════════════════════════ */}
       <header
         className="h-12 shrink-0 flex items-center justify-between px-4 lg:px-6 border-b sticky top-0 z-30"
         style={{ background: 'var(--bg-topbar)', borderColor: 'var(--border)' }}
@@ -691,6 +698,7 @@ export default function App() {
           <div key={safePage} className="animate-page-in max-w-7xl mx-auto">
             {safePage === 'dashboard' && <Dashboard />}
             {safePage === 'signals' && <SignalFeed />}
+            {safePage === 'trade' && <TradePage />}
             {safePage === 'chart' && <ChartView />}
             {safePage === 'demo' && <DemoPage />}
             {safePage === 'autotrade' && <AutoTradingPage />}

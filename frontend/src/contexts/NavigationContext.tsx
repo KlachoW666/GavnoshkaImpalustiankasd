@@ -1,11 +1,12 @@
 import { createContext, useContext, useCallback } from 'react';
 
-export type Page = 'dashboard' | 'signals' | 'chart' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'analytics' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms' | 'help' | 'backtest' | 'copy' | 'social' | 'trader' | 'wallet';
+export type Page = 'dashboard' | 'signals' | 'chart' | 'trade' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'analytics' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms' | 'help' | 'backtest' | 'copy' | 'social' | 'trader' | 'wallet';
 
 export const PAGE_PATHS: Record<Page, string> = {
   dashboard: '/',
   signals: '/signals',
   chart: '/chart',
+  trade: '/trade',
   demo: '/demo',
   autotrade: '/auto',
   scanner: '/scanner',

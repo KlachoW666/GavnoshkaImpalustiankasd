@@ -4,16 +4,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        /* Bybit backgrounds */
+        /* Bitget backgrounds */
         'bg-base': '#000',
         'bg-surface': '#101014',
         'bg-topbar': '#101014',
         'bg-sidebar': '#101014',
 
-        /* Bybit gold accent */
+        /* Bitget orange accent */
         accent: { DEFAULT: '#FF9C2E', dark: '#F0960E', hover: '#FFC35C' },
 
-        /* Bybit trading */
+        /* Bitget trading */
         success: { DEFAULT: '#20B26C', dim: 'rgba(32,178,108,0.16)' },
         danger:  { DEFAULT: '#EF454A', dim: 'rgba(239,69,74,0.16)' },
         warning: { DEFAULT: '#FCD535', dim: 'rgba(252,213,53,0.12)' },

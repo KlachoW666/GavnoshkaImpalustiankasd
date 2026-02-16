@@ -167,6 +167,16 @@ router.get('/orderbook/:symbol', async (req, res) => {
   }
 });
 
+/** GET /api/market/tickers — список рынков для Trade page (symbol, last, change24h, volume24h) */
+router.get('/tickers', async (_req, res) => {
+  try {
+    const tickers = await aggregator.getTickers();
+    res.json(tickers);
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
 function detectThreeWhiteSoldiers(candles: { open: number; high: number; close: number }[]): boolean {
   if (candles.length < 3) return false;
   const [a, b, c] = candles.slice(-3);

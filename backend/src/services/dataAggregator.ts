@@ -132,6 +132,34 @@ export class DataAggregator {
     return this.getSymbolBasePrice(symbol);
   }
 
+  /** Tickers for markets list: symbol, last, change24h (%), volume24h */
+  async getTickers(symbols?: string[]): Promise<{ symbol: string; last: number; change24h: number; volume24h: number }[]> {
+    const list = symbols && symbols.length > 0 ? symbols : this.getDefaultTickerSymbols();
+    const results = await Promise.all(
+      list.map(async (symbol) => {
+        try {
+          const [last, candles] = await Promise.all([
+            this.getCurrentPrice(symbol),
+            this.getOHLCVByExchange(symbol, '1d', 2)
+          ]);
+          const open24h = candles?.length >= 2 ? candles[0].open : candles?.[0]?.open ?? last;
+          const change24h = open24h > 0 ? ((last - open24h) / open24h) * 100 : 0;
+          const lastC = candles?.length ? candles[candles.length - 1] : null;
+          const volume24h = lastC ? lastC.volume * (lastC.close || lastC.open || last) : 0;
+          return { symbol, last, change24h, volume24h };
+        } catch (e) {
+          const base = this.getSymbolBasePrice(symbol);
+          return { symbol, last: base, change24h: 0, volume24h: 0 };
+        }
+      })
+    );
+    return results;
+  }
+
+  private getDefaultTickerSymbols(): string[] {
+    return ['BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'XRP-USDT', 'DOGE-USDT', 'BNB-USDT', 'AVAX-USDT', 'LINK-USDT', 'MATIC-USDT', 'DOT-USDT'];
+  }
+
   async getTrades(symbol: string, limit = 100, _exchangeId?: string): Promise<{ price: number; amount: number; time: number; isBuy: boolean; quoteQuantity?: number }[]> {
     const ccxtSymbol = this.toCcxtSymbol(symbol);
     const okxLimit = Math.min(limit, config.limits.trades);
