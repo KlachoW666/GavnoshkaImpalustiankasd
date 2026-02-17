@@ -4,13 +4,19 @@ import { config } from '../config';
 import { getProxy } from '../db/proxies';
 import { toOkxCcxtSymbol } from '../lib/symbol';
 import { logger } from '../lib/logger';
+import { TtlCache } from '../lib/ttlCache';
 
 /**
  * Data Aggregator — Bitget REST API (свечи, стакан, тикеры для анализа и автоторговли)
  * При таймауте — retry с другим прокси (до 2 попыток).
+ * Кэширование: OHLCV 15s, OrderBook 5s, Price 10s — снижает нагрузку на API при параллельных запросах.
  */
 export class DataAggregator {
   private exchange: Exchange;
+  private ohlcvCache = new TtlCache<OHLCVCandle[]>(15_000);
+  private obCache = new TtlCache<{ bids: [number, number][]; asks: [number, number][] }>(5_000);
+  private priceCache = new TtlCache<number>(10_000);
+  private tradesCache = new TtlCache<any[]>(10_000);
 
   private createExchange(proxyUrl?: string): Exchange {
     const { bitget } = config;
@@ -56,12 +62,16 @@ export class DataAggregator {
   }
 
   async getOHLCVByExchange(symbol: string, timeframe: string, limit: number): Promise<OHLCVCandle[]> {
+    const cacheKey = `${symbol}:${timeframe}:${limit}`;
+    const cached = this.ohlcvCache.get(cacheKey);
+    if (cached) return cached;
+
     const ccxtSymbol = this.toCcxtSymbol(symbol);
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const data = await this.exchange.fetchOHLCV(ccxtSymbol, timeframe, undefined, limit);
         if (data?.length) {
-          return data.map((row) => ({
+          const candles = data.map((row) => ({
             timestamp: Number(row[0]),
             open: Number(row[1]),
             high: Number(row[2]),
@@ -69,6 +79,8 @@ export class DataAggregator {
             close: Number(row[4]),
             volume: Number(row[5] ?? 0)
           }));
+          this.ohlcvCache.set(cacheKey, candles);
+          return candles;
         }
       } catch (e) {
         const msg = (e as Error).message;
@@ -93,6 +105,10 @@ export class DataAggregator {
   }
 
   async getOrderBookByExchange(symbol: string, limit: number): Promise<{ bids: [number, number][]; asks: [number, number][] }> {
+    const obCacheKey = `${symbol}:${limit}`;
+    const cachedOb = this.obCache.get(obCacheKey);
+    if (cachedOb) return cachedOb;
+
     const ccxtSymbol = this.toCcxtSymbol(symbol);
     const bookLimit = Math.min(limit, config.limits.orderBook);
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -100,7 +116,9 @@ export class DataAggregator {
         const ob = await this.exchange.fetchOrderBook(ccxtSymbol, bookLimit);
         const bids = (ob.bids || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
         const asks = (ob.asks || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
-        return { bids, asks };
+        const result = { bids, asks };
+        this.obCache.set(obCacheKey, result);
+        return result;
       } catch (e) {
         logger.warn('DataAggregator', 'OrderBook fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
         if (this.isTimeout(e) && attempt === 0) {
@@ -115,11 +133,17 @@ export class DataAggregator {
   }
 
   async getCurrentPrice(symbol: string): Promise<number> {
+    const cachedPrice = this.priceCache.get(symbol);
+    if (cachedPrice) return cachedPrice;
+
     const ccxtSymbol = this.toCcxtSymbol(symbol);
     try {
       const ticker = await this.exchange.fetchTicker(ccxtSymbol);
       const last = ticker?.last ?? ticker?.close;
-      if (typeof last === 'number' && last > 0) return last;
+      if (typeof last === 'number' && last > 0) {
+        this.priceCache.set(symbol, last);
+        return last;
+      }
     } catch (err) { logger.warn('DataAggregator', (err as Error).message); }
     try {
       const ob = await this.getOrderBookByExchange(symbol, 5);
@@ -163,12 +187,16 @@ export class DataAggregator {
   }
 
   async getTrades(symbol: string, limit = 100, _exchangeId?: string): Promise<{ price: number; amount: number; time: number; isBuy: boolean; quoteQuantity?: number }[]> {
+    const tradesCacheKey = `${symbol}:${limit}`;
+    const cachedTrades = this.tradesCache.get(tradesCacheKey);
+    if (cachedTrades) return cachedTrades;
+
     const ccxtSymbol = this.toCcxtSymbol(symbol);
     const tradesLimit = Math.min(limit, config.limits.trades);
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const rows = await this.exchange.fetchTrades(ccxtSymbol, undefined, tradesLimit);
-        return rows.map((t: any) => {
+        const trades = rows.map((t: any) => {
           const price = Number(t.price ?? (t.cost && t.amount ? t.cost / t.amount : 0));
           const amount = Number(t.amount ?? (t.cost && t.price ? t.cost / t.price : 0));
           const cost = t.cost ?? (price * amount);
@@ -180,6 +208,8 @@ export class DataAggregator {
             quoteQuantity: Number(cost)
           };
         }).sort((a, b) => a.time - b.time);
+        this.tradesCache.set(tradesCacheKey, trades);
+        return trades;
       } catch (e) {
         logger.warn('DataAggregator', 'Trades fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
         if (this.isTimeout(e) && attempt === 0) {
