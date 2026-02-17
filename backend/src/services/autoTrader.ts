@@ -332,6 +332,7 @@ export async function executeSignal(
       params.side = orderSide;
     } else {
       params.posSide = posSide;
+      if (isBitget && (posSide === 'long' || posSide === 'short')) params.tradeSide = 'open';
     }
     if (stopLoss > 0) {
       params.stopLoss = { triggerPrice: stopLoss, type: 'market' };
