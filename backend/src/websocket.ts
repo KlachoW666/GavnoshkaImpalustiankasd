@@ -5,6 +5,7 @@ import { subscribeCandle } from './services/realtimeStream';
 import { getOkxStream } from './services/okxStream';
 import { logger } from './lib/logger';
 import { findSessionUserId } from './db/authDb';
+import { eventBus } from './lib/eventBus';
 
 const AUTH_TIMEOUT_MS = 5000;
 
@@ -104,15 +105,23 @@ export function createWebSocketServer(server: import('http').Server) {
       if (c.readyState === 1 && (c as ExtWebSocket).authenticated) c.send(msg);
     });
   };
+
+  // Register on event bus (replaces global namespace pollution)
+  eventBus.onSignal(broadcastSignal);
+  eventBus.onBreakout(broadcastBreakout);
+
+  // Keep backward-compatible global refs for gradual migration
   (global as any).__broadcastSignal = broadcastSignal;
   (global as any).__broadcastBreakout = broadcastBreakout;
   return { broadcastSignal, broadcastBreakout };
 }
 
+/** @deprecated Use eventBus.emitSignal() instead */
 export function getBroadcastSignal(): ((s: TradingSignal, b?: unknown, targetUserId?: string) => void) | null {
   return (global as any).__broadcastSignal ?? null;
 }
 
+/** @deprecated Use eventBus.emitBreakout() instead */
 export function getBroadcastBreakout(): ((data: unknown) => void) | null {
   return (global as any).__broadcastBreakout ?? null;
 }

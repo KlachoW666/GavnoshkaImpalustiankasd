@@ -295,6 +295,9 @@ export function deleteGroup(groupId: number): void {
   db.prepare('DELETE FROM groups WHERE id = ?').run(groupId);
 }
 
+/** Время жизни сессии (7 дней по умолчанию). Настраивается через SESSION_TTL_DAYS в .env */
+const SESSION_TTL_DAYS = Number(process.env.SESSION_TTL_DAYS) || 7;
+
 export function createSession(token: string, userId: string): void {
   ensureAuthTables();
   if (isMemoryStore()) {
@@ -302,7 +305,10 @@ export function createSession(token: string, userId: string): void {
     return;
   }
   const db = getDb();
-  if (db) db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, userId);
+  if (db) {
+    const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    db.prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)').run(token, userId, expiresAt);
+  }
 }
 
 export function findSessionUserId(token: string): string | null {
@@ -310,7 +316,9 @@ export function findSessionUserId(token: string): string | null {
   if (isMemoryStore()) return memorySessions.get(token) ?? null;
   const db = getDb();
   if (!db) return null;
-  const row = db.prepare('SELECT user_id FROM sessions WHERE token = ?').get(token);
+  const row = db.prepare(
+    "SELECT user_id FROM sessions WHERE token = ? AND (expires_at IS NULL OR expires_at > datetime('now'))"
+  ).get(token);
   return (row as { user_id: string } | undefined)?.user_id ?? null;
 }
 
@@ -321,6 +329,19 @@ export function deleteSession(token: string): void {
   }
   const db = getDb();
   if (db) db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+}
+
+/** Удаление просроченных сессий. Вызывается периодически. */
+export function cleanupExpiredSessions(): number {
+  if (isMemoryStore()) return 0;
+  const db = getDb();
+  if (!db) return 0;
+  try {
+    const result = db.prepare("DELETE FROM sessions WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')").run();
+    return result.changes ?? 0;
+  } catch {
+    return 0;
+  }
 }
 
 export function listUsers(): (UserRow & { group_name?: string })[] {

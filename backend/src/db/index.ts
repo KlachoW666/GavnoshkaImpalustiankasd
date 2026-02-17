@@ -74,6 +74,7 @@ export function initDb(): any {
     fs.mkdirSync(DB_DIR, { recursive: true });
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
+    db.pragma('foreign_keys = ON');
     const schemaPath = getSchemaPath();
     if (fs.existsSync(schemaPath)) {
       const sql = fs.readFileSync(schemaPath, 'utf8');
@@ -325,6 +326,10 @@ export function runUserMigrations(database: any): void {
       );
     `);
   } catch { /* migration: column/table may already exist */ }
+  // Session expiration column
+  try {
+    database.prepare('ALTER TABLE sessions ADD COLUMN expires_at TEXT').run();
+  } catch { /* migration: column may already exist */ }
 }
 
 export function getDb(): any {

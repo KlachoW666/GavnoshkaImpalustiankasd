@@ -34,6 +34,8 @@ import { FundingRateMonitor } from '../services/fundingRateMonitor';
 import { calcLiquidationPrice, calcLiquidationPriceSimple } from '../lib/liquidationPrice';
 import { executeSignal } from '../services/autoTrader';
 import { initDb, insertOrder, getSetting, setSetting } from '../db';
+import { analyzeBtcTrend, applyBtcCorrelation, type BtcTrendResult } from '../services/btcCorrelation';
+import { getCurrentSession, applySessionFilter } from '../services/sessionFilter';
 
 const router = Router();
 
@@ -517,12 +519,14 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
   if (confluence && confluentDir) {
     direction = confluentDir;
     confidence = confluentConf;
+    const baseConfidence = confluentConf; // Запоминаем базовый confidence для лимита бонусов
+    const MAX_TOTAL_BONUS = 0.20; // Лимит суммарного бонуса: +20% максимум
+    let totalBonus = 0;
 
     // Multi-TF alignment bonus — 6 TFs (1d, 4h, 1h, 15m, 5m, 1m) в одном направлении
-    // Корректировка: требуем 4+ TFs для высокого confidence, строже за 2–3
-    if (mtfAlignCount >= 5) confidence = Math.min(0.96, confidence + 0.10);
-    else if (mtfAlignCount >= 4) confidence = Math.min(0.95, confidence + 0.06);
-    else if (mtfAlignCount >= 3) confidence = Math.min(0.90, confidence + 0.02);
+    if (mtfAlignCount >= 5) totalBonus += 0.10;
+    else if (mtfAlignCount >= 4) totalBonus += 0.06;
+    else if (mtfAlignCount >= 3) totalBonus += 0.02;
     if (mtfAlignCount < 3 && Object.keys(mtfResults).length >= 5) {
       confidence = Math.max(0.55, confidence - 0.08);
     }
@@ -532,24 +536,29 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
     // Усиленный штраф против HTF — часто приводит к убыткам
     if (againstHTF) confidence = Math.max(0.50, Math.min(confidence - 0.15, 0.70));
     // Freqtrade: бонус при совпадении HLHB/VolatilityBreakout/Supertrend
-    if (hlhbDir === direction) confidence = Math.min(0.96, confidence + 0.04);
-    if (volBreakout === direction) confidence = Math.min(0.96, confidence + 0.03);
-    if (supertrendDir === (direction === 'LONG' ? 'up' : 'down')) confidence = Math.min(0.95, confidence + 0.02);
-    if (adx != null && adx > 30) confidence = Math.min(0.94, confidence + 0.02);
+    if (hlhbDir === direction) totalBonus += 0.04;
+    if (volBreakout === direction) totalBonus += 0.03;
+    if (supertrendDir === (direction === 'LONG' ? 'up' : 'down')) totalBonus += 0.02;
+    if (adx != null && adx > 30) totalBonus += 0.02;
     // Cluster delta alignment bonus — POC/delta from Volume Profile
     if (clusterData) {
       const clusterAlign = (direction === 'LONG' && clusterData.totalDelta > 0) ||
         (direction === 'SHORT' && clusterData.totalDelta < 0);
-      if (clusterAlign) confidence = Math.min(0.95, confidence + 0.03);
+      if (clusterAlign) totalBonus += 0.03;
     }
     // Absorption detection bonus — крупный игрок поглощает
     if (absorptionResult.detected && absorptionResult.direction === direction) {
-      confidence = Math.min(0.96, confidence + 0.05);
+      totalBonus += 0.05;
     }
     // Iceberg detection bonus — скрытый крупный ордер
     if (icebergResult.detected && icebergResult.direction === direction) {
-      confidence = Math.min(0.95, confidence + 0.04);
+      totalBonus += 0.04;
     }
+
+    // Применяем бонусы с лимитом MAX_TOTAL_BONUS
+    const cappedBonus = Math.min(totalBonus, MAX_TOTAL_BONUS);
+    confidence = Math.min(0.95, confidence + cappedBonus);
+
     // Breakout confirmation: require 2/3 conditions in breakout mode
     if (detectedTradingMode === 'breakout') {
       const breakoutVolumeOk = currVol > avgVol20 * 1.5;
@@ -557,11 +566,30 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
       const breakoutDeltaOk = Math.abs(tapeSignal.delta) > 0.20;
       const breakoutConfirmations = [breakoutVolumeOk, breakoutDomOk, breakoutDeltaOk].filter(Boolean).length;
       if (breakoutConfirmations >= 2) {
-        confidence = Math.min(0.96, confidence + 0.05);
+        confidence = Math.min(0.95, confidence + 0.05);
       } else {
         confidence = Math.max(0.52, confidence - 0.08);
       }
     }
+
+    // === BTC Correlation Filter ===
+    // Проверяем тренд BTC для альткоинов (не для самого BTC)
+    let btcTrend: BtcTrendResult | null = null;
+    if (!sym.toUpperCase().startsWith('BTC')) {
+      try {
+        const btcCandles1h = await aggregator.getOHLCV('BTC-USDT', '1h', 25);
+        const btcCandles4h = await aggregator.getOHLCV('BTC-USDT', '4h', 5);
+        btcTrend = analyzeBtcTrend(btcCandles1h, btcCandles4h);
+        const btcResult = applyBtcCorrelation(sym, direction, confidence, btcTrend);
+        confidence = btcResult.confidence;
+      } catch (e) {
+        // BTC data unavailable — skip correlation check
+      }
+    }
+
+    // === Session-Aware Filter ===
+    const sessionInfo = getCurrentSession();
+    confidence = applySessionFilter(confidence, sessionInfo);
   }
 
   let fallbackReason: string | undefined;
@@ -613,6 +641,9 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
     (breakdown as any).consolidation = consolidation;
   }
   (breakdown as any).tradingMode = detectedTradingMode;
+  // BTC correlation and session info in breakdown (for UI display)
+  const sessionInfo = getCurrentSession();
+  (breakdown as any).session = { name: sessionInfo.session, description: sessionInfo.description, liquidityMultiplier: sessionInfo.liquidityMultiplier };
 
   const macd = candles5m.length ? candleAnalyzer.getMACD(candles5m.map((c) => c.close)) : null;
   const bb = candles5m.length ? candleAnalyzer.getBollingerBands(candles5m.map((c) => c.close)) : null;
@@ -712,7 +743,7 @@ router.post('/analyze/:symbol', async (req, res) => {
   }
 });
 
-const MAX_SYMBOLS = 18;
+const MAX_SYMBOLS = 12; // Уменьшено с 18 для ускорения циклов (51 монет сканера → 12 лучших)
 /** Сигналы 65%+ — порог для авто-цикла (снижен для стабильного потока сделок) */
 const AUTO_MIN_CONFIDENCE = 0.65;
 /** Минимальный risk/reward для открытия ордера в полном автомате */
@@ -736,7 +767,7 @@ const userCycleLocks = new Map<string, { promise: Promise<void>; startedAt: numb
 const pendingRuns = new Map<string, { symbols: string[]; timeframe: string; useScanner: boolean; userId?: string; execOpts?: Parameters<typeof runAutoTradingBestCycle>[4] }>();
 const lastQueuedLogAt = new Map<string, number>();
 const analysisSemaphore = new Semaphore(5);
-const analysisCache = new TtlCache<Awaited<ReturnType<typeof runAnalysis>>>(15_000);
+const analysisCache = new TtlCache<Awaited<ReturnType<typeof runAnalysis>>>(30_000); // 30s cache — уменьшает нагрузку при частых циклах
 
 async function runAutoTradingBestCycle(
   symbols: string[],
@@ -765,11 +796,16 @@ async function runAutoTradingBestCycle(
 
   let releaseLock: () => void = () => {};
   const lockPromise = new Promise<void>((resolve) => { releaseLock = resolve; });
-  userCycleLocks.set(lockKey, { promise: lockPromise, startedAt: Date.now() });
+  const cycleStartedAt = Date.now();
+  userCycleLocks.set(lockKey, { promise: lockPromise, startedAt: cycleStartedAt });
 
   try {
     await runAutoTradingBestCycleInner(symbols, timeframe, useScanner, userId, execOpts);
   } finally {
+    const cycleDuration = Date.now() - cycleStartedAt;
+    if (cycleDuration > 30_000) {
+      logger.warn('runAutoTradingBestCycle', `Cycle for ${lockKey} took ${Math.round(cycleDuration / 1000)}s — consider increasing interval or reducing symbols`);
+    }
     userCycleLocks.delete(lockKey);
     releaseLock();
     const pending = pendingRuns.get(lockKey);
@@ -909,10 +945,17 @@ async function runAutoTradingBestCycleInner(
 
   if (!canExecute) {
     let reason = 'Исполнение отключено';
-    if (!config.autoTradingExecutionEnabled) reason = 'Исполнение отключено на сервере (AUTO_TRADING_EXECUTION_ENABLED)';
-    else if (!executeOrders) reason = 'Исполнение ордеров выключено';
-    else if (!config.bitget.hasCredentials && !hasUserCreds) reason = 'Нет ключей Bitget (профиль или .env)';
-    logger.info('runAutoTradingBestCycle', `Execution skipped: ${reason}`, { userId, useTestnet });
+    if (!config.autoTradingExecutionEnabled) reason = 'Исполнение отключено на сервере (AUTO_TRADING_EXECUTION_ENABLED=0 в .env)';
+    else if (!executeOrders) reason = 'Исполнение ордеров выключено (executeOrders=false). Перезапустите авто-торговлю с включённым исполнением.';
+    else if (!config.bitget.hasCredentials && !hasUserCreds) reason = 'Нет ключей Bitget (добавьте в профиле или в .env BITGET_API_KEY/BITGET_SECRET)';
+    logger.info('runAutoTradingBestCycle', `Execution skipped: ${reason}`, {
+      userId,
+      useTestnet,
+      autoTradingExecutionEnabled: config.autoTradingExecutionEnabled,
+      executeOrders,
+      hasBitgetEnvCreds: config.bitget.hasCredentials,
+      hasUserCreds: !!hasUserCreds
+    });
     setLastExecution(reason);
     return;
   }
@@ -1320,8 +1363,21 @@ export function restoreAutoTradingState(): void {
     if (!Array.isArray(sessions) || sessions.length === 0) return;
     for (const { userId, body } of sessions) {
       if (userId && body && typeof body === 'object') {
+        const execOrders = Boolean(body.executeOrders);
+        const testnet = body.useTestnet === true;
+        const fullAuto = Boolean(body.fullAuto);
+        logger.info('auto-analyze', 'Restoring auto-trading after restart', {
+          userId,
+          executeOrders: execOrders,
+          useTestnet: testnet,
+          fullAuto,
+          symbols: body.symbols,
+          intervalMs: body.intervalMs
+        });
+        if (!execOrders) {
+          logger.warn('auto-analyze', `User ${userId}: executeOrders=false in saved state — orders will NOT be placed. Re-start auto-trading with executeOrders=true to enable.`);
+        }
         startAutoAnalyzeForUser(userId, body);
-        logger.info('auto-analyze', 'Restored auto-trading after restart', { userId });
       }
     }
   } catch (e) {

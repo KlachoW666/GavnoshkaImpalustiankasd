@@ -13,6 +13,7 @@ if (!fs.existsSync(rootEnv) && !fs.existsSync(backendEnv)) dotenv.config();
 import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
+import { validateEnvironment } from './lib/envValidator';
 
 import { config } from './config';
 import { logger } from './lib/logger';
@@ -34,8 +35,10 @@ import copyTradingRouter from './routes/copyTrading';
 import socialRouter from './routes/social';
 import walletRouter from './routes/wallet';
 import { createWebSocketServer, getBroadcastBreakout } from './websocket';
+import { eventBus } from './lib/eventBus';
 import { startDepositScanner } from './services/depositScanner';
 import { initDb, getDb, isMemoryStore, getSetting, listOrders } from './db';
+import { cleanupExpiredSessions } from './db/authDb';
 import { preloadAdminTokens } from './services/adminService';
 import { restoreAutoTradingState } from './routes/market';
 import { loadModel as loadMLModel, warmUpFromDb as mlWarmUp } from './services/onlineMLService';
@@ -45,6 +48,7 @@ import { notifyBreakoutAlert } from './services/notificationService';
 import { startBreakoutMonitor } from './services/breakoutMonitor';
 import { startBitgetSyncCron } from './services/bitgetSyncCron';
 import { rateLimit } from './middleware/rateLimit';
+import { compression } from './middleware/compression';
 
 const app = express();
 const server = createServer(app);
@@ -54,7 +58,8 @@ startBreakoutMonitor({
   topN: 5,
   minConfidence: 0.75,
   onAlert: (alert) => {
-    getBroadcastBreakout()?.(alert);
+    // Use event bus (preferred) with fallback to legacy global
+    eventBus.emitBreakout(alert);
     notifyBreakoutAlert({
       symbol: alert.symbol,
       direction: alert.breakout.direction,
@@ -65,7 +70,17 @@ startBreakoutMonitor({
   }
 });
 
-app.use(cors());
+// --- CORS configuration ---
+// CORS_ORIGINS in .env: comma-separated list of allowed origins (e.g. https://clabx.ru,http://localhost:5173)
+// If not set, allows all origins (development mode).
+const corsOrigins = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+app.use(cors(corsOrigins.length > 0 ? {
+  origin: corsOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Bot-Token']
+} : undefined));
+app.use(compression());
 app.use(express.json({ limit: '64kb' }));
 
 const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
@@ -160,6 +175,9 @@ if (frontendPath) {
 }
 
 export async function startServer(port: number = config.port): Promise<void> {
+  // Validate environment variables (fail fast in production)
+  validateEnvironment();
+
   initDb();
   seedDefaultAdmin();
   preloadAdminTokens();
@@ -177,6 +195,16 @@ export async function startServer(port: number = config.port): Promise<void> {
     ? 'Auto-trading execution: ENABLED (AUTO_TRADING_EXECUTION_ENABLED=1)'
     : 'Auto-trading execution: DISABLED. Добавьте AUTO_TRADING_EXECUTION_ENABLED=1 в .env для открытия ордеров.');
   restoreAutoTradingState();
+
+  // Session cleanup cron — every 30 minutes, remove expired sessions
+  const sessionCleanupTimer = setInterval(() => {
+    try {
+      const deleted = cleanupExpiredSessions();
+      if (deleted > 0) logger.info('Server', `Cleaned up ${deleted} expired sessions`);
+    } catch (err) { logger.warn('Server', `Session cleanup error: ${(err as Error).message}`); }
+  }, 30 * 60 * 1000);
+  sessionCleanupTimer.unref();
+
   const host = process.env.HOST || '0.0.0.0';
   return new Promise((resolve) => {
     server.listen(port, host, () => {
