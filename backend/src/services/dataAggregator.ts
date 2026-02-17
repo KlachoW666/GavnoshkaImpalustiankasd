@@ -6,35 +6,31 @@ import { toOkxCcxtSymbol } from '../lib/symbol';
 import { logger } from '../lib/logger';
 
 /**
- * Data Aggregator — OKX REST API (публичные и приватные данные)
+ * Data Aggregator — Bitget REST API (свечи, стакан, тикеры для анализа и автоторговли)
  * При таймауте — retry с другим прокси (до 2 попыток).
  */
 export class DataAggregator {
   private exchange: Exchange;
 
   private createExchange(proxyUrl?: string): Exchange {
-    const { okx } = config;
+    const { bitget } = config;
     const url = proxyUrl ?? getProxy(config.proxyList) ?? config.proxy ?? '';
     const opts: Record<string, unknown> = {
-      apiKey: okx.hasCredentials ? okx.apiKey : undefined,
-      secret: okx.hasCredentials ? okx.secret : undefined,
-      password: okx.hasCredentials && okx.passphrase ? okx.passphrase : undefined,
+      apiKey: bitget.hasCredentials ? bitget.apiKey : undefined,
+      secret: bitget.hasCredentials ? bitget.secret : undefined,
+      password: bitget.hasCredentials && bitget.passphrase ? bitget.passphrase : undefined,
       enableRateLimit: true,
-      options: {
-        defaultType: 'swap',
-        /** Загружать только SWAP, не OPTION — из‑за OKX api/v5/public/instruments?instType=OPTION сбоев */
-        fetchMarkets: ['swap']
-      },
-      timeout: config.okx.timeout
+      options: { defaultType: 'swap', fetchMarkets: ['swap'] },
+      timeout: bitget.timeout
     };
     if (url) opts.httpsProxy = url;
-    return new ccxt.okx(opts);
+    return new ccxt.bitget(opts);
   }
 
   constructor() {
     this.exchange = this.createExchange();
     const proxyUrl = getProxy(config.proxyList) || config.proxy || '';
-    logger.info('DataAggregator', `OKX: public${config.okx.hasCredentials ? ' + trading' : ''}${proxyUrl ? ' [proxy]' : ''}`);
+    logger.info('DataAggregator', `Bitget: public${config.bitget.hasCredentials ? ' + trading' : ''}${proxyUrl ? ' [proxy]' : ''}`);
   }
 
   private isTimeout(err: unknown): boolean {
@@ -43,7 +39,7 @@ export class DataAggregator {
   }
 
   getExchangeIds(): string[] {
-    return ['okx'];
+    return ['bitget'];
   }
 
   private toCcxtSymbol(symbol: string): string {
@@ -73,9 +69,9 @@ export class DataAggregator {
       } catch (e) {
         const msg = (e as Error).message;
         if (!msg?.includes('does not have market symbol')) {
-          logger.warn('OKX', 'OHLCV fetch failed', { symbol, attempt: attempt + 1, error: msg });
+          logger.warn('DataAggregator', 'OHLCV fetch failed', { symbol, attempt: attempt + 1, error: msg });
         } else {
-          logger.debug('OKX', 'OHLCV symbol not on OKX', { symbol });
+          logger.debug('DataAggregator', 'Symbol not on Bitget', { symbol });
         }
         if (this.isTimeout(e) && attempt === 0) {
           this.exchange = this.createExchange();
@@ -94,15 +90,15 @@ export class DataAggregator {
 
   async getOrderBookByExchange(symbol: string, limit: number): Promise<{ bids: [number, number][]; asks: [number, number][] }> {
     const ccxtSymbol = this.toCcxtSymbol(symbol);
-    const okxLimit = Math.min(limit, config.limits.orderBook);
+    const bookLimit = Math.min(limit, config.limits.orderBook);
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const ob = await this.exchange.fetchOrderBook(ccxtSymbol, okxLimit);
-        const bids = (ob.bids || []).slice(0, okxLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
-        const asks = (ob.asks || []).slice(0, okxLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
+        const ob = await this.exchange.fetchOrderBook(ccxtSymbol, bookLimit);
+        const bids = (ob.bids || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
+        const asks = (ob.asks || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
         return { bids, asks };
       } catch (e) {
-        logger.warn('OKX', 'OrderBook fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
+        logger.warn('DataAggregator', 'OrderBook fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
         if (this.isTimeout(e) && attempt === 0) {
           this.exchange = this.createExchange();
           await new Promise((r) => setTimeout(r, 1500));
@@ -164,10 +160,10 @@ export class DataAggregator {
 
   async getTrades(symbol: string, limit = 100, _exchangeId?: string): Promise<{ price: number; amount: number; time: number; isBuy: boolean; quoteQuantity?: number }[]> {
     const ccxtSymbol = this.toCcxtSymbol(symbol);
-    const okxLimit = Math.min(limit, config.limits.trades);
+    const tradesLimit = Math.min(limit, config.limits.trades);
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const rows = await this.exchange.fetchTrades(ccxtSymbol, undefined, okxLimit);
+        const rows = await this.exchange.fetchTrades(ccxtSymbol, undefined, tradesLimit);
         return rows.map((t: any) => {
           const price = Number(t.price ?? (t.cost && t.amount ? t.cost / t.amount : 0));
           const amount = Number(t.amount ?? (t.cost && t.price ? t.cost / t.price : 0));
@@ -179,9 +175,9 @@ export class DataAggregator {
             isBuy: t.side === 'buy' || t.buy === true,
             quoteQuantity: Number(cost)
           };
-        }).sort((a, b) => a.time - b.time); // OKX: oldest first для CVD
+        }).sort((a, b) => a.time - b.time);
       } catch (e) {
-        logger.warn('OKX', 'Trades fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
+        logger.warn('DataAggregator', 'Trades fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
         if (this.isTimeout(e) && attempt === 0) {
           this.exchange = this.createExchange();
           await new Promise((r) => setTimeout(r, 1500));

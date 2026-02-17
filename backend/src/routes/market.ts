@@ -304,7 +304,7 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
   const tradesValid = (trades?.length ?? 0) >= MIN_TRADES;
   const candles5mValid = (candles5m?.length ?? 0) >= MIN_CANDLES_5M;
   if (!obValid || !tradesValid || !candles5mValid) {
-    logger.warn('runAnalysis', 'Insufficient OKX data', {
+    logger.warn('runAnalysis', 'Insufficient market data', {
       symbol: sym,
       ob: `${orderBook.bids?.length ?? 0}/${orderBook.asks?.length ?? 0}`,
       trades: trades?.length ?? 0,
@@ -731,8 +731,10 @@ function scannerSymbolToMarket(s: string): string {
  * TP/SL, leverage, mode — определяются по анализу (ATR, волатильность, confluence).
  */
 const LOCK_TIMEOUT_MS = 4 * 60 * 1000; // 4 мин — считаем блокировку «зависшей» и снимаем
+const QUEUED_LOG_COOLDOWN_MS = 45 * 1000; // не спамить лог «queued» чаще раза в 45 сек по ключу
 const userCycleLocks = new Map<string, { promise: Promise<void>; startedAt: number }>();
 const pendingRuns = new Map<string, { symbols: string[]; timeframe: string; useScanner: boolean; userId?: string; execOpts?: Parameters<typeof runAutoTradingBestCycle>[4] }>();
+const lastQueuedLogAt = new Map<string, number>();
 const analysisSemaphore = new Semaphore(5);
 const analysisCache = new TtlCache<Awaited<ReturnType<typeof runAnalysis>>>(15_000);
 
@@ -752,7 +754,11 @@ async function runAutoTradingBestCycle(
       logger.warn('runAutoTradingBestCycle', `Lock timeout for ${lockKey} (${Math.round(age / 1000)}s), cleared`);
     } else {
       pendingRuns.set(lockKey, { symbols, timeframe, useScanner, userId, execOpts });
-      logger.info('runAutoTradingBestCycle', `Cycle already running for ${lockKey}, queued next run`);
+      const now = Date.now();
+      if (now - (lastQueuedLogAt.get(lockKey) ?? 0) >= QUEUED_LOG_COOLDOWN_MS) {
+        lastQueuedLogAt.set(lockKey, now);
+        logger.info('runAutoTradingBestCycle', `Cycle already running for ${lockKey}, next run queued (will start when current finishes)`);
+      }
       return;
     }
   }
@@ -868,7 +874,7 @@ async function runAutoTradingBestCycleInner(
 
   const userCreds = userId ? getBitgetCredentials(userId) : null;
   const hasUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
-  const canExecute = config.autoTradingExecutionEnabled && executeOrders && (config.okx.hasCredentials || hasUserCreds);
+  const canExecute = config.autoTradingExecutionEnabled && executeOrders && (config.bitget.hasCredentials || hasUserCreds);
 
   const setLastExecution = (
     err?: string,
@@ -905,7 +911,7 @@ async function runAutoTradingBestCycleInner(
     let reason = 'Исполнение отключено';
     if (!config.autoTradingExecutionEnabled) reason = 'Исполнение отключено на сервере (AUTO_TRADING_EXECUTION_ENABLED)';
     else if (!executeOrders) reason = 'Исполнение ордеров выключено';
-    else if (!config.okx.hasCredentials && !hasUserCreds) reason = 'Нет ключей OKX (профиль или .env)';
+    else if (!config.bitget.hasCredentials && !hasUserCreds) reason = 'Нет ключей Bitget (профиль или .env)';
     logger.info('runAutoTradingBestCycle', `Execution skipped: ${reason}`, { userId, useTestnet });
     setLastExecution(reason);
     return;
@@ -995,7 +1001,7 @@ async function runAutoTradingBestCycleInner(
     volatilityMultiplier: volMult
   }, hasUserCreds ? userCreds : undefined).then((result) => {
     if (result.ok) {
-      logger.info('runAutoTradingBestCycle', `OKX order placed: ${result.orderId} (${useTestnet ? 'testnet' : 'real'})`);
+      logger.info('runAutoTradingBestCycle', `Bitget order placed: ${result.orderId} (${useTestnet ? 'testnet' : 'real'})`);
       setLastExecution(undefined, result.orderId, undefined, aiInfoForExecution(externalAiScore ?? undefined, externalAiUsed));
       if (userId && result.orderId) {
         try {
@@ -1029,7 +1035,7 @@ async function runAutoTradingBestCycleInner(
     } else {
       const err = result.error ?? 'Unknown error';
       const isBalanceSkip = /Баланс ОКХ \(Real\) слишком мал|Недостаточно маржи|пополните счёт до \$\d+\+|No balance available/i.test(err);
-      logger.warn('runAutoTradingBestCycle', `OKX execution skipped: ${err}`);
+      logger.warn('runAutoTradingBestCycle', `Bitget execution skipped: ${err}`);
       if (userId) {
         const cur = lastExecutionByUser.get(userId);
         setLastExecution(isBalanceSkip ? undefined : err, cur?.lastOrderId, isBalanceSkip ? err : undefined, aiInfoForExecution(externalAiScore ?? undefined, externalAiUsed));
@@ -1037,7 +1043,7 @@ async function runAutoTradingBestCycleInner(
     }
   }).catch((e) => {
     const msg = (e as Error).message;
-    logger.error('runAutoTradingBestCycle', 'OKX execute failed', { error: msg });
+    logger.error('runAutoTradingBestCycle', 'Bitget execute failed', { error: msg });
     setLastExecution(msg, undefined, undefined, aiInfoForExecution(externalAiScore ?? undefined, externalAiUsed));
   });
 }
@@ -1065,7 +1071,7 @@ async function runManualCycle(
   if (opts.executeOrders && !config.autoTradingExecutionEnabled) return;
   const creds = opts.executeOrders ? getBitgetCredentials(userId) : null;
   const hasCreds = creds && (creds.apiKey ?? '').trim() && (creds.secret ?? '').trim();
-  if (opts.executeOrders && !hasCreds && !config.okx.hasCredentials) return;
+  if (opts.executeOrders && !hasCreds && !config.bitget.hasCredentials) return;
 
   const minAiProb = Math.max(0, Math.min(1, opts.minAiProb ?? 0));
 
