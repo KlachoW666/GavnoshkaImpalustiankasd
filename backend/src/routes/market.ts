@@ -1207,7 +1207,7 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   if (syms.length === 0) syms = ['BTC-USDT'];
   const timeframe = (body?.timeframe as string) || '5m';
   const mode = (body?.mode as string) || 'default';
-  const intervalMs = Math.max(15000, Math.min(300000, parseInt(String(body?.intervalMs)) || 30000));
+  const intervalMs = Math.max(30000, Math.min(300000, parseInt(String(body?.intervalMs)) || 60000));
   const fullAuto = Boolean(body?.fullAuto);
   const useScanner = Boolean(body?.useScanner);
   const executeOrders = Boolean(body?.executeOrders);
