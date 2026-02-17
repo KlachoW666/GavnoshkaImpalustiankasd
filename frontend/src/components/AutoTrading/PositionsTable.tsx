@@ -112,7 +112,7 @@ export default function PositionsTable({
     );
   }
 
-  const okxPositions = positions.filter((p) => p.source === 'okx');
+  const bitgetPositions = positions.filter((p) => p.source === 'bitget');
   const demoPositions = positions.filter((p) => p.source === 'demo');
 
   return (
@@ -138,7 +138,7 @@ export default function PositionsTable({
             Bitget (реальный счёт) — ордера бота
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
-            {bitgetPositions.map((pos) => {
+            {bitgetPositions.map((pos: PositionItem) => {
               const symNorm = normSymbol(pos.symbol.replace(/:.*$/, ''));
               const base = symNorm
                 ? symNorm.split('-')[0]
@@ -208,7 +208,7 @@ export default function PositionsTable({
                   {pos.takeProfit != null && pos.takeProfit.length > 0 && (
                     <p className="text-sm">
                       <span style={{ color: 'var(--success)' }}>TP: </span>
-                      {pos.takeProfit.map((t) => Number(t).toLocaleString('ru-RU')).join(' / ')}
+                      {pos.takeProfit.map((t: number) => Number(t).toLocaleString('ru-RU')).join(' / ')}
                     </p>
                   )}
                   <p
