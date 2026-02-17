@@ -891,20 +891,35 @@ async function runAutoTradingBestCycleInner(
   const mlSamples = mlGetStats().samples;
   const results: Array<{ signal: Awaited<ReturnType<typeof runAnalysis>>['signal']; breakdown: any; score: number }> = [];
   const rejected: Array<{ sym: string; conf: number; rr: number; minVolOk: boolean; effectiveAiProb?: number }> = [];
-  logger.debug('runAutoTradingBestCycle', 'Starting analysis', { symbols: syms.length });
+  logger.info('runAutoTradingBestCycle', 'Starting analysis', { symbols: syms.length });
   await Promise.all(
     syms.map(async (sym) => {
       try {
         const cacheKey = `${sym}:${timeframe}:${userId ?? ''}`;
         const cached = analysisCache.get(cacheKey);
-        const r =
-          cached ??
-          (await withTimeout(
-            analysisSemaphore.run(() => runAnalysis(sym, timeframe, 'futures25x', { silent: true, userId })),
-            ANALYSIS_SYMBOL_TIMEOUT_MS,
-            `analysis ${sym}`
-          ));
-        if (!cached) analysisCache.set(cacheKey, r);
+        let r: Awaited<ReturnType<typeof runAnalysis>>;
+        if (cached) {
+          r = cached;
+        } else {
+          await analysisSemaphore.acquire();
+          let released = false;
+          const doRelease = () => {
+            if (!released) {
+              released = true;
+              analysisSemaphore.release();
+            }
+          };
+          try {
+            r = await withTimeout(
+              runAnalysis(sym, timeframe, 'futures25x', { silent: true, userId }),
+              ANALYSIS_SYMBOL_TIMEOUT_MS,
+              `analysis ${sym}`
+            );
+          } finally {
+            doRelease();
+          }
+          analysisCache.set(cacheKey, r);
+        }
         const sig = r.signal;
         const conf = sig.confidence ?? 0;
         const rr = sig.risk_reward ?? 1;
@@ -931,6 +946,7 @@ async function runAutoTradingBestCycleInner(
       }
     })
   );
+  logger.info('runAutoTradingBestCycle', 'Analysis complete', { results: results.length, rejected: rejected.length });
   if (results.length === 0) {
     const top = rejected.sort((a, b) => b.conf - a.conf).slice(0, 5);
     const aiHint = minAiProb > 0 && mlSamples >= MIN_SAMPLES_FOR_AI_GATE ? `, aiProb>=${(minAiProb * 100).toFixed(0)}%` : '';
