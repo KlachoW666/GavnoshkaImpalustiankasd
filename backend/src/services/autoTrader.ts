@@ -138,7 +138,7 @@ export async function getOpenPositionsCount(useTestnet: boolean): Promise<number
 export async function executeSignal(
   signal: TradingSignal,
   options: ExecuteOptions,
-  userCreds?: UserOkxCreds | null
+  userCreds?: UserBitgetCreds | null
 ): Promise<ExecuteResult> {
   const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
   if (!useUserCreds && !config.bitget.hasCredentials) {
@@ -449,7 +449,7 @@ function parseOkxShortError(errMsg: string): string | null {
  */
 export async function syncClosedOrdersFromOkx(
   useTestnet: boolean,
-  userCreds?: UserOkxCreds | null,
+  userCreds?: UserBitgetCreds | null,
   clientId?: string | null
 ): Promise<{ synced: number }> {
   const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
@@ -509,7 +509,7 @@ const SYMBOLS_FOR_ML_SYNC = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'XRP-USDT', 'DO
  */
 export async function pullClosedOrdersFromOkx(
   useTestnet: boolean,
-  userCreds: UserOkxCreds | null,
+  userCreds: UserBitgetCreds | null,
   clientId: string
 ): Promise<{ pulled: number }> {
   const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
@@ -577,7 +577,7 @@ export async function pullClosedOrdersFromOkx(
  * Вызывается из okxSyncCron. Использует ключи пользователя или глобальные из .env.
  */
 export async function syncOkxClosedOrdersForML(
-  userCreds?: UserOkxCreds | null,
+  userCreds?: UserBitgetCreds | null,
   userId?: string | null
 ): Promise<{ fed: number }> {
   const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
@@ -705,7 +705,7 @@ function formatTimestampExpiredMessage(raw: string): string {
 /** Позиции и баланс OKX: при передаче userCreds — ключи пользователя (как в админке), иначе ключи из .env. При таймауте — один повтор с новым прокси. При 50102 — один повтор через 2 с и понятное сообщение. */
 export async function getPositionsAndBalanceForApi(
   useTestnet: boolean,
-  userCreds?: UserOkxCreds | null
+  userCreds?: UserBitgetCreds | null
 ): Promise<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; notional?: number; markPrice?: number; unrealizedPnl?: number; leverage: number; stopLoss?: number; takeProfit?: number }>; balance: number; openCount: number; balanceError?: string }> {
   const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
   if (!useUserCreds && !config.bitget.hasCredentials) {
