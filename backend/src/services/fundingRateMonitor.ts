@@ -1,7 +1,6 @@
 /**
  * Funding Rate Monitor — ставка финансирования (MaksBaks Урок 5)
- * High positive = много лонгов → осторожно с long.
- * High negative = много шортов → осторожно с short.
+ * Источник: Bitget API. High positive = много лонгов → осторожно с long; high negative = много шортов → осторожно с short.
  */
 
 import ccxt, { Exchange } from 'ccxt';
@@ -33,16 +32,16 @@ export class FundingRateMonitor {
         defaultType: 'swap',
         fetchMarkets: ['swap']
       },
-      timeout: 15000
+      timeout: Math.max(15000, config.bitget.timeout)
     };
-    if (config.okx.hasCredentials) {
-      opts.apiKey = config.okx.apiKey;
-      opts.secret = config.okx.secret;
-      opts.password = config.okx.passphrase;
+    if (config.bitget.hasCredentials) {
+      opts.apiKey = config.bitget.apiKey;
+      opts.secret = config.bitget.secret;
+      opts.password = config.bitget.passphrase ?? '';
     }
     const proxyUrl = getProxy(config.proxyList) || config.proxy;
     if (proxyUrl) (opts as any).httpsProxy = proxyUrl;
-    this.exchange = new ccxt.okx(opts);
+    this.exchange = new ccxt.bitget(opts);
   }
 
   async getFundingRate(symbol: string): Promise<FundingRateResult | null> {
