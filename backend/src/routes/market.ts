@@ -765,6 +765,17 @@ function scannerSymbolToMarket(s: string): string {
  */
 const LOCK_TIMEOUT_MS = 8 * 60 * 1000; // 8 мин — цикл с анализом и внешним ИИ может занимать 5+ мин
 const QUEUED_LOG_COOLDOWN_MS = 120 * 1000; // не спамить лог «queued» чаще раза в 2 мин по ключу
+const ANALYSIS_SYMBOL_TIMEOUT_MS = 90_000; // 90s на символ — защита от зависания при долгом ответе API/прокси
+const BTC_FETCH_TIMEOUT_MS = 45_000; // 45s на загрузку свечей BTC
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, rej) =>
+      setTimeout(() => rej(new Error(`${label} timeout after ${ms / 1000}s`)), ms)
+    )
+  ]);
+}
 const userCycleLocks = new Map<string, { promise: Promise<void>; startedAt: number }>();
 const pendingRuns = new Map<string, { symbols: string[]; timeframe: string; useScanner: boolean; userId?: string; execOpts?: Parameters<typeof runAutoTradingBestCycle>[4] }>();
 const lastQueuedLogAt = new Map<string, number>();
@@ -863,20 +874,36 @@ async function runAutoTradingBestCycleInner(
 
   // Загружаем BTC тренд один раз за цикл (для BTC корреляции в runAnalysis)
   try {
-    const btcCandles1h = await aggregator.getOHLCV('BTC-USDT', '1h', 25);
-    const btcCandles4h = await aggregator.getOHLCV('BTC-USDT', '4h', 5);
+    const [btcCandles1h, btcCandles4h] = await withTimeout(
+      Promise.all([
+        aggregator.getOHLCV('BTC-USDT', '1h', 25),
+        aggregator.getOHLCV('BTC-USDT', '4h', 5)
+      ]),
+      BTC_FETCH_TIMEOUT_MS,
+      'BTC candles'
+    );
     analyzeBtcTrend(btcCandles1h, btcCandles4h); // Результат кэшируется на 60 секунд
-  } catch { /* BTC data unavailable — skip correlation */ }
+  } catch (e) {
+    if ((e as Error).message?.includes('timeout')) logger.warn('runAutoTradingBestCycle', (e as Error).message);
+    /* BTC data unavailable — skip correlation */
+  }
 
   const mlSamples = mlGetStats().samples;
   const results: Array<{ signal: Awaited<ReturnType<typeof runAnalysis>>['signal']; breakdown: any; score: number }> = [];
   const rejected: Array<{ sym: string; conf: number; rr: number; minVolOk: boolean; effectiveAiProb?: number }> = [];
+  logger.debug('runAutoTradingBestCycle', 'Starting analysis', { symbols: syms.length });
   await Promise.all(
     syms.map(async (sym) => {
       try {
         const cacheKey = `${sym}:${timeframe}:${userId ?? ''}`;
         const cached = analysisCache.get(cacheKey);
-        const r = cached ?? await analysisSemaphore.run(() => runAnalysis(sym, timeframe, 'futures25x', { silent: true, userId }));
+        const r =
+          cached ??
+          (await withTimeout(
+            analysisSemaphore.run(() => runAnalysis(sym, timeframe, 'futures25x', { silent: true, userId })),
+            ANALYSIS_SYMBOL_TIMEOUT_MS,
+            `analysis ${sym}`
+          ));
         if (!cached) analysisCache.set(cacheKey, r);
         const sig = r.signal;
         const conf = sig.confidence ?? 0;
