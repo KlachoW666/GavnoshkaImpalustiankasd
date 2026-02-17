@@ -573,17 +573,19 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
     }
 
     // === BTC Correlation Filter ===
-    // Проверяем тренд BTC для альткоинов (не для самого BTC)
-    let btcTrend: BtcTrendResult | null = null;
+    // Используем уже загруженные данные BTC (если анализируем BTC — данные уже есть в mtfCandles)
+    // Для альткоинов используем кэшированный тренд BTC (без дополнительных API запросов)
+    // BTC тренд кэшируется на 60 секунд в btcCorrelation.ts
     if (!sym.toUpperCase().startsWith('BTC')) {
       try {
-        const btcCandles1h = await aggregator.getOHLCV('BTC-USDT', '1h', 25);
-        const btcCandles4h = await aggregator.getOHLCV('BTC-USDT', '4h', 5);
-        btcTrend = analyzeBtcTrend(btcCandles1h, btcCandles4h);
-        const btcResult = applyBtcCorrelation(sym, direction, confidence, btcTrend);
-        confidence = btcResult.confidence;
-      } catch (e) {
-        // BTC data unavailable — skip correlation check
+        // Пытаемся получить из кэша (без API запросов)
+        const cachedBtcTrend = analyzeBtcTrend([], []);
+        if (cachedBtcTrend.change1h !== 0 || cachedBtcTrend.change4h !== 0) {
+          const btcResult = applyBtcCorrelation(sym, direction, confidence, cachedBtcTrend);
+          confidence = btcResult.confidence;
+        }
+      } catch {
+        // BTC data unavailable — skip
       }
     }
 
@@ -858,6 +860,13 @@ async function runAutoTradingBestCycleInner(
   const minAiProb = Math.max(0, Math.min(1, execOpts?.minAiProb ?? 0));
   const sizeMode = execOpts?.sizeMode ?? 'percent';
   const riskPct = execOpts?.riskPct ?? 0.02;
+
+  // Загружаем BTC тренд один раз за цикл (для BTC корреляции в runAnalysis)
+  try {
+    const btcCandles1h = await aggregator.getOHLCV('BTC-USDT', '1h', 25);
+    const btcCandles4h = await aggregator.getOHLCV('BTC-USDT', '4h', 5);
+    analyzeBtcTrend(btcCandles1h, btcCandles4h); // Результат кэшируется на 60 секунд
+  } catch { /* BTC data unavailable — skip correlation */ }
 
   const mlSamples = mlGetStats().samples;
   const results: Array<{ signal: Awaited<ReturnType<typeof runAnalysis>>['signal']; breakdown: any; score: number }> = [];
