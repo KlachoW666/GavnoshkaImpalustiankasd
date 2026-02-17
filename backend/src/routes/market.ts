@@ -1041,6 +1041,16 @@ async function runAutoTradingBestCycleInner(
     logger.warn('runAutoTradingBestCycle', 'Funding rate check failed', { error: (e as Error).message });
   }
 
+  logger.info('runAutoTradingBestCycle', 'All checks passed, executing order...', {
+    symbol: best.signal.symbol,
+    direction: best.signal.direction,
+    confidence: ((best.signal.confidence ?? 0) * 100).toFixed(0) + '%',
+    externalAiScore: externalAiScore != null ? (externalAiScore * 100).toFixed(0) + '%' : 'N/A',
+    useTestnet,
+    sizePercent,
+    leverage
+  });
+
   const volMult = (best.breakdown as any)?.volatilityMultiplier as number | undefined;
   executeSignal(best.signal, {
     sizePercent,
