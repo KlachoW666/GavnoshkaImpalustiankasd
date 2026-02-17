@@ -33,7 +33,7 @@ export function copyOrderToSubscribers(
   subs.forEach((sub) => {
     const creds = getBitgetCredentials(sub.subscriber_id);
     if (!creds?.apiKey?.trim() || !creds?.secret?.trim()) {
-      logger.debug('CopyTrading', 'Subscriber has no OKX keys', { subscriberId: sub.subscriber_id });
+      logger.debug('CopyTrading', 'Subscriber has no Bitget keys', { subscriberId: sub.subscriber_id });
       return;
     }
     const opts: ExecuteOptions = {

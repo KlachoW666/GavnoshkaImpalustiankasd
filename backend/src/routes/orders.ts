@@ -6,7 +6,7 @@
 import { Router, Request, Response } from 'express';
 import { initDb, insertOrder, updateOrderClose, listOrders, getOrderById } from '../db';
 import { feedOrderToML } from '../services/onlineMLService';
-import { syncClosedOrdersFromOkx, pullClosedOrdersFromOkx } from '../services/autoTrader';
+import { syncClosedOrdersFromBitget, pullClosedOrdersFromBitget } from '../services/autoTrader';
 import { getBitgetCredentials } from '../db/authDb';
 import { logger } from '../lib/logger';
 import { optionalAuth } from './auth';
@@ -123,8 +123,8 @@ router.get('/', optionalAuth, async (req: Request, res: Response) => {
       try {
         const userCreds = getBitgetCredentials(userId);
         if (userCreds?.apiKey && userCreds?.secret) {
-          await syncClosedOrdersFromOkx(useTestnet, userCreds, clientId);
-          await pullClosedOrdersFromOkx(useTestnet, userCreds, clientId);
+          await syncClosedOrdersFromBitget(useTestnet, userCreds, clientId);
+          await pullClosedOrdersFromBitget(useTestnet, userCreds, clientId);
         }
       } catch (_) { /* ignore */ }
     }

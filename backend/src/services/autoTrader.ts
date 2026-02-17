@@ -7,7 +7,7 @@ import ccxt, { Exchange } from 'ccxt';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { config } from '../config';
 import { getProxy } from '../db/proxies';
-import { listOrders, updateOrderClose, orderExistsWithOkxOrdId, upsertOrderFromOkx } from '../db';
+import { listOrders, updateOrderClose, orderExistsWithBitgetOrdId, upsertOrderFromOkx } from '../db';
 import { feedOrderToML, feedOkxClosedOrderToML } from './onlineMLService';
 import { toOkxCcxtSymbol } from '../lib/symbol';
 import { normalizeSymbol } from '../lib/symbol';
@@ -34,7 +34,7 @@ export interface ExecuteOptions {
   leverage: number;
   /** Макс. открытых позиций */
   maxPositions: number;
-  /** Использовать testnet (OKX demo) */
+  /** Использовать testnet (Bitget demo) */
   useTestnet?: boolean;
   /** Множитель TP (0.5–1): 0.85 = уже TP, быстрее выход из позиции */
   tpMultiplier?: number;
@@ -142,7 +142,7 @@ export async function executeSignal(
 ): Promise<ExecuteResult> {
   const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
   if (!useUserCreds && !config.bitget.hasCredentials) {
-    return { ok: false, error: 'OKX credentials not set (настройте ключи в профиле или в .env)' };
+    return { ok: false, error: 'Bitget credentials not set (настройте ключи в профиле или в .env)' };
   }
 
   const canOpen = emotionalFilterInstance.canOpenTrade();
@@ -185,11 +185,11 @@ export async function executeSignal(
   if (!useTestnet && balance < MIN_BALANCE_REAL) {
     return {
       ok: false,
-      error: `Баланс OKX (Real) слишком мал: $${balance.toFixed(2)}. Пополните счёт до $${MIN_BALANCE_REAL}+ или используйте «Демо (Testnet)».`
+      error: `Баланс Bitget (Real) слишком мал: $${balance.toFixed(2)}. Пополните счёт до $${MIN_BALANCE_REAL}+ или используйте «Демо (Testnet)».`
     };
   }
 
-  /** Минимальный объём позиции в USDT (OKX отклоняет слишком мелкие ордера) */
+  /** Минимальный объём позиции в USDT (Bitget отклоняет слишком мелкие ордера) */
   const MIN_NOTIONAL_USD = 5;
 
   const symbol = normalizeSymbol(signal.symbol);
@@ -264,7 +264,7 @@ export async function executeSignal(
     margin = Math.min((balance * options.sizePercent) / 100 * volMult, maxUsableBalance);
     positionValue = margin * options.leverage;
   }
-  // OKX не принимает слишком мелкие ордера — не менее MIN_NOTIONAL_USD
+  // Bitget не принимает слишком мелкие ордера — не менее MIN_NOTIONAL_USD
   if (positionValue < MIN_NOTIONAL_USD) {
     const needMargin = MIN_NOTIONAL_USD / options.leverage;
     if (needMargin <= maxUsableBalance) {
@@ -273,7 +273,7 @@ export async function executeSignal(
     } else {
       return {
         ok: false,
-        error: `Размер позиции меньше минимума OKX (~$${MIN_NOTIONAL_USD} объём). Нужна маржа ~$${needMargin.toFixed(2)}. Пополните счёт или переключитесь на Демо.`
+        error: `Размер позиции меньше минимума Bitget (~$${MIN_NOTIONAL_USD} объём). Нужна маржа ~$${needMargin.toFixed(2)}. Пополните счёт или переключитесь на Демо.`
       };
     }
   }
@@ -283,10 +283,10 @@ export async function executeSignal(
     return { ok: false, error: 'Invalid position size' };
   }
 
-  const { minAmount, precision } = getOkxMinAmountAndPrecision(ccxtSymbol);
+  const { minAmount, precision } = getBitgetMinAmountAndPrecision(ccxtSymbol);
   amount = roundToPrecision(Math.max(amount, minAmount), precision);
   const notional = amount * entryPrice;
-  // Фактический объём не должен быть ниже минимума OKX
+  // Фактический объём не должен быть ниже минимума Bitget
   let requiredMargin = notional / options.leverage;
   if (notional < MIN_NOTIONAL_USD && requiredMargin <= maxUsableBalance) {
     const minAmountForNotional = MIN_NOTIONAL_USD / entryPrice;
@@ -310,20 +310,27 @@ export async function executeSignal(
   if (amount * entryPrice < MIN_NOTIONAL_USD) {
     return {
       ok: false,
-      error: `Объём позиции получился меньше минимума OKX (~$${MIN_NOTIONAL_USD}). Пополните счёт или увеличьте «Долю баланса».`
+      error: `Объём позиции получился меньше минимума Bitget (~$${MIN_NOTIONAL_USD}). Пополните счёт или увеличьте «Долю баланса».`
     };
   }
 
   const side = signal.direction === 'LONG' ? 'buy' : 'sell';
   let posSide: string = signal.direction === 'LONG' ? 'long' : 'short';
 
-  const tryPlaceOrder = async (tdMode: 'isolated' | 'cross') => {
+  /** oneWayMode: для Bitget в режиме unilateral (one-way) — не передаём posSide, используем side buy_single/sell_single */
+  const tryPlaceOrder = async (tdMode: 'isolated' | 'cross', oneWayMode?: boolean) => {
     try {
       await exchange.setLeverage(options.leverage, ccxtSymbol, { marginMode: tdMode });
     } catch (e) {
       logger.warn('AutoTrader', 'setLeverage failed', { symbol: ccxtSymbol, tdMode, error: (e as Error).message });
     }
-    const params: Record<string, unknown> = { tdMode, posSide };
+    const isBitget = (exchange as any).id === 'bitget';
+    const params: Record<string, unknown> = { tdMode };
+    if (oneWayMode && isBitget) {
+      params.side = signal.direction === 'LONG' ? 'buy_single' : 'sell_single';
+    } else {
+      params.posSide = posSide;
+    }
     if (stopLoss > 0) {
       params.stopLoss = { triggerPrice: stopLoss, type: 'market' };
     }
@@ -344,7 +351,21 @@ export async function executeSignal(
       const isAccountModeError = /51010|account mode|cannot complete.*account mode/i.test(errMsg);
       const isTimestampExpired = /50102|Timestamp request expired|timestamp expired/i.test(errMsg);
       const isPosSideError = /51000.*posSide|Parameter posSide/i.test(errMsg);
-      if (isPosSideError) {
+      const isBitgetUnilateral = /40774|unilateral position must also be the unilateral/i.test(errMsg);
+      if (isBitgetUnilateral) {
+        logger.info('AutoTrader', 'Retrying with Bitget one-way mode (buy_single/sell_single)', { symbol: signal.symbol });
+        try {
+          order = await tryPlaceOrder('cross', true);
+        } catch (e2: any) {
+          const errMsg2 = e2?.message ?? String(e2);
+          if (/51010|account mode/i.test(errMsg2)) {
+            logger.info('AutoTrader', 'Retrying Bitget one-way + tdMode=isolated', { symbol: signal.symbol });
+            order = await tryPlaceOrder('isolated', true);
+          } else {
+            throw e2;
+          }
+        }
+      } else if (isPosSideError) {
         posSide = 'net';
         logger.info('AutoTrader', 'Retrying with posSide=net (account in net/one-way mode)', { symbol: signal.symbol });
         try {
@@ -391,18 +412,20 @@ export async function executeSignal(
   } catch (e: any) {
     const errMsg = e?.message ?? String(e);
     logger.error('AutoTrader', 'createOrder failed', { symbol: signal.symbol, error: errMsg });
-    let userMsg = parseOkxShortError(errMsg) || errMsg;
-    if (/insufficient|margin|51008|51020|51119/i.test(errMsg)) {
-      userMsg = `Недостаточно маржи на OKX (51008). Пополните счёт USDT, закройте часть позиций или уменьшите «Долю баланса» в настройках.`;
+    let userMsg = parseBitgetShortError(errMsg) || errMsg;
+    if (/40774|unilateral position must also be the unilateral/i.test(errMsg)) {
+      userMsg = `Bitget: режим позиции (40774). Убедитесь, что на бирже выбран режим One-way или перезапустите сервер после обновления.`;
+    } else if (/insufficient|margin|51008|51020|51119/i.test(errMsg)) {
+      userMsg = `Недостаточно маржи на Bitget. Пополните счёт USDT, закройте часть позиций или уменьшите «Долю баланса» в настройках.`;
     } else if (/50102|Timestamp request expired|timestamp expired/i.test(errMsg)) {
-      userMsg = `OKX: время сервера рассинхронизировано (50102). На сервере выполните: timedatectl set-ntp true (или ntpdate -s time.nist.gov).`;
+      userMsg = `Bitget: время сервера рассинхронизировано. На сервере выполните: timedatectl set-ntp true (или ntpdate -s time.nist.gov).`;
     }
     return { ok: false, error: userMsg };
   }
 }
 
-/** Минимальный объём и точность по инструменту OKX (swap). Для всех пар минимум не ниже 0.01 (требование OKX). */
-function getOkxMinAmountAndPrecision(ccxtSymbol: string): { minAmount: number; precision: number } {
+/** Минимальный объём и точность по инструменту Bitget (swap). Для всех пар минимум не ниже 0.01. */
+function getBitgetMinAmountAndPrecision(ccxtSymbol: string): { minAmount: number; precision: number } {
   const base = (ccxtSymbol.split('/')[0] || '').toUpperCase();
   const byBase: Record<string, { min: number; prec: number }> = {
     BTC: { min: 0.01, prec: 2 },
@@ -426,12 +449,12 @@ function roundToPrecision(value: number, decimalPlaces: number): number {
   return Math.round(value * p) / p;
 }
 
-/** Извлечь короткое сообщение из ответа OKX (например sMsg из data[0]) для отображения пользователю */
-function parseOkxShortError(errMsg: string): string | null {
+/** Извлечь короткое сообщение из ответа Bitget (например sMsg из data[0]) для отображения пользователю */
+function parseBitgetShortError(errMsg: string): string | null {
   try {
     const m = errMsg.match(/"sMsg"\s*:\s*"([^"]+)"/);
     if (m?.[1]) return m[1];
-    const j = errMsg.replace(/^okx\s+/i, '').trim();
+    const j = errMsg.replace(/^bitget\s+/i, '').trim();
     if (j.startsWith('{')) {
       const o = JSON.parse(j) as { msg?: string; data?: Array<{ sMsg?: string }> };
       if (o.data?.[0]?.sMsg) return o.data[0].sMsg;
@@ -444,10 +467,10 @@ function parseOkxShortError(errMsg: string): string | null {
 }
 
 /**
- * Синхронизация закрытых ордеров с OKX: для каждого открытого в БД ордера с id okx-* проверяем статус на OKX;
+ * Синхронизация закрытых ордеров с Bitget: для каждого открытого в БД ордера с id okx-* или bitget-* проверяем статус на Bitget;
  * если ордер закрыт — обновляем close_price, pnl, close_time в БД.
  */
-export async function syncClosedOrdersFromOkx(
+export async function syncClosedOrdersFromBitget(
   useTestnet: boolean,
   userCreds?: UserBitgetCreds | null,
   clientId?: string | null
@@ -455,24 +478,24 @@ export async function syncClosedOrdersFromOkx(
   const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
   if (!useUserCreds && !config.bitget.hasCredentials) return { synced: 0 };
   const openOrders = listOrders({ status: 'open', clientId: clientId ?? undefined, limit: 200 });
-  const okxOrders = openOrders.filter((o) => o.id && String(o.id).startsWith('okx-'));
-  if (okxOrders.length === 0) return { synced: 0 };
+  const exchangeOrders = openOrders.filter((o) => o.id && (String(o.id).startsWith('okx-') || String(o.id).startsWith('bitget-')));
+  if (exchangeOrders.length === 0) return { synced: 0 };
   const exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
   let synced = 0;
-  for (const row of okxOrders) {
+  for (const row of exchangeOrders) {
     const parts = String(row.id).split('-');
     if (parts.length < 3) continue;
-    const okxOrderId = parts.slice(1, -1).join('-');
+    const exchangeOrderId = parts.slice(1, -1).join('-');
     const ccxtSymbol = toOkxCcxtSymbol(row.pair) || row.pair.replace('-', '/') + ':USDT';
     try {
-      const okxOrder = await exchange.fetchOrder(okxOrderId, ccxtSymbol);
-      const status = (okxOrder as any).status ?? '';
+      const exOrder = await exchange.fetchOrder(exchangeOrderId, ccxtSymbol);
+      const status = (exOrder as any).status ?? '';
       if (status !== 'closed' && status !== 'filled' && status !== 'canceled') continue;
-      const closePrice = Number((okxOrder as any).average ?? (okxOrder as any).price ?? row.open_price) || row.open_price;
+      const closePrice = Number((exOrder as any).average ?? (exOrder as any).price ?? row.open_price) || row.open_price;
       const openPrice = row.open_price || closePrice;
       const size = row.size || 0;
       let pnl = 0;
-      const info = (okxOrder as any).info ?? {};
+      const info = (exOrder as any).info ?? {};
       if (typeof info.realizedPnl === 'number') pnl = info.realizedPnl;
       else if (size > 0 && openPrice > 0)
         pnl = row.direction === 'LONG'
@@ -481,8 +504,8 @@ export async function syncClosedOrdersFromOkx(
       const pnlPercent = openPrice > 0
         ? (row.direction === 'LONG' ? (closePrice - openPrice) / openPrice : (openPrice - closePrice) / openPrice) * 100
         : 0;
-      const closeTime = (okxOrder as any).datetime
-        ? new Date((okxOrder as any).datetime).toISOString()
+      const closeTime = (exOrder as any).datetime
+        ? new Date((exOrder as any).datetime).toISOString()
         : (info.uTime ? new Date(Number(info.uTime)).toISOString() : new Date().toISOString());
       updateOrderClose({
         id: row.id,
@@ -493,7 +516,7 @@ export async function syncClosedOrdersFromOkx(
       });
       feedOrderToML(row, pnl);
       synced++;
-      logger.info('AutoTrader', 'Synced closed order from OKX', { id: row.id, pair: row.pair, pnl });
+      logger.info('AutoTrader', 'Synced closed order from Bitget', { id: row.id, pair: row.pair, pnl });
     } catch (e) {
       logger.debug('AutoTrader', 'fetchOrder skip', { id: row.id, error: (e as Error).message });
     }
@@ -504,10 +527,10 @@ export async function syncClosedOrdersFromOkx(
 const SYMBOLS_FOR_ML_SYNC = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'XRP-USDT', 'DOGE-USDT', 'MATIC-USDT', 'ADA-USDT', 'DOT-USDT', 'AVAX-USDT', 'UNI-USDT', 'LINK-USDT', 'LTC-USDT', 'ATOM-USDT', 'NEAR-USDT', 'APT-USDT', 'ARB-USDT', 'OP-USDT', 'SUI-USDT', 'PEPE-USDT'];
 
 /**
- * Подтягивание ВСЕХ закрытых ордеров с OKX в БД — ордера, открытые/закрытые на бирже (в т.ч. вручную),
- * чтобы история на сайте совпадала с OKX.
+ * Подтягивание ВСЕХ закрытых ордеров с Bitget в БД — ордера, открытые/закрытые на бирже (в т.ч. вручную),
+ * чтобы история на сайте совпадала с Bitget.
  */
-export async function pullClosedOrdersFromOkx(
+export async function pullClosedOrdersFromBitget(
   useTestnet: boolean,
   userCreds: UserBitgetCreds | null,
   clientId: string
@@ -526,8 +549,8 @@ export async function pullClosedOrdersFromOkx(
           const info = (o as any).info ?? {};
           const ordId = String(o.id ?? info.ordId ?? info.clOrdId ?? '');
           if (!ordId) continue;
-          if (orderExistsWithOkxOrdId(ordId, clientId)) continue; // уже в БД
-          const dbId = `okx-${ordId}-${clientId}`;
+          if (orderExistsWithBitgetOrdId(ordId, clientId)) continue; // уже в БД
+          const dbId = `bitget-${ordId}-${clientId}`;
           const pnl = Number(info.realizedPnl ?? info.pnl ?? 0);
           const avgPx = Number((o as any).average ?? info.avgPx ?? o.price ?? 0);
           const filled = Number((o as any).filled ?? info.fillSz ?? 0);
@@ -565,18 +588,18 @@ export async function pullClosedOrdersFromOkx(
         logger.debug('AutoTrader', 'pullClosedOrders fetch skip', { symbol: sym, error: (e as Error).message });
       }
     }
-    if (pulled > 0) logger.info('AutoTrader', 'Pulled closed orders from OKX', { clientId, pulled });
+    if (pulled > 0) logger.info('AutoTrader', 'Pulled closed orders from Bitget', { clientId, pulled });
   } catch (e) {
-    logger.warn('AutoTrader', 'pullClosedOrdersFromOkx failed', { error: (e as Error).message });
+    logger.warn('AutoTrader', 'pullClosedOrdersFromBitget failed', { error: (e as Error).message });
   }
   return { pulled };
 }
 
 /**
- * Подгрузка закрытых ордеров с OKX для обучения ML.
- * Вызывается из okxSyncCron. Использует ключи пользователя или глобальные из .env.
+ * Подгрузка закрытых ордеров с Bitget для обучения ML.
+ * Вызывается из bitgetSyncCron. Использует ключи пользователя или глобальные из .env.
  */
-export async function syncOkxClosedOrdersForML(
+export async function syncBitgetClosedOrdersForML(
   userCreds?: UserBitgetCreds | null,
   userId?: string | null
 ): Promise<{ fed: number }> {
@@ -596,7 +619,7 @@ export async function syncOkxClosedOrdersForML(
           if (!Number.isFinite(pnl)) continue;
           const orderId = (o.id ?? info.ordId ?? info.clOrdId ?? '') + (userId ? `-${userId}` : '');
           if (!orderId) continue;
-          const mlId = `okx-ml-${orderId}`;
+          const mlId = `bitget-ml-${orderId}`;
           const side = String((o as any).side ?? info.side ?? 'buy').toLowerCase();
           feedOkxClosedOrderToML({
             id: mlId,
@@ -612,15 +635,15 @@ export async function syncOkxClosedOrdersForML(
         logger.debug('AutoTrader', 'fetchClosedOrders for ML skip', { symbol: sym, error: (e as Error).message });
       }
     }
-    if (fed > 0) logger.info('AutoTrader', `OKX ML sync: fed ${fed} closed orders`);
+    if (fed > 0) logger.info('AutoTrader', `Bitget ML sync: fed ${fed} closed orders`);
   } catch (e) {
-    logger.warn('AutoTrader', 'syncOkxClosedOrdersForML failed', { error: (e as Error).message });
+    logger.warn('AutoTrader', 'syncBitgetClosedOrdersForML failed', { error: (e as Error).message });
   }
   return { fed };
 }
 
 /**
- * Список позиций с OKX (для UI).
+ * Список позиций с Bitget (для UI).
  */
 export async function fetchPositionsForApi(useTestnet: boolean): Promise<Array<{
   symbol: string;
@@ -695,14 +718,14 @@ async function fetchBalanceAndPositions(exchange: Exchange): Promise<{ balance: 
   return { balance, positions };
 }
 
-const OKX_TIMESTAMP_EXPIRED = /50102|Timestamp request expired/i;
+const BITGET_TIMESTAMP_EXPIRED = /50102|Timestamp request expired/i;
 
-/** Сообщение для пользователя при ошибке времени OKX: ордера могут исполняться, баланс не показывается. */
+/** Сообщение для пользователя при ошибке времени Bitget: ордера могут исполняться, баланс не показывается. */
 function formatTimestampExpiredMessage(raw: string): string {
   return `${raw} Исполнение ордеров при этом может работать. Синхронизируйте время на сервере с интернетом (NTP).`;
 }
 
-/** Позиции и баланс OKX: при передаче userCreds — ключи пользователя (как в админке), иначе ключи из .env. При таймауте — один повтор с новым прокси. При 50102 — один повтор через 2 с и понятное сообщение. */
+/** Позиции и баланс Bitget: при передаче userCreds — ключи пользователя (как в админке), иначе ключи из .env. При таймауте — один повтор с новым прокси. */
 export async function getPositionsAndBalanceForApi(
   useTestnet: boolean,
   userCreds?: UserBitgetCreds | null
@@ -716,7 +739,7 @@ export async function getPositionsAndBalanceForApi(
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       if (attempt > 0) {
-        const isTimestampRetry = OKX_TIMESTAMP_EXPIRED.test(lastError || '');
+        const isTimestampRetry = BITGET_TIMESTAMP_EXPIRED.test(lastError || '');
         const isTimeout = /timed out|timeout|ETIMEDOUT/i.test(lastError || '');
         const delayMs = isTimestampRetry ? 2000 : (isTimeout ? 2500 : 0); // таймаут — пауза перед сменой прокси
         if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
@@ -728,7 +751,7 @@ export async function getPositionsAndBalanceForApi(
       const msg = (e as Error).message || String(e);
       lastError = msg;
       const isTimeout = /timed out|timeout|ETIMEDOUT/i.test(msg);
-      const isTimestampExpired = OKX_TIMESTAMP_EXPIRED.test(msg);
+      const isTimestampExpired = BITGET_TIMESTAMP_EXPIRED.test(msg);
       if (isTimeout && attempt < 2) {
         logger.warn('AutoTrader', 'getPositionsAndBalance timeout, retrying with new proxy after 2.5s', { attempt: attempt + 1, useUserCreds: !!useUserCreds });
         continue;
@@ -742,7 +765,7 @@ export async function getPositionsAndBalanceForApi(
       return { positions: [], balance: 0, openCount: 0, balanceError };
     }
   }
-  const balanceError = lastError && OKX_TIMESTAMP_EXPIRED.test(lastError)
+  const balanceError = lastError && BITGET_TIMESTAMP_EXPIRED.test(lastError)
     ? formatTimestampExpiredMessage(lastError)
     : (lastError || 'Request failed after retry');
   return { positions: [], balance: 0, openCount: 0, balanceError };

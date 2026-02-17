@@ -1007,7 +1007,7 @@ async function runAutoTradingBestCycleInner(
         try {
           initDb();
           insertOrder({
-            id: `okx-${result.orderId}-${Date.now()}`,
+            id: `bitget-${result.orderId}-${Date.now()}`,
             clientId: userId,
             pair: best.signal.symbol,
             direction: best.signal.direction === 'SHORT' ? 'SHORT' : 'LONG',

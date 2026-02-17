@@ -5,7 +5,7 @@
 import { Router, Request, Response } from 'express';
 import { emotionalFilterInstance } from '../services/emotionalFilter';
 import { setNotificationConfig, getNotificationConfig } from '../services/notificationService';
-import { getPositionsAndBalanceForApi, syncClosedOrdersFromOkx, pullClosedOrdersFromOkx } from '../services/autoTrader';
+import { getPositionsAndBalanceForApi, syncClosedOrdersFromBitget, pullClosedOrdersFromBitget } from '../services/autoTrader';
 import { getBearerToken } from './auth';
 import { findSessionUserId } from '../db/authDb';
 import { getBitgetCredentials } from '../db/authDb';
@@ -98,7 +98,7 @@ router.get('/notifications', (_req: Request, res: Response) => {
 
 /**
  * GET /api/trading/positions
- * Позиции на OKX. Query: useTestnet=true|false
+ * Позиции на Bitget. Query: useTestnet=true|false
  * Если передан Authorization — используются ключи пользователя (как в админке), иначе ключи из .env
  */
 router.get('/positions', async (req: Request, res: Response) => {
@@ -122,13 +122,13 @@ router.get('/positions', async (req: Request, res: Response) => {
     const { positions, balance, openCount, balanceError } = await getPositionsAndBalanceForApi(useTestnet, hasCreds ? userCreds : undefined);
     if (userId && hasCreds) {
       Promise.all([
-        syncClosedOrdersFromOkx(useTestnet, userCreds, userId),
-        pullClosedOrdersFromOkx(useTestnet, userCreds, userId)
+        syncClosedOrdersFromBitget(useTestnet, userCreds, userId),
+        pullClosedOrdersFromBitget(useTestnet, userCreds, userId)
       ]).then(([r1, r2]) => {
         if (r1.synced > 0 || r2.pulled > 0) {
           logger.info('Trading', 'OKX sync', { userId, synced: r1.synced, pulled: r2.pulled });
         }
-      }).catch((e) => logger.warn('Trading', 'OKX sync failed', { error: (e as Error).message }));
+      }).catch((e) => logger.warn('Trading', 'Bitget sync failed', { error: (e as Error).message }));
     }
     res.json({
       positions,
@@ -147,13 +147,13 @@ router.get('/positions', async (req: Request, res: Response) => {
 /**
  * GET /api/trading/execution-config
  * Доступно ли исполнение и testnet (без секретов).
- * defaultTestnet: из OKX_SANDBOX (1 = демо по умолчанию, 0 = реальный счёт по умолчанию).
+ * defaultTestnet: из BITGET_SANDBOX (1 = демо по умолчанию, 0 = реальный счёт по умолчанию).
  */
 router.get('/execution-config', (_req: Request, res: Response) => {
   res.json({
     executionEnabled: config.autoTradingExecutionEnabled,
-    hasCredentials: config.okx.hasCredentials,
-    defaultTestnet: config.okx.sandbox
+    hasCredentials: config.bitget.hasCredentials,
+    defaultTestnet: config.bitget.sandbox
   });
 });
 

@@ -441,7 +441,7 @@ async function fetchBitgetBalanceForUser(userId: string): Promise<{ okxBalance: 
         return { okxBalance: value, okxBalanceError: null };
       } catch (e) {
         lastError = (e as Error).message || String(e);
-        logger.warn('Admin', 'OKX balance fetch failed', { userId, sandboxMode, attempt: attempt + 1, error: lastError });
+        logger.warn('Admin', 'Bitget balance fetch failed', { userId, sandboxMode, attempt: attempt + 1, error: lastError });
       }
     }
     const isTimeout = /timed out|timeout|ETIMEDOUT/i.test(lastError || '');
@@ -457,7 +457,7 @@ async function fetchBitgetBalanceForUser(userId: string): Promise<{ okxBalance: 
   return { okxBalance: null, okxBalanceError };
 }
 
-/** GET /api/admin/users/:id — детали пользователя: ордера, PnL, telegram_id, подписка, OKX баланс */
+/** GET /api/admin/users/:id — детали пользователя: ордера, PnL, telegram_id, подписка, Bitget баланс */
 router.get('/users/:id', requireAdmin, async (req: Request, res: Response) => {
   try {
     initDb();
@@ -921,7 +921,7 @@ router.delete('/subscription-plans/:id', requireAdmin, (req: Request, res: Respo
   }
 });
 
-/** ——— Прокси (OKX обход Cloudflare) ——— */
+/** ——— Прокси (Bitget обход Cloudflare) ——— */
 
 /** GET /api/admin/proxies — список всех прокси (env + из БД), для отображения в админке */
 router.get('/proxies', requireAdmin, (req: Request, res: Response) => {
@@ -971,10 +971,10 @@ router.delete('/proxies/:id', requireAdmin, (req: Request, res: Response) => {
   }
 });
 
-/** Проверка одного прокси: запрос к OKX через него */
+/** Проверка одного прокси: запрос к Bitget через него */
 async function checkProxyOne(url: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    const ex = new ccxt.okx({
+    const ex = new ccxt.bitget({
       enableRateLimit: true,
       options: { defaultType: 'swap', fetchMarkets: ['swap'] },
       timeout: 12000,

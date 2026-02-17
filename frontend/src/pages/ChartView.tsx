@@ -173,7 +173,7 @@ export default function ChartView() {
   const lastCandleTimeRef = useRef<number | null>(null);
   const lastHaOpenRef = useRef<number | null>(null);
   const lastHaCloseRef = useRef<number | null>(null);
-  const [platform, setPlatform] = useState('okx');
+  const [platform, setPlatform] = useState('bitget');
   const initialSymbol = (() => {
     if (typeof window === 'undefined') return 'BTC-USDT';
     const q = new URLSearchParams(window.location.search);

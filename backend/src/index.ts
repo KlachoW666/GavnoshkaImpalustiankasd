@@ -43,7 +43,7 @@ import { emotionalFilterInstance } from './services/emotionalFilter';
 import { seedDefaultAdmin } from './db/seed';
 import { notifyBreakoutAlert } from './services/notificationService';
 import { startBreakoutMonitor } from './services/breakoutMonitor';
-import { startOkxSyncCron } from './services/okxSyncCron';
+import { startBitgetSyncCron } from './services/bitgetSyncCron';
 import { rateLimit } from './middleware/rateLimit';
 
 const app = express();
@@ -182,7 +182,7 @@ export async function startServer(port: number = config.port): Promise<void> {
     server.listen(port, host, () => {
       logger.info('Server', `API: http://${host}:${port}`);
       logger.info('Server', `WebSocket: ws://${host}:${port}/ws`);
-      startOkxSyncCron();
+      startBitgetSyncCron();
       resolve();
     });
   });

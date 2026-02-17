@@ -563,10 +563,10 @@ export function updateOrderClose(order: {
   });
 }
 
-/** Проверка: есть ли уже ордер с данным OKX ordId (id форматов okx-{ordId} или okx-{ordId}-...) */
-export function orderExistsWithOkxOrdId(ordId: string, clientId?: string): boolean {
+/** Проверка: есть ли уже ордер с данным exchange ordId (id форматов okx-{ordId}-... или bitget-{ordId}-...) */
+function orderExistsWithExchangeOrdId(ordId: string, clientId: string | undefined, idPrefix: 'okx' | 'bitget'): boolean {
   if (!initAttempted) initDb();
-  const prefix = `okx-${ordId}`;
+  const prefix = `${idPrefix}-${ordId}`;
   const prefixDash = `${prefix}-`;
   if (useMemoryStore) {
     return memoryOrders.some((o) => {
@@ -579,6 +579,14 @@ export function orderExistsWithOkxOrdId(ordId: string, clientId?: string): boole
   const list = d.prepare('SELECT id, client_id FROM orders WHERE id = ? OR id LIKE ?').all(prefix, `${prefixDash}%`) as Array<{ id: string; client_id: string }>;
   if (clientId == null) return list.length > 0;
   return list.some((r) => r.client_id === clientId);
+}
+
+export function orderExistsWithOkxOrdId(ordId: string, clientId?: string): boolean {
+  return orderExistsWithExchangeOrdId(ordId, clientId, 'okx');
+}
+
+export function orderExistsWithBitgetOrdId(ordId: string, clientId?: string): boolean {
+  return orderExistsWithExchangeOrdId(ordId, clientId, 'bitget');
 }
 
 export function getOrderById(id: string): OrderRow | null {
