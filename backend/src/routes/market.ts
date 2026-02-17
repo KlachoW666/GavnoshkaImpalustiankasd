@@ -790,7 +790,7 @@ async function runAutoTradingBestCycle(
       const now = Date.now();
       if (now - (lastQueuedLogAt.get(lockKey) ?? 0) >= QUEUED_LOG_COOLDOWN_MS) {
         lastQueuedLogAt.set(lockKey, now);
-        logger.info('runAutoTradingBestCycle', `Cycle already running for ${lockKey}, next run queued (will start when current finishes)`);
+        logger.debug('runAutoTradingBestCycle', `Cycle already running for ${lockKey}, next run queued`);
       }
       return;
     }

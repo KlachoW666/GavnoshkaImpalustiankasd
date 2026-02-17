@@ -42,8 +42,8 @@ export function validateEnvironment(): void {
     }
   }
 
-  // Warn about insecure encryption fallback
-  if (!process.env.ENCRYPTION_KEY?.trim()) {
+  // Warn about insecure encryption fallback (only in production)
+  if (!process.env.ENCRYPTION_KEY?.trim() && isProd) {
     warnings.push('ENCRYPTION_KEY not set — API keys will be stored as Base64 (not encrypted). Set ENCRYPTION_KEY for AES-256-GCM encryption.');
   }
 
