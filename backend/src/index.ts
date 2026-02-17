@@ -80,7 +80,8 @@ app.use(cors(corsOrigins.length > 0 ? {
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Bot-Token']
 } : undefined));
-app.use(compression());
+// compression() — отключён до стабилизации; для включения раскомментируйте:
+// app.use(compression());
 app.use(express.json({ limit: '64kb' }));
 
 const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });

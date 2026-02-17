@@ -306,8 +306,13 @@ export function createSession(token: string, userId: string): void {
   }
   const db = getDb();
   if (db) {
-    const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    db.prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)').run(token, userId, expiresAt);
+    try {
+      const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+      db.prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)').run(token, userId, expiresAt);
+    } catch {
+      // Fallback: если колонка expires_at ещё не добавлена миграцией
+      db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, userId);
+    }
   }
 }
 

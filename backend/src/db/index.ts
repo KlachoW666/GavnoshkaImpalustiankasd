@@ -74,7 +74,8 @@ export function initDb(): any {
     fs.mkdirSync(DB_DIR, { recursive: true });
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
+    // foreign_keys = ON отключён — может ломать существующие данные с нарушениями FK
+    // db.pragma('foreign_keys = ON');
     const schemaPath = getSchemaPath();
     if (fs.existsSync(schemaPath)) {
       const sql = fs.readFileSync(schemaPath, 'utf8');

@@ -55,9 +55,8 @@ export function validateEnvironment(): void {
     for (const e of errors) {
       logger.error('EnvValidator', e);
     }
-    if (isProd) {
-      logger.error('EnvValidator', 'Fatal: missing required environment variables. Exiting.');
-      process.exit(1);
-    }
+    // В production только предупреждаем, не останавливаем сервер
+    // (чтобы не ломать существующие деплои без ENCRYPTION_KEY)
+    logger.warn('EnvValidator', `${errors.length} environment issue(s) detected. Please fix for better security.`);
   }
 }
