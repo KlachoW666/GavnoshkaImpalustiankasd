@@ -71,7 +71,7 @@ export class CoinScanner {
     const config = { ...DEFAULT_CRITERIA, ...criteria };
     const results: CoinScore[] = [];
 
-    logger.info('CoinScanner', `Scanning ${symbols.length} coins...`);
+    logger.debug('CoinScanner', `Scanning ${symbols.length} coins...`);
 
     for (const symbol of symbols) {
       try {
@@ -256,63 +256,35 @@ export class CoinScanner {
    */
   static getDefaultSymbols(): string[] {
     return [
-      // Топ по капитализации
+      // Топ по капитализации + волатильности (25 монет — оптимально для скорости)
       'BTC/USDT:USDT',
       'ETH/USDT:USDT',
       'SOL/USDT:USDT',
-      'BNB/USDT:USDT',
       'XRP/USDT:USDT',
       'DOGE/USDT:USDT',
-      'ADA/USDT:USDT',
       'AVAX/USDT:USDT',
       'LINK/USDT:USDT',
-      'DOT/USDT:USDT',
-      'MATIC/USDT:USDT',
       'UNI/USDT:USDT',
       'ATOM/USDT:USDT',
-      'LTC/USDT:USDT',
-      // L2 / смарт-контракты
+      // L2 / AI — высокая волатильность
       'APT/USDT:USDT',
       'ARB/USDT:USDT',
-      'OP/USDT:USDT',
       'SUI/USDT:USDT',
-      'SEI/USDT:USDT',
-      'TIA/USDT:USDT',
-      'STRK/USDT:USDT',
-      'IMX/USDT:USDT',
-      'METIS/USDT:USDT',
-      'MNT/USDT:USDT',
-      // AI
-      'FET/USDT:USDT',
-      'RENDER/USDT:USDT',
-      'WLD/USDT:USDT',
-      'ARKM/USDT:USDT',
       'TAO/USDT:USDT',
-      // Мемкоины (высокая волатильность)
+      'RENDER/USDT:USDT',
+      'IMX/USDT:USDT',
+      // Мемкоины (максимальная волатильность)
       'PEPE/USDT:USDT',
       'WIF/USDT:USDT',
       'BONK/USDT:USDT',
       'FLOKI/USDT:USDT',
-      'BRETT/USDT:USDT',
-      // Gaming
-      'GALA/USDT:USDT',
-      'AXS/USDT:USDT',
-      'PIXEL/USDT:USDT',
-      'PORTAL/USDT:USDT',
-      'NOT/USDT:USDT',
-      'XAI/USDT:USDT',
       // DeFi / остальное
       'INJ/USDT:USDT',
       'NEAR/USDT:USDT',
-      'RUNE/USDT:USDT',
-      'FTM/USDT:USDT',
-      'SAND/USDT:USDT',
-      'MANA/USDT:USDT',
-      'APE/USDT:USDT',
-      'PYTH/USDT:USDT',
       'JUP/USDT:USDT',
-      'ORDI/USDT:USDT',
-      'STX/USDT:USDT'
+      'PYTH/USDT:USDT',
+      'FTM/USDT:USDT',
+      'RUNE/USDT:USDT'
     ];
   }
 }
