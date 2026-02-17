@@ -326,8 +326,10 @@ export async function executeSignal(
     }
     const isBitget = (exchange as any).id === 'bitget';
     const params: Record<string, unknown> = { tdMode };
+    let orderSide = side;
     if (oneWayMode && isBitget) {
-      params.side = signal.direction === 'LONG' ? 'buy_single' : 'sell_single';
+      orderSide = signal.direction === 'LONG' ? 'buy_single' : 'sell_single';
+      params.side = orderSide;
     } else {
       params.posSide = posSide;
     }
@@ -337,7 +339,7 @@ export async function executeSignal(
     if (takeProfit1 > 0 && takeProfit1 !== entryPrice) {
       params.takeProfit = { triggerPrice: takeProfit1, type: 'market' };
     }
-    const order = await exchange.createOrder(ccxtSymbol, 'market', side, amount, undefined, params);
+    const order = await exchange.createOrder(ccxtSymbol, 'market', orderSide, amount, undefined, params);
     return order;
   };
 
@@ -351,7 +353,7 @@ export async function executeSignal(
       const isAccountModeError = /51010|account mode|cannot complete.*account mode/i.test(errMsg);
       const isTimestampExpired = /50102|Timestamp request expired|timestamp expired/i.test(errMsg);
       const isPosSideError = /51000.*posSide|Parameter posSide/i.test(errMsg);
-      const isBitgetUnilateral = /40774|unilateral position must also be the unilateral/i.test(errMsg);
+      const isBitgetUnilateral = /40774|unilateral position must also be the unilateral|side mismatch/i.test(errMsg);
       if (isBitgetUnilateral) {
         logger.info('AutoTrader', 'Retrying with Bitget one-way mode (buy_single/sell_single)', { symbol: signal.symbol });
         try {
@@ -375,6 +377,9 @@ export async function executeSignal(
           if (/51010|account mode/i.test(errMsg2)) {
             logger.info('AutoTrader', 'Retrying with posSide=net + tdMode=isolated', { symbol: signal.symbol });
             order = await tryPlaceOrder('isolated');
+          } else if (/40774|unilateral|side mismatch/i.test(errMsg2)) {
+            logger.info('AutoTrader', 'Retrying with Bitget one-way mode (buy_single/sell_single)', { symbol: signal.symbol });
+            order = await tryPlaceOrder('cross', true);
           } else {
             throw e2;
           }
@@ -413,8 +418,8 @@ export async function executeSignal(
     const errMsg = e?.message ?? String(e);
     logger.error('AutoTrader', 'createOrder failed', { symbol: signal.symbol, error: errMsg });
     let userMsg = parseBitgetShortError(errMsg) || errMsg;
-    if (/40774|unilateral position must also be the unilateral/i.test(errMsg)) {
-      userMsg = `Bitget: режим позиции (40774). Убедитесь, что на бирже выбран режим One-way или перезапустите сервер после обновления.`;
+    if (/40774|unilateral position must also be the unilateral|side mismatch/i.test(errMsg)) {
+      userMsg = `Bitget: режим позиции (40774/side mismatch). Убедитесь, что на бирже выбран режим One-way или перезапустите сервер после обновления.`;
     } else if (/insufficient|margin|51008|51020|51119/i.test(errMsg)) {
       userMsg = `Недостаточно маржи на Bitget. Пополните счёт USDT, закройте часть позиций или уменьшите «Долю баланса» в настройках.`;
     } else if (/50102|Timestamp request expired|timestamp expired/i.test(errMsg)) {
