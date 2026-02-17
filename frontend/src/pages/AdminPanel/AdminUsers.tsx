@@ -33,6 +33,7 @@ interface UserDetail {
   activationExpiresAt: string | null;
   telegramId: string | null;
   totalPnl: number;
+  balance?: number;
   okxBalance: number | null;
   okxBalanceError: string | null;
   ordersCount: number;
@@ -67,6 +68,8 @@ export default function AdminUsers() {
   const [editPassword, setEditPassword] = useState('');
   const [patchLoading, setPatchLoading] = useState(false);
   const [revokeLoading, setRevokeLoading] = useState(false);
+  const [balanceAmount, setBalanceAmount] = useState('');
+  const [balanceLoading, setBalanceLoading] = useState(false);
 
   const [debouncedSearch, setDebouncedSearch] = useState('');
   useEffect(() => {
@@ -173,6 +176,26 @@ export default function AdminUsers() {
       setError(e instanceof Error ? e.message : 'Ошибка отмены подписки');
     } finally {
       setRevokeLoading(false);
+    }
+  };
+
+  const adjustBalance = async (operation: 'add' | 'subtract') => {
+    if (!selectedUserId) return;
+    const amount = parseFloat(balanceAmount.replace(',', '.'));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Укажите положительную сумму');
+      return;
+    }
+    setBalanceLoading(true);
+    setError('');
+    try {
+      await adminApi.post(`/admin/users/${selectedUserId}/balance`, { operation, amount });
+      setBalanceAmount('');
+      await fetchUserDetail(selectedUserId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ошибка изменения баланса');
+    } finally {
+      setBalanceLoading(false);
     }
   };
 
@@ -358,6 +381,12 @@ export default function AdminUsers() {
                   <p className="text-lg font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{userDetail.ordersCount}</p>
                 </div>
                 <div className="rounded-lg p-4" style={miniCardStyle}>
+                  <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Баланс (USDT)</p>
+                  <p className="text-lg font-bold tabular-nums" style={{ color: 'var(--accent)' }}>
+                    {(userDetail.balance ?? 0).toFixed(2)} USDT
+                  </p>
+                </div>
+                <div className="rounded-lg p-4" style={miniCardStyle}>
                   <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>OKX баланс (USDT)</p>
                   {userDetail.okxBalanceError ? (
                     <p className="text-sm font-medium" style={{ color: 'var(--danger)' }} title={userDetail.okxBalanceError}>Ошибка</p>
@@ -366,6 +395,40 @@ export default function AdminUsers() {
                   ) : (
                     <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Не подключено</p>
                   )}
+                </div>
+              </div>
+
+              <div className="rounded-lg p-4" style={miniCardStyle}>
+                <h4 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Изменить баланс USDT</h4>
+                <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Добавить или отнять сумму с внутреннего баланса пользователя.</p>
+                <div className="flex flex-wrap gap-2 items-center">
+                  <input
+                    type="number"
+                    value={balanceAmount}
+                    onChange={(e) => setBalanceAmount(e.target.value)}
+                    placeholder="Сумма"
+                    min={0}
+                    step={0.01}
+                    className="input-field w-28 rounded-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => adjustBalance('add')}
+                    disabled={balanceLoading || !balanceAmount || parseFloat(balanceAmount.replace(',', '.')) <= 0}
+                    className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                    style={{ background: 'var(--success)', color: 'white' }}
+                  >
+                    {balanceLoading ? '…' : 'Добавить'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => adjustBalance('subtract')}
+                    disabled={balanceLoading || !balanceAmount || parseFloat(balanceAmount.replace(',', '.')) <= 0}
+                    className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                    style={{ background: 'var(--danger)', color: 'white' }}
+                  >
+                    Отнять
+                  </button>
                 </div>
               </div>
 

@@ -132,8 +132,8 @@ export class DataAggregator {
     return this.getSymbolBasePrice(symbol);
   }
 
-  /** Tickers for markets list: symbol, last, change24h (%), volume24h */
-  async getTickers(symbols?: string[]): Promise<{ symbol: string; last: number; change24h: number; volume24h: number }[]> {
+  /** Tickers for markets list: symbol, last, change24h (%), volume24h, high24h, low24h */
+  async getTickers(symbols?: string[]): Promise<{ symbol: string; last: number; change24h: number; volume24h: number; high24h?: number; low24h?: number }[]> {
     const list = symbols && symbols.length > 0 ? symbols : this.getDefaultTickerSymbols();
     const results = await Promise.all(
       list.map(async (symbol) => {
@@ -146,10 +146,12 @@ export class DataAggregator {
           const change24h = open24h > 0 ? ((last - open24h) / open24h) * 100 : 0;
           const lastC = candles?.length ? candles[candles.length - 1] : null;
           const volume24h = lastC ? lastC.volume * (lastC.close || lastC.open || last) : 0;
-          return { symbol, last, change24h, volume24h };
+          const high24h = lastC ? lastC.high : last;
+          const low24h = lastC ? lastC.low : last;
+          return { symbol, last, change24h, volume24h, high24h, low24h };
         } catch (e) {
           const base = this.getSymbolBasePrice(symbol);
-          return { symbol, last: base, change24h: 0, volume24h: 0 };
+          return { symbol, last: base, change24h: 0, volume24h: 0, high24h: base, low24h: base };
         }
       })
     );

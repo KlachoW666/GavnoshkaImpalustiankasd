@@ -77,7 +77,10 @@ import {
   getWalletAddress,
   setCustomAddress,
   getAllCustomAddresses,
-  updateWithdrawalTx
+  updateWithdrawalTx,
+  getBalance,
+  setBalance,
+  creditBalance
 } from '../db/walletDb';
 
 const router = Router();
@@ -471,6 +474,7 @@ router.get('/users/:id', requireAdmin, async (req: Request, res: Response) => {
     const allOrders = [...openOrders, ...closedOrders].sort((a, b) => (b.open_time || '').localeCompare(a.open_time || '')).slice(0, 100);
     const telegramId = getTelegramIdForUser(userId);
     const { okxBalance, okxBalanceError } = await fetchOkxBalanceForUser(userId);
+    const balance = getBalance(userId);
     res.json({
       id: u.id,
       username: u.username,
@@ -483,6 +487,7 @@ router.get('/users/:id', requireAdmin, async (req: Request, res: Response) => {
       activationExpiresAt: u.activation_expires_at ?? null,
       telegramId,
       totalPnl,
+      balance,
       okxBalance: okxBalance ?? null,
       okxBalanceError: okxBalanceError ?? null,
       ordersCount: closedOrders.length,
@@ -537,6 +542,35 @@ router.post('/users/:id/revoke-subscription', requireAdmin, (req: Request, res: 
     }
     updateUserActivationExpiresAt(userId, null);
     res.json({ ok: true, userId, activationExpiresAt: null });
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/admin/users/:id/balance — добавить или отнять баланс USDT (только админ). Body: { operation: 'add'|'subtract', amount: number } */
+router.post('/users/:id/balance', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id;
+    const operation = (req.body?.operation as string) === 'subtract' ? 'subtract' : 'add';
+    const amount = Math.abs(Number(req.body?.amount ?? 0));
+    if (!userId) {
+      res.status(400).json({ error: 'userId обязателен' });
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      res.status(400).json({ error: 'Укажите amount — положительное число' });
+      return;
+    }
+    const cur = getBalance(userId);
+    if (operation === 'add') {
+      creditBalance(userId, amount);
+      res.json({ ok: true, balance: cur + amount, previousBalance: cur });
+    } else {
+      const newBalance = Math.max(0, cur - amount);
+      setBalance(userId, newBalance);
+      res.json({ ok: true, balance: newBalance, previousBalance: cur });
+    }
   } catch (e) {
     logger.error('Admin', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });

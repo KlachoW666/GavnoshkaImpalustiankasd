@@ -15,10 +15,12 @@ const TIMEFRAMES = ['1m', '5m', '15m', '1h', '4h', '1d'];
 const TF_SECONDS: Record<string, number> = {
   '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400
 };
-const OB_ROWS = 5;
+const OB_ROWS = 8;
 const LEVERAGE_OPTIONS = [1, 2, 3, 5, 10, 20, 50, 100];
+const MAIN_TABS = ['chart', 'overview', 'data', 'news'] as const;
+const BOTTOM_TABS = ['orders', 'positions', 'orderHistory', 'tradeHistory', 'assets', 'loans', 'tools', 'pnl'] as const;
 
-type TickerRow = { symbol: string; last: number; change24h: number; volume24h: number };
+type TickerRow = { symbol: string; last: number; change24h: number; volume24h: number; high24h?: number; low24h?: number };
 type InternalPosition = {
   id: string;
   symbol: string;
@@ -125,6 +127,12 @@ export default function TradePage() {
   const [loadingClose, setLoadingClose] = useState<string | null>(null);
   const [rightTab, setRightTab] = useState<'orderbook' | 'trades' | 'order' | 'positions'>('order');
   const [marketTab, setMarketTab] = useState<'futures' | 'spot'>('futures');
+  const [mainTab, setMainTab] = useState<(typeof MAIN_TABS)[number]>('chart');
+  const [bottomTab, setBottomTab] = useState<(typeof BOTTOM_TABS)[number]>('positions');
+  const [orderPercent, setOrderPercent] = useState(0);
+  const [showTpSl, setShowTpSl] = useState(false);
+  const [postOnly, setPostOnly] = useState(false);
+  const [reduceOnly, setReduceOnly] = useState(false);
 
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<IChartApi | null>(null);
@@ -391,12 +399,82 @@ export default function TradePage() {
     }
   };
 
+  const currentTicker = tickers.find((t) => t.symbol === symbol);
+  const lastPrice = currentTicker?.last ?? (orderbook?.bids?.[0]?.[0] ?? orderbook?.asks?.[0]?.[0] ?? 0);
+  const indexPrice = lastPrice;
+  const change24 = currentTicker?.change24h ?? 0;
+  const change24Abs = currentTicker ? Math.abs((currentTicker.last * change24) / 100) : 0;
+  const high24 = currentTicker?.high24h ?? currentTicker?.last ?? 0;
+  const low24 = currentTicker?.low24h ?? currentTicker?.last ?? 0;
+  const volume24 = currentTicker?.volume24h ?? 0;
+  const fundingCountdown = '02:00:00';
+
+  const setLastPrice = () => setLimitPrice(lastPrice > 0 ? String(lastPrice) : '');
+
+  const marginFromPercent = balance != null && balance > 0 ? (balance * orderPercent) / 100 : 0;
+  const sizeFromPercent = marginFromPercent * effectiveLeverage;
+  const displaySize = sizeUsdt ? parseFloat(sizeUsdt) : sizeFromPercent;
+  const setSizeFromPercent = (pct: number) => {
+    setOrderPercent(pct);
+    if (balance != null && balance > 0) {
+      const m = (balance * pct) / 100;
+      const s = m * effectiveLeverage;
+      setSizeUsdt(s >= 1 ? s.toFixed(2) : '');
+    }
+  };
+
   const apiOpts = token ? { headers: { Authorization: `Bearer ${token}` } as HeadersInit } : {};
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] min-h-0 gap-0">
-      {/* Spot / Futures tabs */}
-      <div className="flex gap-1 shrink-0 pb-2 border-b" style={{ borderColor: 'var(--border)' }}>
+      {/* Top header bar — Bitget-style */}
+      <header
+        className="shrink-0 border-b px-3 py-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
+        style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{symbol.replace('-USDT', '')}USDT</span>
+          <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Бессрочный USDT</span>
+        </div>
+        <span className="font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>
+          {lastPrice > 0 ? lastPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+        </span>
+        <span className="tabular-nums" style={{ color: 'var(--text-muted)' }}>Индекс. {indexPrice > 0 ? indexPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2 }) : '—'}</span>
+        <span className="tabular-nums" style={{ color: change24 >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+          {change24 >= 0 ? '+' : ''}{change24Abs.toFixed(2)} ({change24 >= 0 ? '+' : ''}{change24.toFixed(2)}%)
+        </span>
+        <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>24ч Высокий</span>
+        <span className="tabular-nums" style={{ color: 'var(--success)' }}>{high24 > 0 ? high24.toLocaleString('ru-RU', { minimumFractionDigits: 2 }) : '—'}</span>
+        <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>24ч Низкий</span>
+        <span className="tabular-nums" style={{ color: 'var(--danger)' }}>{low24 > 0 ? low24.toLocaleString('ru-RU', { minimumFractionDigits: 2 }) : '—'}</span>
+        <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>24ч Оборот (USDT)</span>
+        <span className="tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+          {volume24 >= 1e9 ? `${(volume24 / 1e9).toFixed(2)}B` : volume24 >= 1e6 ? `${(volume24 / 1e6).toFixed(2)}M` : volume24.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}
+        </span>
+        <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Ставка / Отсчёт</span>
+        <span className="tabular-nums" style={{ color: 'var(--text-secondary)' }}>0.0046% / {fundingCountdown}</span>
+      </header>
+
+      {/* Main tabs: График, Обзор, Данные, Лента новостей */}
+      <div className="shrink-0 flex gap-0 border-b" style={{ borderColor: 'var(--border)' }}>
+        {(['chart', 'overview', 'data', 'news'] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setMainTab(t)}
+            className="px-4 py-2 text-sm font-medium transition-colors"
+            style={{
+              color: mainTab === t ? 'var(--accent)' : 'var(--text-muted)',
+              borderBottom: mainTab === t ? '2px solid var(--accent)' : '2px solid transparent',
+            }}
+          >
+            {t === 'chart' ? 'График' : t === 'overview' ? 'Обзор' : t === 'data' ? 'Данные' : 'Лента новостей'}
+          </button>
+        ))}
+      </div>
+
+      {/* Spot / Futures */}
+      <div className="flex gap-1 shrink-0 px-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
         <button
           type="button"
           onClick={() => setMarketTab('futures')}
@@ -465,21 +543,46 @@ export default function TradePage() {
           )}
         </div>
 
-        {/* Center: Chart */}
-        <div className="flex-1 min-w-0 flex flex-col min-h-0">
-          <div className="flex items-center gap-2 shrink-0 px-2 py-1.5 border-b flex-wrap" style={{ borderColor: 'var(--border)', background: 'var(--bg-topbar)' }}>
-            <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{symbol}</span>
-            <select
-              value={timeframe}
-              onChange={(e) => setTimeframe(e.target.value)}
-              className="input-field py-1 px-2 text-sm rounded"
-            >
-              {TIMEFRAMES.map((tf) => (
-                <option key={tf} value={tf}>{tf}</option>
-              ))}
-            </select>
+        {/* Center: Chart / Обзор / Данные / Лента новостей */}
+        <div className="flex-1 min-w-0 flex flex-col min-h-0 relative">
+          <div
+            className="flex-1 min-w-0 flex flex-col min-h-0"
+            style={{ display: mainTab === 'chart' ? 'flex' : 'none' }}
+          >
+            <div className="flex items-center gap-2 shrink-0 px-2 py-1.5 border-b flex-wrap" style={{ borderColor: 'var(--border)', background: 'var(--bg-topbar)' }}>
+              <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{symbol}</span>
+              <select
+                value={timeframe}
+                onChange={(e) => setTimeframe(e.target.value)}
+                className="input-field py-1 px-2 text-sm rounded"
+              >
+                {TIMEFRAMES.map((tf) => (
+                  <option key={tf} value={tf}>{tf}</option>
+                ))}
+              </select>
+            </div>
+            <div ref={chartRef} className="flex-1 min-h-[280px]" style={{ height: '100%' }} />
           </div>
-          <div ref={chartRef} className="flex-1 min-h-[280px]" style={{ height: '100%' }} />
+          {mainTab === 'overview' && (
+            <div className="absolute inset-0 flex flex-col overflow-y-auto p-4" style={{ background: 'var(--bg)' }}>
+              <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>О паре {symbol}</h3>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                Бессрочный контракт {symbol}. Текущая цена: {lastPrice > 0 ? lastPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2 }) : '—'}.
+              </p>
+            </div>
+          )}
+          {mainTab === 'data' && (
+            <div className="absolute inset-0 flex flex-col overflow-y-auto p-4" style={{ background: 'var(--bg)' }}>
+              <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Данные</h3>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Раздел в разработке.</p>
+            </div>
+          )}
+          {mainTab === 'news' && (
+            <div className="absolute inset-0 flex flex-col overflow-y-auto p-4" style={{ background: 'var(--bg)' }}>
+              <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Лента новостей</h3>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Раздел в разработке.</p>
+            </div>
+          )}
         </div>
 
         {/* Right: Order book, Trades, Order form, Positions */}
@@ -487,6 +590,23 @@ export default function TradePage() {
           className="w-72 lg:w-80 shrink-0 flex flex-col border-l overflow-hidden"
           style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}
         >
+          <div className="shrink-0 px-3 py-2 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+            Марж. торговля
+          </div>
+          {marketTab === 'futures' && (
+            <div className="shrink-0 px-3 pb-2 flex items-center gap-2">
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Плечо</span>
+              <select
+                value={leverage}
+                onChange={(e) => setLeverage(parseInt(e.target.value, 10))}
+                className="input-field py-1 px-2 text-sm rounded"
+              >
+                {LEVERAGE_OPTIONS.map((x) => (
+                  <option key={x} value={x}>{x}x</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex border-b shrink-0" style={{ borderColor: 'var(--border)' }}>
             {(['orderbook', 'trades', 'order', 'positions'] as const).map((tab) => (
               <button
@@ -534,24 +654,42 @@ export default function TradePage() {
                 <div className="flex gap-1">
                   <button
                     type="button"
-                    onClick={() => setOrderType('market')}
-                    className="flex-1 py-1.5 text-xs font-medium rounded"
-                    style={{ background: orderType === 'market' ? 'var(--accent)' : 'var(--bg)', color: orderType === 'market' ? '#fff' : 'var(--text-muted)' }}
-                  >
-                    Market
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => setOrderType('limit')}
                     className="flex-1 py-1.5 text-xs font-medium rounded"
                     style={{ background: orderType === 'limit' ? 'var(--accent)' : 'var(--bg)', color: orderType === 'limit' ? '#fff' : 'var(--text-muted)' }}
                   >
-                    Limit
+                    Лимитный
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOrderType('market')}
+                    className="flex-1 py-1.5 text-xs font-medium rounded"
+                    style={{ background: orderType === 'market' ? 'var(--accent)' : 'var(--bg)', color: orderType === 'market' ? '#fff' : 'var(--text-muted)' }}
+                  >
+                    Рыночный
+                  </button>
+                  <button
+                    type="button"
+                    className="flex-1 py-1.5 text-xs font-medium rounded opacity-60 cursor-not-allowed"
+                    style={{ background: 'var(--bg)', color: 'var(--text-muted)' }}
+                    title="Скоро"
+                  >
+                    Условный
                   </button>
                 </div>
                 {orderType === 'limit' && (
                   <div>
-                    <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Цена</label>
+                    <div className="flex items-center gap-1 mb-1">
+                      <label className="block text-xs flex-1" style={{ color: 'var(--text-muted)' }}>Цена</label>
+                      <button
+                        type="button"
+                        onClick={setLastPrice}
+                        className="text-[10px] px-1.5 py-0.5 rounded"
+                        style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}
+                      >
+                        Последняя
+                      </button>
+                    </div>
                     <input
                       type="number"
                       value={limitPrice}
@@ -561,65 +699,91 @@ export default function TradePage() {
                     />
                   </div>
                 )}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDirection('LONG')}
-                    className="flex-1 py-2 text-sm font-medium rounded"
-                    style={{
-                      background: direction === 'LONG' ? 'var(--success)' : 'var(--bg)',
-                      color: direction === 'LONG' ? '#fff' : 'var(--text-muted)',
-                      border: `1px solid ${direction === 'LONG' ? 'var(--success)' : 'var(--border)'}`,
-                    }}
-                  >
-                    Buy / Long
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDirection('SHORT')}
-                    className="flex-1 py-2 text-sm font-medium rounded"
-                    style={{
-                      background: direction === 'SHORT' ? 'var(--danger)' : 'var(--bg)',
-                      color: direction === 'SHORT' ? '#fff' : 'var(--text-muted)',
-                      border: `1px solid ${direction === 'SHORT' ? 'var(--danger)' : 'var(--border)'}`,
-                    }}
-                  >
-                    Sell / Short
-                  </button>
-                </div>
-                {marketTab === 'futures' && orderType === 'market' && (
-                  <div>
-                    <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Плечо</label>
-                    <select
-                      value={leverage}
-                      onChange={(e) => setLeverage(parseInt(e.target.value, 10))}
-                      className="input-field w-full rounded py-1.5 text-sm"
-                    >
-                      {LEVERAGE_OPTIONS.map((x) => (
-                        <option key={x} value={x}>{x}x</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                {marketTab === 'spot' && (
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Покупка/продажа по рынку (1x)</p>
-                )}
                 <div>
-                  <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Размер (USDT)</label>
+                  <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>К-во (USDT)</label>
                   <input
                     type="number"
                     value={sizeUsdt}
-                    onChange={(e) => setSizeUsdt(e.target.value)}
+                    onChange={(e) => { setSizeUsdt(e.target.value); setOrderPercent(0); }}
                     placeholder="0"
                     min={1}
                     step={1}
                     className="input-field w-full rounded py-1.5 text-sm"
                   />
-                  {sizeUsdt && parseFloat(sizeUsdt) > 0 && (
-                    <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                      Маржа: {(parseFloat(sizeUsdt) / effectiveLeverage).toFixed(2)} USDT
-                    </p>
-                  )}
+                  <div className="flex items-center gap-2 mt-1">
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={orderPercent}
+                      onChange={(e) => setSizeFromPercent(parseInt(e.target.value, 10))}
+                      className="flex-1 h-1 rounded"
+                      style={{ accentColor: 'var(--accent)' }}
+                    />
+                    <span className="text-[10px] tabular-nums w-8" style={{ color: 'var(--text-muted)' }}>{orderPercent}%</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Стоим.</span>
+                    <span className="block font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                      {displaySize > 0 ? displaySize.toFixed(2) : '—'}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Цена ликвид.</span>
+                    <span className="block font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                      {lastPrice > 0 && displaySize > 0 ? lastPrice.toFixed(2) : '—'}
+                    </span>
+                  </div>
+                </div>
+                <button type="button" className="text-[10px] px-2 py-1 rounded" style={{ background: 'var(--bg)', color: 'var(--text-muted)' }}>
+                  Рассчитать
+                </button>
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                    <input type="checkbox" checked={showTpSl} onChange={(e) => setShowTpSl(e.target.checked)} className="rounded" />
+                    TP/SL
+                  </label>
+                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                    <input type="checkbox" checked={postOnly} onChange={(e) => setPostOnly(e.target.checked)} className="rounded" />
+                    Post-Only
+                  </label>
+                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                    <input type="checkbox" checked={reduceOnly} onChange={(e) => setReduceOnly(e.target.checked)} className="rounded" />
+                    Только сокращение
+                  </label>
+                </div>
+                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Годен до отмены</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDirection('LONG')}
+                    className="flex-1 py-2.5 text-sm font-semibold rounded"
+                    style={{
+                      background: direction === 'LONG' ? 'var(--success)' : 'var(--bg)',
+                      color: direction === 'LONG' ? '#fff' : 'var(--text-muted)',
+                      border: `2px solid ${direction === 'LONG' ? 'var(--success)' : 'var(--border)'}`,
+                    }}
+                  >
+                    Лонг
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDirection('SHORT')}
+                    className="flex-1 py-2.5 text-sm font-semibold rounded"
+                    style={{
+                      background: direction === 'SHORT' ? 'var(--danger)' : 'var(--bg)',
+                      color: direction === 'SHORT' ? '#fff' : 'var(--text-muted)',
+                      border: `2px solid ${direction === 'SHORT' ? 'var(--danger)' : 'var(--border)'}`,
+                    }}
+                  >
+                    Шорт
+                  </button>
+                </div>
+                <div className="flex gap-2 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                  <button type="button" className="underline">Ставка комиссии</button>
+                  <button type="button" className="underline">Калькулятор</button>
                 </div>
                 {balance != null && (
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Баланс: {balance.toFixed(2)} USDT</p>
@@ -629,13 +793,13 @@ export default function TradePage() {
                   type="button"
                   onClick={handleOpenPosition}
                   disabled={loadingOpen || !sizeUsdt || balance == null || balance < 1}
-                  className="w-full py-2.5 rounded font-medium disabled:opacity-50 text-sm"
+                  className="w-full py-2.5 rounded font-semibold disabled:opacity-50 text-sm"
                   style={{
                     background: direction === 'LONG' ? 'var(--success)' : 'var(--danger)',
                     color: '#fff',
                   }}
                 >
-                  {loadingOpen ? 'Открытие…' : direction === 'LONG' ? 'Купить / Long' : 'Продать / Short'}
+                  {loadingOpen ? 'Открытие…' : direction === 'LONG' ? 'Лонг' : 'Шорт'}
                 </button>
               </div>
             )}
@@ -674,6 +838,110 @@ export default function TradePage() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Bottom panel — Bitget-style: Открытые ордера, Позиции, История ордеров, … */}
+      <div
+        className="shrink-0 border-t flex flex-col min-h-0"
+        style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)', maxHeight: '220px' }}
+      >
+        <div className="flex border-b shrink-0 overflow-x-auto custom-scrollbar" style={{ borderColor: 'var(--border)' }}>
+          {BOTTOM_TABS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setBottomTab(t)}
+              className="px-3 py-2 text-[11px] font-medium whitespace-nowrap"
+              style={{
+                color: bottomTab === t ? 'var(--accent)' : 'var(--text-muted)',
+                borderBottom: bottomTab === t ? '2px solid var(--accent)' : '2px solid transparent',
+              }}
+            >
+              {t === 'orders' ? `Открытые ордера (0)` : t === 'positions' ? `Позиции (${positions.open.length})` : t === 'orderHistory' ? 'История ордеров' : t === 'tradeHistory' ? 'История торговли' : t === 'assets' ? 'Активы' : t === 'loans' ? 'Займы' : t === 'tools' ? 'Инструменты' : 'P&L'}
+            </button>
+          ))}
+        </div>
+        <div className="shrink-0 flex items-center gap-2 px-2 py-1.5 border-b" style={{ borderColor: 'var(--border)' }}>
+          <select className="input-field py-1 px-2 text-[11px] rounded" defaultValue="all">
+            <option value="all">Все рынки</option>
+          </select>
+          <select className="input-field py-1 px-2 text-[11px] rounded" defaultValue="all">
+            <option value="all">Все инструменты</option>
+          </select>
+        </div>
+        <div className="flex-1 overflow-auto custom-scrollbar min-h-0">
+          {bottomTab === 'positions' && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px] border-collapse">
+                <thead>
+                  <tr style={{ color: 'var(--text-muted)', background: 'var(--bg)' }}>
+                    <th className="text-left px-2 py-1.5 font-medium">Контракты</th>
+                    <th className="text-right px-2 py-1.5 font-medium">К-во</th>
+                    <th className="text-right px-2 py-1.5 font-medium">Стоим.</th>
+                    <th className="text-right px-2 py-1.5 font-medium">Цена входа</th>
+                    <th className="text-right px-2 py-1.5 font-medium">Цена маркировки</th>
+                    <th className="text-right px-2 py-1.5 font-medium">Цена ликвид.</th>
+                    <th className="text-right px-2 py-1.5 font-medium">Нереализ.</th>
+                    <th className="text-right px-2 py-1.5 font-medium">Закрыть</th>
+                  </tr>
+                </thead>
+                <tbody style={{ color: 'var(--text-secondary)' }}>
+                  {positions.open.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-2 py-4 text-center" style={{ color: 'var(--text-muted)' }}>Нет открытых позиций</td>
+                    </tr>
+                  ) : (
+                    positions.open.map((pos) => {
+                      const markPrice = lastPrice;
+                      const pnl = pos.direction === 'LONG'
+                        ? (markPrice - pos.open_price) * (pos.size_usdt / pos.open_price)
+                        : (pos.open_price - markPrice) * (pos.size_usdt / pos.open_price);
+                      const liqPrice = pos.direction === 'LONG'
+                        ? pos.open_price * (1 - 1 / pos.leverage)
+                        : pos.open_price * (1 + 1 / pos.leverage);
+                      return (
+                        <tr key={pos.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
+                          <td className="px-2 py-1.5">
+                            <span className="font-medium">{pos.symbol}</span>
+                            <span style={{ color: pos.direction === 'LONG' ? 'var(--success)' : 'var(--danger)', marginLeft: 4 }}>{pos.direction}</span>
+                          </td>
+                          <td className="text-right px-2 py-1.5 font-mono tabular-nums">{(pos.size_usdt / pos.open_price).toFixed(4)}</td>
+                          <td className="text-right px-2 py-1.5 font-mono tabular-nums">{pos.size_usdt.toFixed(2)}</td>
+                          <td className="text-right px-2 py-1.5 font-mono tabular-nums">{pos.open_price.toFixed(2)}</td>
+                          <td className="text-right px-2 py-1.5 font-mono tabular-nums">{markPrice > 0 ? markPrice.toFixed(2) : '—'}</td>
+                          <td className="text-right px-2 py-1.5 font-mono tabular-nums">{liqPrice.toFixed(2)}</td>
+                          <td className="text-right px-2 py-1.5 font-mono tabular-nums" style={{ color: pnl >= 0 ? 'var(--success)' : 'var(--danger)' }}>{pnl.toFixed(2)}</td>
+                          <td className="text-right px-2 py-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleClosePosition(pos)}
+                              disabled={loadingClose === pos.id}
+                              className="px-1.5 py-0.5 text-[10px] font-medium rounded"
+                              style={{ background: 'var(--accent)', color: '#fff' }}
+                            >
+                              {loadingClose === pos.id ? '…' : 'Закрыть'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {bottomTab !== 'positions' && (
+            <div className="px-2 py-4 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
+              {bottomTab === 'orders' && 'Нет открытых ордеров'}
+              {bottomTab === 'orderHistory' && 'История ордеров пуста'}
+              {bottomTab === 'tradeHistory' && 'История торговли пуста'}
+              {bottomTab === 'assets' && 'Активы'}
+              {bottomTab === 'loans' && 'Займы'}
+              {bottomTab === 'tools' && 'Инструменты'}
+              {bottomTab === 'pnl' && 'P&L'}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -85,6 +85,25 @@ export function debitBalance(userId: string, amountUsdt: number): boolean {
   }
 }
 
+/** Установить баланс пользователя в точное значение (для админа: пополнение/списание). */
+export function setBalance(userId: string, amountUsdt: number): void {
+  initDb();
+  const db = getDb();
+  if (!db) return;
+  const amount = Math.max(0, Number(amountUsdt));
+  try {
+    db.prepare(`
+      INSERT INTO user_balances (user_id, balance_usdt, updated_at)
+      VALUES (?, ?, datetime('now'))
+      ON CONFLICT(user_id) DO UPDATE SET
+        balance_usdt = excluded.balance_usdt,
+        updated_at = datetime('now')
+    `).run(userId, amount);
+  } catch (err) {
+    logger.warn('WalletDB', (err as Error).message);
+  }
+}
+
 export function recordDeposit(userId: string, txHash: string, amountUsdt: number): boolean {
   initDb();
   const db = getDb();
