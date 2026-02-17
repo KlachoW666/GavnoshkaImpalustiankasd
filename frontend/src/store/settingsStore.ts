@@ -2,9 +2,19 @@ const STORAGE_KEY = 'clabx-settings';
 
 export interface Settings {
   connections: {
-    okx: { enabled: boolean; apiKey: string; apiSecret: string; passphrase: string };
-    /** Прокси для OKX: http://user:pass@ip:port */
+    /** Bitget — биржа для автоторговли (API Key, Secret, Passphrase). */
+    bitget: { enabled: boolean; apiKey: string; apiSecret: string; passphrase: string };
+    /** Прокси для биржи: http://user:pass@ip:port */
     proxy?: string;
+    /** Massive.com — API key и/или S3 (Access Key ID, Secret, Endpoint, Bucket) */
+    massive: {
+      enabled: boolean;
+      apiKey: string;
+      accessKeyId: string;
+      secretAccessKey: string;
+      s3Endpoint: string;
+      bucket: string;
+    };
     tradingview: { enabled: boolean };
     scalpboard: { enabled: boolean; apiKey: string };
   };
@@ -41,8 +51,16 @@ export interface Settings {
 
 const defaults: Settings = {
   connections: {
-    okx: { enabled: true, apiKey: '', apiSecret: '', passphrase: '' },
+    bitget: { enabled: true, apiKey: '', apiSecret: '', passphrase: '' },
     proxy: '',
+    massive: {
+    enabled: false,
+    apiKey: '',
+    accessKeyId: '',
+    secretAccessKey: '',
+    s3Endpoint: 'https://files.massive.com',
+    bucket: 'flatfiles'
+  },
     tradingview: { enabled: true },
     scalpboard: { enabled: false, apiKey: '' }
   },
@@ -90,8 +108,14 @@ function load(): Settings {
         merged.connections = {
           ...defaults.connections,
           ...parsed.connections,
-          okx: { ...defaults.connections.okx, ...parsed.connections.okx },
+          bitget: { ...defaults.connections.bitget, ...(parsed.connections.bitget ?? parsed.connections.okx) },
           proxy: parsed.connections?.proxy ?? defaults.connections.proxy ?? '',
+          massive: {
+          ...defaults.connections.massive,
+          ...parsed.connections.massive,
+          s3Endpoint: parsed.connections?.massive?.s3Endpoint ?? defaults.connections.massive.s3Endpoint,
+          bucket: parsed.connections?.massive?.bucket ?? defaults.connections.massive.bucket
+        },
           tradingview: { ...defaults.connections.tradingview, ...parsed.connections.tradingview },
           scalpboard: { ...defaults.connections.scalpboard, ...parsed.connections.scalpboard }
         };

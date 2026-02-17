@@ -29,18 +29,30 @@ export const config = {
     apiKey: envStr('OKX_API_KEY'),
     secret: envStr('OKX_SECRET'),
     passphrase: envStr('OKX_PASSPHRASE'),
-    /** Таймаут запросов к OKX (мс). OKX_TIMEOUT=45000 — при медленной сети или блокировках. */
     timeout: Math.max(15000, envNum('OKX_TIMEOUT', 45000)),
     get hasCredentials(): boolean {
       return Boolean(this.apiKey && this.secret);
     },
-    /** Testnet (демо): OKX_SANDBOX=1 — торговля на тестовом счёте */
     get sandbox(): boolean {
       return envBool('OKX_SANDBOX', false);
     }
   },
 
-  /** Включить исполнение ордеров через OKX при авто-трейдинге. Без флага — только сигналы. */
+  /** Bitget — биржа для автоторговли (ключи пользователя или из .env). */
+  bitget: {
+    apiKey: envStr('BITGET_API_KEY'),
+    secret: envStr('BITGET_SECRET'),
+    passphrase: envStr('BITGET_PASSPHRASE'),
+    timeout: Math.max(15000, envNum('BITGET_TIMEOUT', 30000)),
+    get hasCredentials(): boolean {
+      return Boolean(this.apiKey && this.secret);
+    },
+    get sandbox(): boolean {
+      return envBool('BITGET_SANDBOX', false);
+    }
+  },
+
+  /** Включить исполнение ордеров через Bitget при авто-трейдинге. Без флага — только сигналы. */
   get autoTradingExecutionEnabled(): boolean {
     return envBool('AUTO_TRADING_EXECUTION_ENABLED', false);
   },

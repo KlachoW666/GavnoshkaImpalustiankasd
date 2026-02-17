@@ -13,12 +13,12 @@ export interface PositionItem {
   stopLoss?: number;
   takeProfit?: number[];
   openTime: string;
-  /** OKX: количество контрактов */
+  /** Bitget: количество контрактов */
   contracts?: number;
-  /** OKX: номинал позиции */
+  /** Bitget: номинал позиции */
   notional?: number;
-  /** Источник: OKX (реальный счёт) или демо */
-  source?: 'okx' | 'demo';
+  /** Источник: Bitget (реальный счёт) или демо */
+  source?: 'bitget' | 'demo';
 }
 
 export interface PositionsTableProps {
@@ -129,16 +129,16 @@ export default function PositionsTable({
         </p>
       )}
 
-      {okxPositions.length > 0 && (
+      {bitgetPositions.length > 0 && (
         <div className="space-y-4 mb-6">
           <p
             className="text-xs font-semibold uppercase tracking-wider mb-2"
             style={{ color: 'var(--text-muted)' }}
           >
-            OKX (реальный счёт) — ордера бота
+            Bitget (реальный счёт) — ордера бота
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
-            {okxPositions.map((pos) => {
+            {bitgetPositions.map((pos) => {
               const symNorm = normSymbol(pos.symbol.replace(/:.*$/, ''));
               const base = symNorm
                 ? symNorm.split('-')[0]
@@ -172,7 +172,7 @@ export default function PositionsTable({
                       className="text-xs px-2 py-0.5 rounded"
                       style={{ background: 'var(--accent)', color: 'white' }}
                     >
-                      OKX Реал
+                      Bitget Реал
                     </span>
                   </div>
                   <p className="text-sm">

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { DataAggregator } from '../services/dataAggregator';
 import { getBroadcastSignal } from '../websocket';
-import { findSessionUserId, getOkxCredentials } from '../db/authDb';
+import { findSessionUserId, getBitgetCredentials } from '../db/authDb';
 import { requireAuth } from './auth';
 import { rateLimit } from '../middleware/rateLimit';
 import { validateBody } from '../middleware/validate';
@@ -172,6 +172,29 @@ router.get('/tickers', async (_req, res) => {
   try {
     const tickers = await aggregator.getTickers();
     res.json(tickers);
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** GET /api/market/funding?symbol= — ставка финансирования и время следующего funding (Bitget-style) */
+router.get('/funding', async (req, res) => {
+  try {
+    const symbol = normalizeSymbol(decodeURIComponent(String(req.query.symbol || 'BTC-USDT'))) || 'BTC-USDT';
+    const fundingMonitor = new FundingRateMonitor();
+    const funding = await fundingMonitor.getFundingRate(symbol);
+    if (!funding) {
+      return res.json({ rate: 0, ratePct: '0.0000%', nextFundingTime: null });
+    }
+    const ratePct = (funding.rate * 100).toFixed(4) + '%';
+    res.json({
+      rate: funding.rate,
+      ratePct,
+      nextFundingTime: funding.nextFundingTime ?? null,
+      interpretation: funding.interpretation,
+      shouldAvoidLong: funding.shouldAvoidLong,
+      shouldAvoidShort: funding.shouldAvoidShort
+    });
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });
   }
@@ -826,7 +849,7 @@ async function runAutoTradingBestCycleInner(
   getBroadcastSignal()?.(best.signal, best.breakdown, userId);
   logger.info('runAutoTradingBestCycle', `Best: ${best.signal.symbol} ${best.signal.direction} conf=${((best.signal.confidence ?? 0) * 100).toFixed(0)}% score=${best.score.toFixed(3)}`);
 
-  const userCreds = userId ? getOkxCredentials(userId) : null;
+  const userCreds = userId ? getBitgetCredentials(userId) : null;
   const hasUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
   const canExecute = config.autoTradingExecutionEnabled && executeOrders && (config.okx.hasCredentials || hasUserCreds);
 
@@ -1023,7 +1046,7 @@ async function runManualCycle(
 ): Promise<void> {
   const minConf = Math.max(0.5, Math.min(0.95, opts.minConfidence ?? 0.72));
   if (opts.executeOrders && !config.autoTradingExecutionEnabled) return;
-  const creds = opts.executeOrders ? getOkxCredentials(userId) : null;
+  const creds = opts.executeOrders ? getBitgetCredentials(userId) : null;
   const hasCreds = creds && (creds.apiKey ?? '').trim() && (creds.secret ?? '').trim();
   if (opts.executeOrders && !hasCreds && !config.okx.hasCredentials) return;
 

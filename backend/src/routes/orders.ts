@@ -7,7 +7,7 @@ import { Router, Request, Response } from 'express';
 import { initDb, insertOrder, updateOrderClose, listOrders, getOrderById } from '../db';
 import { feedOrderToML } from '../services/onlineMLService';
 import { syncClosedOrdersFromOkx, pullClosedOrdersFromOkx } from '../services/autoTrader';
-import { getOkxCredentials } from '../db/authDb';
+import { getBitgetCredentials } from '../db/authDb';
 import { logger } from '../lib/logger';
 import { optionalAuth } from './auth';
 import { orderCloseSchema } from '../schemas/orders';
@@ -121,7 +121,7 @@ router.get('/', optionalAuth, async (req: Request, res: Response) => {
     const useTestnet = req.query.useTestnet === 'true';
     if (userId && clientId) {
       try {
-        const userCreds = getOkxCredentials(userId);
+        const userCreds = getBitgetCredentials(userId);
         if (userCreds?.apiKey && userCreds?.secret) {
           await syncClosedOrdersFromOkx(useTestnet, userCreds, clientId);
           await pullClosedOrdersFromOkx(useTestnet, userCreds, clientId);

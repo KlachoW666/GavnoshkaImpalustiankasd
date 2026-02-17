@@ -34,8 +34,27 @@ export interface UserOkxConnectionRow {
   updated_at: string;
 }
 
+export interface UserBitgetConnectionRow {
+  user_id: string;
+  api_key: string;
+  secret: string;
+  passphrase: string;
+  updated_at: string;
+}
+
 const memoryUsers: UserRow[] = [];
 const memoryOkxConnections: Map<string, UserOkxConnectionRow> = new Map();
+const memoryBitgetConnections: Map<string, UserBitgetConnectionRow> = new Map();
+export type MassiveCredentialsRow = {
+  user_id: string;
+  api_key: string;
+  access_key_id: string;
+  secret_access_key: string;
+  s3_endpoint: string;
+  bucket: string;
+  updated_at: string;
+};
+const memoryMassiveApi: Map<string, MassiveCredentialsRow> = new Map();
 const memoryGroups: GroupRow[] = [
   { id: 1, name: 'user', allowed_tabs: '["dashboard","settings","activate"]' },
   { id: 2, name: 'viewer', allowed_tabs: '["dashboard","signals","chart"]' },
@@ -726,6 +745,8 @@ export function deleteUser(userId: string): void {
       if (uid === userId) memorySessions.delete(token);
     }
     memoryOkxConnections.delete(userId);
+    memoryBitgetConnections.delete(userId);
+    memoryMassiveApi.delete(userId);
     const i = memoryUsers.findIndex((u) => u.id === userId);
     if (i >= 0) memoryUsers.splice(i, 1);
     return;
@@ -734,6 +755,8 @@ export function deleteUser(userId: string): void {
   if (!db) return;
   try {
     db.prepare('DELETE FROM user_okx_connections WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM user_bitget_connections WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM user_massive_api WHERE user_id = ?').run(userId);
   } catch (err) { logger.warn('AuthDB', (err as Error).message); }
   db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
   db.prepare('DELETE FROM users WHERE id = ?').run(userId);
@@ -800,4 +823,135 @@ export function setOkxCredentials(userId: string, creds: { apiKey: string; secre
   db.prepare(
     'INSERT INTO user_okx_connections (user_id, api_key, secret, passphrase, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET api_key = ?, secret = ?, passphrase = ?, updated_at = ?'
   ).run(userId, apiKey, secret, passphrase, now, apiKey, secret, passphrase, now);
+}
+
+/** Bitget: список user_id с сохранёнными ключами */
+export function listUserIdsWithBitgetCredentials(): string[] {
+  ensureAuthTables();
+  if (isMemoryStore()) return Array.from(memoryBitgetConnections.keys());
+  const db = getDb();
+  if (!db) return [];
+  const rows = db.prepare('SELECT user_id FROM user_bitget_connections').all() as { user_id: string }[];
+  return rows.map((r) => r.user_id);
+}
+
+/** Bitget ключи пользователя (автоторговля). */
+export function getBitgetCredentials(userId: string): { apiKey: string; secret: string; passphrase: string } | null {
+  ensureAuthTables();
+  if (isMemoryStore()) {
+    const row = memoryBitgetConnections.get(userId);
+    return row ? { apiKey: row.api_key, secret: row.secret, passphrase: row.passphrase ?? '' } : null;
+  }
+  const db = getDb();
+  if (!db) return null;
+  const row = db.prepare('SELECT api_key, secret, passphrase FROM user_bitget_connections WHERE user_id = ?').get(userId) as
+    | { api_key: string; secret: string; passphrase: string | null }
+    | undefined;
+  if (!row) return null;
+  return { apiKey: row.api_key, secret: row.secret, passphrase: row.passphrase ?? '' };
+}
+
+/** Сохранить Bitget ключи пользователя. */
+export function setBitgetCredentials(userId: string, creds: { apiKey: string; secret: string; passphrase?: string }): void {
+  ensureAuthTables();
+  const now = new Date().toISOString();
+  const apiKey = (creds.apiKey ?? '').trim();
+  const secret = (creds.secret ?? '').trim();
+  const passphrase = (creds.passphrase ?? '').trim();
+  if (isMemoryStore()) {
+    memoryBitgetConnections.set(userId, { user_id: userId, api_key: apiKey, secret: secret, passphrase: passphrase, updated_at: now });
+    return;
+  }
+  const db = getDb();
+  if (!db) return;
+  db.prepare(
+    'INSERT INTO user_bitget_connections (user_id, api_key, secret, passphrase, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET api_key = ?, secret = ?, passphrase = ?, updated_at = ?'
+  ).run(userId, apiKey, secret, passphrase, now, apiKey, secret, passphrase, now);
+}
+
+/** Massive.com API key пользователя */
+export function getMassiveApiKey(userId: string): string | null {
+  ensureAuthTables();
+  if (isMemoryStore()) {
+    const row = memoryMassiveApi.get(userId);
+    return row?.api_key ? row.api_key : null;
+  }
+  const db = getDb();
+  if (!db) return null;
+  const row = db.prepare('SELECT api_key FROM user_massive_api WHERE user_id = ?').get(userId) as { api_key: string } | undefined;
+  return row?.api_key ?? null;
+}
+
+/** Получить все учётные данные Massive.com (API key и/или S3). */
+export function getMassiveCredentials(userId: string): MassiveCredentialsRow | null {
+  ensureAuthTables();
+  if (isMemoryStore()) {
+    const row = memoryMassiveApi.get(userId);
+    if (!row) return null;
+    return {
+      user_id: row.user_id,
+      api_key: row.api_key ?? '',
+      access_key_id: (row as Partial<MassiveCredentialsRow>).access_key_id ?? '',
+      secret_access_key: (row as Partial<MassiveCredentialsRow>).secret_access_key ?? '',
+      s3_endpoint: (row as Partial<MassiveCredentialsRow>).s3_endpoint ?? '',
+      bucket: (row as Partial<MassiveCredentialsRow>).bucket ?? '',
+      updated_at: row.updated_at
+    };
+  }
+  const db = getDb();
+  if (!db) return null;
+  let row: MassiveCredentialsRow | undefined;
+  try {
+    row = db.prepare(
+      'SELECT user_id, api_key, COALESCE(access_key_id,\'\') AS access_key_id, COALESCE(secret_access_key,\'\') AS secret_access_key, COALESCE(s3_endpoint,\'\') AS s3_endpoint, COALESCE(bucket,\'\') AS bucket, updated_at FROM user_massive_api WHERE user_id = ?'
+    ).get(userId) as MassiveCredentialsRow | undefined;
+  } catch {
+    const legacy = db.prepare('SELECT user_id, api_key, updated_at FROM user_massive_api WHERE user_id = ?').get(userId) as { user_id: string; api_key: string; updated_at: string } | undefined;
+    if (!legacy) return null;
+    row = { ...legacy, access_key_id: '', secret_access_key: '', s3_endpoint: '', bucket: '' };
+  }
+  return row ?? null;
+}
+
+/** Сохранить Massive.com API key (обратная совместимость). */
+export function setMassiveApiKey(userId: string, apiKey: string): void {
+  setMassiveCredentials(userId, { apiKey: (apiKey ?? '').trim() });
+}
+
+/** Сохранить учётные данные Massive.com (API key и/или S3). Передаются только нужные поля. */
+export function setMassiveCredentials(
+  userId: string,
+  data: { apiKey?: string; accessKeyId?: string; secretAccessKey?: string; s3Endpoint?: string; bucket?: string }
+): void {
+  ensureAuthTables();
+  const now = new Date().toISOString();
+  const existing = getMassiveCredentials(userId);
+  const api_key = (data.apiKey !== undefined ? data.apiKey : existing?.api_key ?? '').trim();
+  const access_key_id = (data.accessKeyId !== undefined ? data.accessKeyId : existing?.access_key_id ?? '').trim();
+  const secret_access_key = (data.secretAccessKey !== undefined ? data.secretAccessKey : existing?.secret_access_key ?? '').trim();
+  const s3_endpoint = (data.s3Endpoint !== undefined ? data.s3Endpoint : existing?.s3_endpoint ?? '').trim();
+  const bucket = (data.bucket !== undefined ? data.bucket : existing?.bucket ?? '').trim();
+
+  if (isMemoryStore()) {
+    memoryMassiveApi.set(userId, {
+      user_id: userId,
+      api_key,
+      access_key_id,
+      secret_access_key,
+      s3_endpoint,
+      bucket,
+      updated_at: now
+    });
+    return;
+  }
+  const db = getDb();
+  if (!db) return;
+  db.prepare(
+    `INSERT INTO user_massive_api (user_id, api_key, access_key_id, secret_access_key, s3_endpoint, bucket, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET api_key=?, access_key_id=?, secret_access_key=?, s3_endpoint=?, bucket=?, updated_at=?`
+  ).run(
+    userId, api_key, access_key_id, secret_access_key, s3_endpoint || '', bucket || '', now,
+    api_key, access_key_id, secret_access_key, s3_endpoint || '', bucket || '', now
+  );
 }

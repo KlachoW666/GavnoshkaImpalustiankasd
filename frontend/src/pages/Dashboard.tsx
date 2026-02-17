@@ -223,7 +223,7 @@ export default function Dashboard() {
               <div className="space-y-1 text-[11px]">
                 <p className="flex items-center gap-1.5">
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${stats?.okxConnected ? 'bg-[var(--success)]' : 'bg-[var(--danger)]'}`} />
-                  <span style={{ color: 'var(--text-muted)' }}>OKX: {stats?.okxConnected ? 'OK' : 'нет ключей'}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>Bitget: {stats?.okxConnected ? 'OK' : 'нет ключей'}</span>
                 </p>
                 <p className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-[var(--success)]" />
@@ -267,7 +267,7 @@ export default function Dashboard() {
         </h2>
         <div className="grid md:grid-cols-3 gap-6">
           {[
-            { n: 1, title: 'Подключите OKX', desc: 'В «Настройки → Биржа» сохраните API-ключи для авто-торговли и баланса.' },
+            { n: 1, title: 'Подключите Bitget', desc: 'В «Настройки → Подключения» сохраните API-ключи Bitget для авто-торговли и баланса.' },
             { n: 2, title: 'Ключ доступа', desc: 'Купите ключ в боте @clabx_bot, введите во вкладке «Активировать».' },
             { n: 3, title: 'Скринер и Авто', desc: 'Топ монет в «Скринер», автоматические сделки в «Авто-трейд».' },
           ].map((s) => (
@@ -308,7 +308,7 @@ export default function Dashboard() {
           <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Интеграции</h3>
           <ul className="space-y-3 text-sm">
             {[
-              { label: 'OKX — биржа для авто-торговли и баланса', active: true },
+              { label: 'Bitget — биржа для авто-торговли и баланса', active: true },
               { label: 'TradingView — идеи и графики', active: true },
               { label: 'Telegram — @clabx_bot для ключей', active: true },
             ].map((item, i) => (

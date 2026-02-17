@@ -8,7 +8,7 @@ import { setNotificationConfig, getNotificationConfig } from '../services/notifi
 import { getPositionsAndBalanceForApi, syncClosedOrdersFromOkx, pullClosedOrdersFromOkx } from '../services/autoTrader';
 import { getBearerToken } from './auth';
 import { findSessionUserId } from '../db/authDb';
-import { getOkxCredentials } from '../db/authDb';
+import { getBitgetCredentials } from '../db/authDb';
 import { config } from '../config';
 import { logger } from '../lib/logger';
 
@@ -110,12 +110,12 @@ router.get('/positions', async (req: Request, res: Response) => {
     let userCreds: { apiKey: string; secret: string; passphrase?: string } | null = null;
     try {
       userId = token ? findSessionUserId(token) : null;
-      userCreds = userId ? getOkxCredentials(userId) : null;
+      userCreds = userId ? getBitgetCredentials(userId) : null;
     } catch (e) {
       logger.warn('Trading', 'positions: get user creds failed', { error: (e as Error).message });
     }
     const hasCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
-    if (!hasCreds && !config.okx.hasCredentials) {
+    if (!hasCreds && !config.bitget.hasCredentials) {
       res.json({ positions: [], balance: 0, openCount: 0, executionAvailable: false, useTestnet });
       return;
     }

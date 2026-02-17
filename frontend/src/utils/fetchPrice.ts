@@ -1,6 +1,6 @@
 /**
  * Единая утилита получения цены для демо/авто-торговли.
- * OKX: /api/market/price
+ * Bitget: /api/market/price
  */
 
 import { api } from './api';
@@ -22,7 +22,7 @@ interface PriceResponse {
 }
 
 /**
- * Получить актуальную цену с OKX.
+ * Получить актуальную цену с Bitget.
  */
 export async function fetchPrice(symbol: string): Promise<number | null> {
   const sym = normSymbol(symbol);

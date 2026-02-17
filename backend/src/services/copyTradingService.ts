@@ -4,7 +4,7 @@
 
 import { executeSignal } from './autoTrader';
 import { getSubscribers } from '../db/copyTradingDb';
-import { getOkxCredentials } from '../db/authDb';
+import { getBitgetCredentials } from '../db/authDb';
 import type { TradingSignal } from '../types/signal';
 import type { ExecuteOptions } from './autoTrader';
 import { logger } from '../lib/logger';
@@ -31,7 +31,7 @@ export function copyOrderToSubscribers(
   logger.info('CopyTrading', `Copying order to ${subs.length} subscribers`, { providerId, symbol: signal.symbol });
 
   subs.forEach((sub) => {
-    const creds = getOkxCredentials(sub.subscriber_id);
+    const creds = getBitgetCredentials(sub.subscriber_id);
     if (!creds?.apiKey?.trim() || !creds?.secret?.trim()) {
       logger.debug('CopyTrading', 'Subscriber has no OKX keys', { subscriberId: sub.subscriber_id });
       return;

@@ -387,7 +387,7 @@ export default function AdminUsers() {
                   </p>
                 </div>
                 <div className="rounded-lg p-4" style={miniCardStyle}>
-                  <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>OKX баланс (USDT)</p>
+                  <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Bitget баланс (USDT)</p>
                   {userDetail.okxBalanceError ? (
                     <p className="text-sm font-medium" style={{ color: 'var(--danger)' }} title={userDetail.okxBalanceError}>Ошибка</p>
                   ) : userDetail.okxBalance != null ? (

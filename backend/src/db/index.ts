@@ -134,8 +134,36 @@ export function initDb(): any {
           passphrase TEXT DEFAULT '',
           updated_at TEXT DEFAULT (datetime('now'))
         );
+        CREATE TABLE IF NOT EXISTS user_bitget_connections (
+          user_id TEXT PRIMARY KEY,
+          api_key TEXT NOT NULL,
+          secret TEXT NOT NULL,
+          passphrase TEXT DEFAULT '',
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS user_massive_api (
+          user_id TEXT PRIMARY KEY,
+          api_key TEXT DEFAULT '',
+          access_key_id TEXT DEFAULT '',
+          secret_access_key TEXT DEFAULT '',
+          s3_endpoint TEXT DEFAULT '',
+          bucket TEXT DEFAULT '',
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
       `);
-    } catch { /* migration: column/table may already exist */ }
+    } catch { /* migration: table may already exist */ }
+    try {
+      db.exec(`ALTER TABLE user_massive_api ADD COLUMN access_key_id TEXT DEFAULT ''`);
+    } catch { /* column may exist */ }
+    try {
+      db.exec(`ALTER TABLE user_massive_api ADD COLUMN secret_access_key TEXT DEFAULT ''`);
+    } catch { /* column may exist */ }
+    try {
+      db.exec(`ALTER TABLE user_massive_api ADD COLUMN s3_endpoint TEXT DEFAULT ''`);
+    } catch { /* column may exist */ }
+    try {
+      db.exec(`ALTER TABLE user_massive_api ADD COLUMN bucket TEXT DEFAULT ''`);
+    } catch { /* column may exist */ }
     try {
       db.exec(`
         CREATE TABLE IF NOT EXISTS admin_proxies (
@@ -223,6 +251,21 @@ export function initDb(): any {
         );
         CREATE INDEX IF NOT EXISTS idx_internal_positions_user ON internal_positions(user_id);
         CREATE INDEX IF NOT EXISTS idx_internal_positions_status ON internal_positions(status);
+        CREATE TABLE IF NOT EXISTS trigger_orders (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          symbol TEXT NOT NULL,
+          direction TEXT NOT NULL CHECK(direction IN ('LONG', 'SHORT')),
+          size_usdt REAL NOT NULL,
+          leverage INTEGER NOT NULL DEFAULT 1,
+          trigger_price REAL NOT NULL,
+          order_type TEXT NOT NULL DEFAULT 'market' CHECK(order_type IN ('limit', 'market')),
+          limit_price REAL,
+          status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'executed', 'cancelled')),
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_trigger_orders_user ON trigger_orders(user_id);
+        CREATE INDEX IF NOT EXISTS idx_trigger_orders_status ON trigger_orders(status);
       `);
     } catch { /* migration: column/table may already exist */ }
     try {

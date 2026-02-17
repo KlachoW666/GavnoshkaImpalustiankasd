@@ -78,7 +78,7 @@ router.get('/', (_req: Request, res: Response) => {
       ...realStats,
       status: 'ok',
       databaseMode: isMemoryStore() ? 'memory' : 'sqlite',
-      okxConnected: config.okx.hasCredentials,
+      okxConnected: config.bitget.hasCredentials,
       displayEnabled: displayEnabled || undefined,
       display
     } as StatsResponse);

@@ -60,7 +60,7 @@ export default function HelpPage() {
           активировать подписку в <NavLink page="activate" label="Активация">Активации</NavLink>.
         </p>
         <ul className="list-disc list-inside text-sm space-y-1" style={{ color: 'var(--text-muted)' }}>
-          <li>Подключите OKX в разделе «Подключения» (Настройки)</li>
+          <li>Подключите Bitget в разделе «Подключения» (Настройки)</li>
           <li>Используйте только права «Trading», без вывода средств</li>
           <li>Введите ключ активации в Профиле или на странице Активации</li>
         </ul>
@@ -130,11 +130,11 @@ export default function HelpPage() {
           </h2>
         </div>
         <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>
-          В <NavLink page="settings" label="Настройки">Настройках</NavLink> настраиваются: подключение к OKX (API ключи и прокси),
+          В <NavLink page="settings" label="Настройки">Настройках</NavLink> настраиваются: подключение к Bitget (API ключи и прокси),
           параметры анализа, уведомления (в т.ч. Telegram), отображение интерфейса и лимиты риска для авто-торговли.
         </p>
         <ul className="list-disc list-inside text-sm space-y-1" style={{ color: 'var(--text-muted)' }}>
-          <li>Подключения — API OKX, проверка соединения</li>
+          <li>Подключения — API Bitget и Massive.com, проверка соединения</li>
           <li>Анализ — пороги и таймфреймы</li>
           <li>Уведомления — Telegram (бот и Chat ID)</li>
           <li>Риски — максимальный риск на сделку, стоп-лосс</li>

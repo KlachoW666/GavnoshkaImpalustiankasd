@@ -16,8 +16,28 @@ const TF_SECONDS: Record<string, number> = {
   '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400
 };
 const OB_ROWS = 8;
-const LEVERAGE_OPTIONS = [1, 2, 3, 5, 10, 20, 50, 100];
+const LEVERAGE_OPTIONS = [1, 2, 3, 5, 10, 20, 50, 100, 125];
 const MAIN_TABS = ['chart', 'overview', 'data', 'news'] as const;
+const FUNDING_SLOTS_UTC_HOURS = [0, 8, 16]; // 00:00, 08:00, 16:00 UTC
+
+/** Countdown to next funding (00:00, 08:00, 16:00 UTC), format HH:MM:SS */
+function getFundingCountdown(): string {
+  const now = new Date();
+  const utcHour = now.getUTCHours();
+  const utcMin = now.getUTCMinutes();
+  const utcSec = now.getUTCSeconds();
+  const nowTotalSecs = utcHour * 3600 + utcMin * 60 + utcSec;
+  const nextHour = FUNDING_SLOTS_UTC_HOURS.find((h) => h * 3600 > nowTotalSecs);
+  const nextSlot = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), nextHour ?? 0, nextHour != null ? 0 : 0, 0));
+  if (nextHour == null) nextSlot.setUTCDate(nextSlot.getUTCDate() + 1);
+  const diffMs = nextSlot.getTime() - now.getTime();
+  if (diffMs <= 0) return '00:00:00';
+  const totalSecs = Math.floor(diffMs / 1000);
+  const h = Math.floor(totalSecs / 3600);
+  const m = Math.floor((totalSecs % 3600) / 60);
+  const s = totalSecs % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
 const BOTTOM_TABS = ['orders', 'positions', 'orderHistory', 'tradeHistory', 'assets', 'loans', 'tools', 'pnl'] as const;
 
 type TickerRow = { symbol: string; last: number; change24h: number; volume24h: number; high24h?: number; low24h?: number };
@@ -34,6 +54,8 @@ type InternalPosition = {
   pnl_percent?: number;
 };
 type TradeRow = { price: number; amount: number; time: number; isBuy: boolean };
+type OpenOrderRow = { id: string; pair: string; direction: string; size: number; leverage: number; openPrice: number; openTime: string };
+type TriggerOrderRow = { id: string; symbol: string; direction: string; sizeUsdt: number; leverage: number; triggerPrice: number; orderType: string; status: string; createdAt: string | null };
 
 function toChartTime(tsMs: number, tf: string): number | string {
   const sec = TF_SECONDS[tf] || 900;
@@ -117,7 +139,7 @@ export default function TradePage() {
   const [trades, setTrades] = useState<TradeRow[]>([]);
   const [balance, setBalance] = useState<number | null>(null);
   const [positions, setPositions] = useState<{ open: InternalPosition[]; closed: InternalPosition[] }>({ open: [], closed: [] });
-  const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
+  const [orderType, setOrderType] = useState<'market' | 'limit' | 'conditional'>('limit');
   const [direction, setDirection] = useState<'LONG' | 'SHORT'>('LONG');
   const [sizeUsdt, setSizeUsdt] = useState('');
   const [leverage, setLeverage] = useState(5);
@@ -129,10 +151,19 @@ export default function TradePage() {
   const [marketTab, setMarketTab] = useState<'futures' | 'spot'>('futures');
   const [mainTab, setMainTab] = useState<(typeof MAIN_TABS)[number]>('chart');
   const [bottomTab, setBottomTab] = useState<(typeof BOTTOM_TABS)[number]>('positions');
+  const [fundingCountdown, setFundingCountdown] = useState(getFundingCountdown);
+  const [fundingRatePct, setFundingRatePct] = useState<string | null>(null);
   const [orderPercent, setOrderPercent] = useState(0);
   const [showTpSl, setShowTpSl] = useState(false);
   const [postOnly, setPostOnly] = useState(false);
   const [reduceOnly, setReduceOnly] = useState(false);
+  const [marginMode, setMarginMode] = useState<'cross' | 'isolated'>('cross');
+  const [positionMode, setPositionMode] = useState<'one_way' | 'hedge'>('one_way');
+  const [triggerPrice, setTriggerPrice] = useState('');
+  const [openOrders, setOpenOrders] = useState<OpenOrderRow[]>([]);
+  const [orderHistory, setOrderHistory] = useState<OpenOrderRow[]>([]);
+  const [triggerOrders, setTriggerOrders] = useState<TriggerOrderRow[]>([]);
+  const [loadingTrigger, setLoadingTrigger] = useState(false);
 
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<IChartApi | null>(null);
@@ -192,10 +223,53 @@ export default function TradePage() {
     return () => clearInterval(id);
   }, [fetchPositions]);
 
+  const fetchOrders = useCallback(async () => {
+    if (!token) return;
+    const opts = { headers: { Authorization: `Bearer ${token}` } as HeadersInit };
+    try {
+      const [openRes, closedRes, triggerRes] = await Promise.all([
+        api.get<OpenOrderRow[]>('/orders?status=open&limit=50', opts).catch(() => []),
+        api.get<OpenOrderRow[]>('/orders?status=closed&limit=50', opts).catch(() => []),
+        api.get<TriggerOrderRow[]>('/wallet/trigger-orders', opts).catch(() => [])
+      ]);
+      setOpenOrders(Array.isArray(openRes) ? openRes : []);
+      setOrderHistory(Array.isArray(closedRes) ? closedRes : []);
+      setTriggerOrders(Array.isArray(triggerRes) ? triggerRes : []);
+    } catch {
+      setOpenOrders([]);
+      setOrderHistory([]);
+      setTriggerOrders([]);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchOrders();
+    const id = setInterval(fetchOrders, 15000);
+    return () => clearInterval(id);
+  }, [fetchOrders]);
+
+  useEffect(() => {
+    const id = setInterval(() => setFundingCountdown(getFundingCountdown()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const sym = symbol.replace(/_/g, '-');
+    api.get<{ ratePct?: string; rate?: number }>(`/market/funding?symbol=${encodeURIComponent(sym)}`)
+      .then((r) => setFundingRatePct(r.ratePct ?? (r.rate != null ? (r.rate * 100).toFixed(4) + '%' : null)))
+      .catch(() => setFundingRatePct(null));
+    const id = setInterval(() => {
+      api.get<{ ratePct?: string; rate?: number }>(`/market/funding?symbol=${encodeURIComponent(sym)}`)
+        .then((r) => setFundingRatePct(r.ratePct ?? (r.rate != null ? (r.rate * 100).toFixed(4) + '%' : null)))
+        .catch(() => {});
+    }, 30000);
+    return () => clearInterval(id);
+  }, [symbol]);
+
   const loadCandles = useCallback((isInitial: boolean) => {
     const sym = normSymbol(symbol) || symbol.replace(/_/g, '-');
     const isLine = chartStyle === 'line';
-    fetch(`${API}/market/candles/${encodeURIComponent(sym)}?timeframe=${timeframe}&limit=200&exchange=okx`)
+    fetch(`${API}/market/candles/${encodeURIComponent(sym)}?timeframe=${timeframe}&limit=200&exchange=bitget`)
       .then((r) => r.json())
       .then((data: OHLCVCandle[]) => {
         const candles = Array.isArray(data) ? data : [];
@@ -338,7 +412,37 @@ export default function TradePage() {
     return () => clearInterval(tid);
   }, [symbol]);
 
-  const effectiveLeverage = marketTab === 'spot' ? 1 : (orderType === 'market' ? leverage : 1);
+  const effectiveLeverage = marketTab === 'spot' ? 1 : leverage;
+
+  const handlePlaceTriggerOrder = async () => {
+    const price = parseFloat(triggerPrice);
+    const size = parseFloat(sizeUsdt);
+    setTradeError('');
+    if (!price || price <= 0) { setTradeError('Укажите цену срабатывания'); return; }
+    if (!size || size < 1) { setTradeError('Минимум 1 USDT'); return; }
+    if (!token) return;
+    setLoadingTrigger(true);
+    try {
+      await api.post('/wallet/trigger-order', { symbol, direction, sizeUsdt: size, leverage, triggerPrice: price, orderType: 'market' }, { headers: { Authorization: `Bearer ${token}` } as HeadersInit });
+      setTriggerPrice('');
+      setSizeUsdt('');
+      await fetchOrders();
+    } catch (e) {
+      setTradeError((e as Error).message);
+    } finally {
+      setLoadingTrigger(false);
+    }
+  };
+
+  const handleCancelTriggerOrder = async (id: string) => {
+    if (!token) return;
+    try {
+      await api.delete(`/wallet/trigger-orders/${id}`, { headers: { Authorization: `Bearer ${token}` } as HeadersInit });
+      await fetchOrders();
+    } catch {
+      setTradeError('Не удалось отменить');
+    }
+  };
 
   const handleOpenPosition = async () => {
     const size = parseFloat(sizeUsdt);
@@ -407,7 +511,7 @@ export default function TradePage() {
   const high24 = currentTicker?.high24h ?? currentTicker?.last ?? 0;
   const low24 = currentTicker?.low24h ?? currentTicker?.last ?? 0;
   const volume24 = currentTicker?.volume24h ?? 0;
-  const fundingCountdown = '02:00:00';
+  const markPrice = lastPrice;
 
   const setLastPrice = () => setLimitPrice(lastPrice > 0 ? String(lastPrice) : '');
 
@@ -440,6 +544,8 @@ export default function TradePage() {
           {lastPrice > 0 ? lastPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
         </span>
         <span className="tabular-nums" style={{ color: 'var(--text-muted)' }}>Индекс. {indexPrice > 0 ? indexPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2 }) : '—'}</span>
+        <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Mark</span>
+        <span className="tabular-nums" style={{ color: 'var(--text-secondary)' }}>{markPrice > 0 ? markPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2 }) : '—'}</span>
         <span className="tabular-nums" style={{ color: change24 >= 0 ? 'var(--success)' : 'var(--danger)' }}>
           {change24 >= 0 ? '+' : ''}{change24Abs.toFixed(2)} ({change24 >= 0 ? '+' : ''}{change24.toFixed(2)}%)
         </span>
@@ -452,7 +558,7 @@ export default function TradePage() {
           {volume24 >= 1e9 ? `${(volume24 / 1e9).toFixed(2)}B` : volume24 >= 1e6 ? `${(volume24 / 1e6).toFixed(2)}M` : volume24.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}
         </span>
         <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Ставка / Отсчёт</span>
-        <span className="tabular-nums" style={{ color: 'var(--text-secondary)' }}>0.0046% / {fundingCountdown}</span>
+        <span className="tabular-nums" style={{ color: 'var(--text-secondary)' }}>{fundingRatePct ?? '—'} / {fundingCountdown}</span>
       </header>
 
       {/* Main tabs: График, Обзор, Данные, Лента новостей */}
@@ -473,30 +579,26 @@ export default function TradePage() {
         ))}
       </div>
 
-      {/* Spot / Futures */}
-      <div className="flex gap-1 shrink-0 px-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
-        <button
-          type="button"
-          onClick={() => setMarketTab('futures')}
-          className="px-3 py-1.5 text-sm font-medium rounded"
-          style={{
-            background: marketTab === 'futures' ? 'var(--accent-dim)' : 'transparent',
-            color: marketTab === 'futures' ? 'var(--accent)' : 'var(--text-muted)',
-          }}
-        >
-          Фьючерсы
-        </button>
-        <button
-          type="button"
-          onClick={() => { setMarketTab('spot'); setOrderType('market'); setLeverage(1); }}
-          className="px-3 py-1.5 text-sm font-medium rounded"
-          style={{
-            background: marketTab === 'spot' ? 'var(--accent-dim)' : 'transparent',
-            color: marketTab === 'spot' ? 'var(--accent)' : 'var(--text-muted)',
-          }}
-        >
-          Spot
-        </button>
+      {/* Spot / Futures + Margin mode + Position mode */}
+      <div className="flex flex-wrap items-center gap-2 shrink-0 px-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex gap-1">
+          <button type="button" onClick={() => setMarketTab('futures')} className="px-3 py-1.5 text-sm font-medium rounded" style={{ background: marketTab === 'futures' ? 'var(--accent-dim)' : 'transparent', color: marketTab === 'futures' ? 'var(--accent)' : 'var(--text-muted)' }}>Фьючерсы</button>
+          <button type="button" onClick={() => { setMarketTab('spot'); setOrderType('market'); setLeverage(1); }} className="px-3 py-1.5 text-sm font-medium rounded" style={{ background: marketTab === 'spot' ? 'var(--accent-dim)' : 'transparent', color: marketTab === 'spot' ? 'var(--accent)' : 'var(--text-muted)' }}>Spot</button>
+        </div>
+        {marketTab === 'futures' && (
+          <>
+            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Маржа:</span>
+            <div className="flex gap-1">
+              <button type="button" onClick={() => setMarginMode('cross')} className="px-2 py-1 text-[11px] font-medium rounded" style={{ background: marginMode === 'cross' ? 'var(--accent-dim)' : 'var(--bg)', color: marginMode === 'cross' ? 'var(--accent)' : 'var(--text-muted)' }}>Кросс</button>
+              <button type="button" onClick={() => setMarginMode('isolated')} className="px-2 py-1 text-[11px] font-medium rounded" style={{ background: marginMode === 'isolated' ? 'var(--accent-dim)' : 'var(--bg)', color: marginMode === 'isolated' ? 'var(--accent)' : 'var(--text-muted)' }}>Изолир.</button>
+            </div>
+            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Режим:</span>
+            <div className="flex gap-1">
+              <button type="button" onClick={() => setPositionMode('one_way')} className="px-2 py-1 text-[11px] font-medium rounded" style={{ background: positionMode === 'one_way' ? 'var(--accent-dim)' : 'var(--bg)', color: positionMode === 'one_way' ? 'var(--accent)' : 'var(--text-muted)' }}>Односторонний</button>
+              <button type="button" onClick={() => setPositionMode('hedge')} className="px-2 py-1 text-[11px] font-medium rounded" style={{ background: positionMode === 'hedge' ? 'var(--accent-dim)' : 'var(--bg)', color: positionMode === 'hedge' ? 'var(--accent)' : 'var(--text-muted)' }}>Хедж</button>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="flex-1 min-h-0 flex gap-0 overflow-hidden">
@@ -566,15 +668,41 @@ export default function TradePage() {
           {mainTab === 'overview' && (
             <div className="absolute inset-0 flex flex-col overflow-y-auto p-4" style={{ background: 'var(--bg)' }}>
               <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>О паре {symbol}</h3>
+              <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
+                Бессрочный контракт (perpetual) {symbol} с маржой в USDT. Контракт не имеет даты экспирации; расчёт по ставке финансирования каждые 8 часов (00:00, 08:00, 16:00 UTC) удерживает цену близко к спотовой.
+              </p>
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                Бессрочный контракт {symbol}. Текущая цена: {lastPrice > 0 ? lastPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2 }) : '—'}.
+                Текущая цена: {lastPrice > 0 ? lastPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2 }) : '—'} USDT. Индексная цена и цена маркировки используются для расчёта нереализованного P&L и цены ликвидации.
               </p>
             </div>
           )}
           {mainTab === 'data' && (
             <div className="absolute inset-0 flex flex-col overflow-y-auto p-4" style={{ background: 'var(--bg)' }}>
-              <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Данные</h3>
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Раздел в разработке.</p>
+              <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Данные — {symbol}</h3>
+              <table className="w-full text-sm border-collapse" style={{ maxWidth: '400px' }}>
+                <tbody style={{ color: 'var(--text-secondary)' }}>
+                  <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
+                    <td className="py-2 pr-4" style={{ color: 'var(--text-muted)' }}>Цена (24ч)</td>
+                    <td className="py-2 font-mono tabular-nums">{lastPrice > 0 ? lastPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2 }) : '—'}</td>
+                  </tr>
+                  <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
+                    <td className="py-2 pr-4" style={{ color: 'var(--text-muted)' }}>24ч Высокий</td>
+                    <td className="py-2 font-mono tabular-nums" style={{ color: 'var(--success)' }}>{high24 > 0 ? high24.toLocaleString('ru-RU', { minimumFractionDigits: 2 }) : '—'}</td>
+                  </tr>
+                  <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
+                    <td className="py-2 pr-4" style={{ color: 'var(--text-muted)' }}>24ч Низкий</td>
+                    <td className="py-2 font-mono tabular-nums" style={{ color: 'var(--danger)' }}>{low24 > 0 ? low24.toLocaleString('ru-RU', { minimumFractionDigits: 2 }) : '—'}</td>
+                  </tr>
+                  <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
+                    <td className="py-2 pr-4" style={{ color: 'var(--text-muted)' }}>Изменение 24ч</td>
+                    <td className="py-2 font-mono tabular-nums" style={{ color: change24 >= 0 ? 'var(--success)' : 'var(--danger)' }}>{change24 >= 0 ? '+' : ''}{change24.toFixed(2)}%</td>
+                  </tr>
+                  <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
+                    <td className="py-2 pr-4" style={{ color: 'var(--text-muted)' }}>Объём 24ч (USDT)</td>
+                    <td className="py-2 font-mono tabular-nums">{volume24 >= 1e9 ? `${(volume24 / 1e9).toFixed(2)}B` : volume24 >= 1e6 ? `${(volume24 / 1e6).toFixed(2)}M` : volume24.toLocaleString('ru-RU', { maximumFractionDigits: 0 })}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           )}
           {mainTab === 'news' && (
@@ -670,13 +798,48 @@ export default function TradePage() {
                   </button>
                   <button
                     type="button"
-                    className="flex-1 py-1.5 text-xs font-medium rounded opacity-60 cursor-not-allowed"
-                    style={{ background: 'var(--bg)', color: 'var(--text-muted)' }}
-                    title="Скоро"
+                    onClick={() => setOrderType('conditional')}
+                    className="flex-1 py-1.5 text-xs font-medium rounded"
+                    style={{ background: orderType === 'conditional' ? 'var(--accent)' : 'var(--bg)', color: orderType === 'conditional' ? '#fff' : 'var(--text-muted)' }}
                   >
                     Условный
                   </button>
                 </div>
+                {orderType === 'conditional' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Цена срабатывания</label>
+                      <input
+                        type="number"
+                        value={triggerPrice}
+                        onChange={(e) => setTriggerPrice(e.target.value)}
+                        placeholder="0"
+                        className="input-field w-full rounded py-1.5 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>К-во (USDT)</label>
+                      <input
+                        type="number"
+                        value={sizeUsdt}
+                        onChange={(e) => setSizeUsdt(e.target.value)}
+                        placeholder="0"
+                        min={1}
+                        className="input-field w-full rounded py-1.5 text-sm"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setDirection('LONG')} className="flex-1 py-2 text-sm font-medium rounded" style={{ background: direction === 'LONG' ? 'var(--success)' : 'var(--bg)', color: direction === 'LONG' ? '#fff' : 'var(--text-muted)' }}>Лонг</button>
+                      <button type="button" onClick={() => setDirection('SHORT')} className="flex-1 py-2 text-sm font-medium rounded" style={{ background: direction === 'SHORT' ? 'var(--danger)' : 'var(--bg)', color: direction === 'SHORT' ? '#fff' : 'var(--text-muted)' }}>Шорт</button>
+                    </div>
+                    {tradeError && <p className="text-xs" style={{ color: 'var(--danger)' }}>{tradeError}</p>}
+                    <button type="button" onClick={handlePlaceTriggerOrder} disabled={loadingTrigger || !triggerPrice || !sizeUsdt} className="w-full py-2 rounded font-medium disabled:opacity-50 text-sm" style={{ background: 'var(--accent)', color: '#fff' }}>
+                      {loadingTrigger ? '…' : 'Разместить условный ордер'}
+                    </button>
+                  </div>
+                )}
+                {(orderType === 'limit' || orderType === 'market') && (
+                <>
                 {orderType === 'limit' && (
                   <div>
                     <div className="flex items-center gap-1 mb-1">
@@ -801,6 +964,8 @@ export default function TradePage() {
                 >
                   {loadingOpen ? 'Открытие…' : direction === 'LONG' ? 'Лонг' : 'Шорт'}
                 </button>
+                </>
+                )}
               </div>
             )}
             {rightTab === 'positions' && (
@@ -858,7 +1023,7 @@ export default function TradePage() {
                 borderBottom: bottomTab === t ? '2px solid var(--accent)' : '2px solid transparent',
               }}
             >
-              {t === 'orders' ? `Открытые ордера (0)` : t === 'positions' ? `Позиции (${positions.open.length})` : t === 'orderHistory' ? 'История ордеров' : t === 'tradeHistory' ? 'История торговли' : t === 'assets' ? 'Активы' : t === 'loans' ? 'Займы' : t === 'tools' ? 'Инструменты' : 'P&L'}
+              {t === 'orders' ? `Открытые ордера (${openOrders.length + triggerOrders.filter((tr) => tr.status === 'pending').length})` : t === 'positions' ? `Позиции (${positions.open.length})` : t === 'orderHistory' ? 'История ордеров' : t === 'tradeHistory' ? 'История торговли' : t === 'assets' ? 'Активы' : t === 'loans' ? 'Займы' : t === 'tools' ? 'Инструменты' : 'P&L'}
             </button>
           ))}
         </div>
@@ -931,15 +1096,121 @@ export default function TradePage() {
               </table>
             </div>
           )}
-          {bottomTab !== 'positions' && (
+          {bottomTab === 'orders' && (
+            <div className="overflow-x-auto p-2 text-[11px]">
+              {openOrders.length === 0 && triggerOrders.filter((t) => t.status === 'pending').length === 0 ? (
+                <p className="py-4 text-center" style={{ color: 'var(--text-muted)' }}>Нет открытых ордеров</p>
+              ) : (
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr style={{ color: 'var(--text-muted)' }}>
+                      <th className="text-left px-2 py-1 font-medium">Пара / Тип</th>
+                      <th className="text-right px-2 py-1 font-medium">Направление</th>
+                      <th className="text-right px-2 py-1 font-medium">Цена / Триггер</th>
+                      <th className="text-right px-2 py-1 font-medium">Размер</th>
+                      <th className="text-right px-2 py-1 font-medium">Действие</th>
+                    </tr>
+                  </thead>
+                  <tbody style={{ color: 'var(--text-secondary)' }}>
+                    {openOrders.map((o) => (
+                      <tr key={o.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
+                        <td className="px-2 py-1">{o.pair ?? o.id}</td>
+                        <td className="text-right px-2 py-1" style={{ color: o.direction === 'LONG' ? 'var(--success)' : 'var(--danger)' }}>{o.direction}</td>
+                        <td className="text-right px-2 py-1 font-mono">{Number(o.openPrice).toFixed(2)}</td>
+                        <td className="text-right px-2 py-1 font-mono">{Number(o.size).toFixed(2)}</td>
+                        <td className="px-2 py-1">—</td>
+                      </tr>
+                    ))}
+                    {triggerOrders.filter((t) => t.status === 'pending').map((t) => (
+                      <tr key={t.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
+                        <td className="px-2 py-1">{t.symbol} (усл.)</td>
+                        <td className="text-right px-2 py-1" style={{ color: t.direction === 'LONG' ? 'var(--success)' : 'var(--danger)' }}>{t.direction}</td>
+                        <td className="text-right px-2 py-1 font-mono">{Number(t.triggerPrice).toFixed(2)}</td>
+                        <td className="text-right px-2 py-1 font-mono">{Number(t.sizeUsdt).toFixed(2)}</td>
+                        <td className="px-2 py-1">
+                          <button type="button" onClick={() => handleCancelTriggerOrder(t.id)} className="text-[10px] px-1 py-0.5 rounded" style={{ background: 'var(--danger)', color: '#fff' }}>Отменить</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+          {bottomTab === 'orderHistory' && (
+            <div className="overflow-x-auto p-2 text-[11px]">
+              {orderHistory.length === 0 ? (
+                <p className="py-4 text-center" style={{ color: 'var(--text-muted)' }}>История ордеров пуста</p>
+              ) : (
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr style={{ color: 'var(--text-muted)' }}>
+                      <th className="text-left px-2 py-1 font-medium">Пара</th>
+                      <th className="text-right px-2 py-1 font-medium">Направление</th>
+                      <th className="text-right px-2 py-1 font-medium">Открытие / Закрытие</th>
+                      <th className="text-right px-2 py-1 font-medium">P&L</th>
+                    </tr>
+                  </thead>
+                  <tbody style={{ color: 'var(--text-secondary)' }}>
+                    {orderHistory.slice(0, 20).map((o: any) => (
+                      <tr key={o.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
+                        <td className="px-2 py-1">{o.pair ?? o.id}</td>
+                        <td className="text-right px-2 py-1" style={{ color: o.direction === 'LONG' ? 'var(--success)' : 'var(--danger)' }}>{o.direction}</td>
+                        <td className="text-right px-2 py-1 font-mono">{Number(o.openPrice).toFixed(2)} / {o.closePrice != null ? Number(o.closePrice).toFixed(2) : '—'}</td>
+                        <td className="text-right px-2 py-1 font-mono" style={{ color: o.pnl != null && o.pnl >= 0 ? 'var(--success)' : 'var(--danger)' }}>{o.pnl != null ? o.pnl.toFixed(2) : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+          {bottomTab === 'tradeHistory' && (
+            <div className="overflow-x-auto p-2 text-[11px]">
+              {positions.closed.length === 0 ? (
+                <p className="py-4 text-center" style={{ color: 'var(--text-muted)' }}>История торговли пуста</p>
+              ) : (
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr style={{ color: 'var(--text-muted)' }}>
+                      <th className="text-left px-2 py-1 font-medium">Пара</th>
+                      <th className="text-right px-2 py-1 font-medium">Направление</th>
+                      <th className="text-right px-2 py-1 font-medium">Вход / Выход</th>
+                      <th className="text-right px-2 py-1 font-medium">P&L</th>
+                    </tr>
+                  </thead>
+                  <tbody style={{ color: 'var(--text-secondary)' }}>
+                    {positions.closed.slice(0, 20).map((p: InternalPosition) => (
+                      <tr key={p.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
+                        <td className="px-2 py-1">{p.symbol}</td>
+                        <td className="text-right px-2 py-1" style={{ color: p.direction === 'LONG' ? 'var(--success)' : 'var(--danger)' }}>{p.direction}</td>
+                        <td className="text-right px-2 py-1 font-mono">{p.open_price.toFixed(2)} / {p.close_price != null ? p.close_price.toFixed(2) : '—'}</td>
+                        <td className="text-right px-2 py-1 font-mono" style={{ color: ((p as any).pnl ?? p.pnl_usdt ?? 0) >= 0 ? 'var(--success)' : 'var(--danger)' }}>{((p as any).pnl ?? p.pnl_usdt ?? 0).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+          {bottomTab === 'assets' && (
+            <div className="p-2 text-[11px]">
+              <p className="py-2" style={{ color: 'var(--text-muted)' }}>Баланс</p>
+              <p className="font-mono text-sm tabular-nums" style={{ color: 'var(--text-primary)' }}>{balance != null ? `${balance.toFixed(2)} USDT` : '—'}</p>
+            </div>
+          )}
+          {bottomTab === 'pnl' && (
+            <div className="p-2 text-[11px]">
+              <p className="py-2" style={{ color: 'var(--text-muted)' }}>Реализованный P&L (закрытые позиции)</p>
+              <p className="font-mono text-sm tabular-nums" style={{ color: positions.closed.reduce((s, p) => s + ((p as any).pnl ?? p.pnl_usdt ?? 0), 0) >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                {positions.closed.reduce((s, p) => s + ((p as any).pnl ?? p.pnl_usdt ?? 0), 0).toFixed(2)} USDT
+              </p>
+            </div>
+          )}
+          {bottomTab !== 'positions' && bottomTab !== 'orders' && bottomTab !== 'orderHistory' && bottomTab !== 'tradeHistory' && bottomTab !== 'assets' && bottomTab !== 'pnl' && (
             <div className="px-2 py-4 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
-              {bottomTab === 'orders' && 'Нет открытых ордеров'}
-              {bottomTab === 'orderHistory' && 'История ордеров пуста'}
-              {bottomTab === 'tradeHistory' && 'История торговли пуста'}
-              {bottomTab === 'assets' && 'Активы'}
               {bottomTab === 'loans' && 'Займы'}
               {bottomTab === 'tools' && 'Инструменты'}
-              {bottomTab === 'pnl' && 'P&L'}
             </div>
           )}
         </div>

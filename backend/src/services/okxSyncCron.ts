@@ -3,7 +3,7 @@
  * Выполняется каждые 5–10 минут.
  */
 
-import { listUserIdsWithOkxCredentials, getOkxCredentials } from '../db/authDb';
+import { listUserIdsWithBitgetCredentials, getBitgetCredentials } from '../db/authDb';
 import { syncClosedOrdersFromOkx, pullClosedOrdersFromOkx, syncOkxClosedOrdersForML } from './autoTrader';
 import { config } from '../config';
 import { logger } from '../lib/logger';
@@ -13,13 +13,13 @@ const INTERVAL_MS = 6 * 60 * 1000; // 6 минут
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
 async function runSync(): Promise<void> {
-  const userIds = listUserIdsWithOkxCredentials();
+  const userIds = listUserIdsWithBitgetCredentials();
   const hasUsers = userIds.length > 0;
 
   if (hasUsers) {
   for (const userId of userIds) {
     try {
-      const creds = getOkxCredentials(userId);
+      const creds = getBitgetCredentials(userId);
       if (!creds?.apiKey || !creds?.secret) continue;
 
       const { synced } = await syncClosedOrdersFromOkx(false, {

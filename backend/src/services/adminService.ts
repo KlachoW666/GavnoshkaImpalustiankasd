@@ -186,7 +186,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   let okxApi: 'connected' | 'disconnected' = 'disconnected';
   try {
-    if (config.okx.hasCredentials) {
+    if (config.bitget.hasCredentials) {
       okxApi = 'connected';
     }
   } catch (err) { logger.warn('AdminService', (err as Error).message); }

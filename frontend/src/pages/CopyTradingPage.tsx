@@ -79,7 +79,7 @@ export default function CopyTradingPage() {
       <RiskDisclaimer storageKey="trading" />
       <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Копитрейдинг</h1>
       <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-        Подпишитесь на трейдера — его сделки будут копироваться на ваш счёт (доля от вашего баланса). Нужны API ключи OKX в профиле.
+        Подпишитесь на трейдера — его сделки будут копироваться на ваш счёт (доля от вашего баланса). Нужны API ключи Bitget в профиле.
       </p>
 
       <section className="rounded-lg p-6" style={cardStyle}>

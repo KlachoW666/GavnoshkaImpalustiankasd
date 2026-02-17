@@ -191,7 +191,7 @@ export default function ProfilePage() {
         <div className="flex items-center gap-3 mb-5">
           <span className="text-2xl">💵</span>
           <div>
-            <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Баланс OKX</h2>
+            <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Баланс Bitget</h2>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>USDT по ключам из настроек (реальный счёт и демо)</p>
           </div>
         </div>
@@ -219,7 +219,7 @@ export default function ProfilePage() {
               ) : (
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Загрузка…</p>
               )}
-              <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Тестовый счёт OKX</p>
+              <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Тестовый счёт Bitget</p>
             </div>
           </div>
         )}
@@ -299,7 +299,7 @@ export default function ProfilePage() {
           </div>
         </div>
         <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-          Ордера, открытые ботом на OKX, и закрытые в приложении или на бирже (данные обновляются автоматически).
+          Ордера, открытые ботом на Bitget, и закрытые в приложении или на бирже (данные обновляются автоматически).
         </p>
         {!token ? (
           <p className="text-sm py-4 rounded-lg text-center" style={{ ...miniCardStyle, color: 'var(--text-muted)' }}>Войдите в аккаунт для просмотра статистики.</p>

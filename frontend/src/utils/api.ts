@@ -74,5 +74,14 @@ export const api = {
       body: body != null ? JSON.stringify(body) : (options?.body ?? undefined)
     });
     return handleResponse<T>(res);
+  },
+
+  async delete<T>(path: string, options?: RequestInit): Promise<T> {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      method: 'DELETE',
+      headers: defaultHeaders(options?.headers as HeadersInit)
+    });
+    return handleResponse<T>(res);
   }
 };

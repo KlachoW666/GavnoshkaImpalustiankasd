@@ -30,6 +30,7 @@ import {
   getTelegramIdForUser,
   extendUserSubscription,
   getOkxCredentials,
+  getBitgetCredentials,
   findUserByUsername,
   updateUserPassword,
   updateUsername,
@@ -142,7 +143,7 @@ router.get('/dashboard', requireAdmin, async (_req: Request, res: Response) => {
     const data = await getDashboardData();
     const topWithBalance = await Promise.all(
       data.topUsers.map(async (u) => {
-        const { okxBalance } = await fetchOkxBalanceForUser(u.userId);
+        const { okxBalance } = await fetchBitgetBalanceForUser(u.userId);
         return { ...u, okxBalance: okxBalance ?? null };
       })
     );
@@ -411,11 +412,11 @@ function okxProxyAgent(proxyUrl?: string): InstanceType<typeof HttpsProxyAgent> 
   }
 }
 
-/** Получить баланс USDT с OKX по ключам пользователя. Пробует real/testnet и при таймауте — другой прокси (до 3 попыток). */
-async function fetchOkxBalanceForUser(userId: string): Promise<{ okxBalance: number | null; okxBalanceError: string | null }> {
-  const creds = getOkxCredentials(userId);
+/** Получить баланс USDT с Bitget по ключам пользователя. Пробует real/testnet и при таймауте — другой прокси (до 3 попыток). */
+async function fetchBitgetBalanceForUser(userId: string): Promise<{ okxBalance: number | null; okxBalanceError: string | null }> {
+  const creds = getBitgetCredentials(userId);
   if (!creds) return { okxBalance: null, okxBalanceError: null };
-  const okxTimeout = config.okx.timeout;
+  const timeout = config.bitget.timeout;
   let lastError: string | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     const proxyUrl = getProxy(config.proxyList) || config.proxy || '';
@@ -424,7 +425,7 @@ async function fetchOkxBalanceForUser(userId: string): Promise<{ okxBalance: num
       secret: creds.secret,
       password: creds.passphrase || undefined,
       enableRateLimit: true,
-      timeout: okxTimeout,
+      timeout,
       options: { defaultType: 'swap', fetchMarkets: ['swap'] }
     };
     if (proxyUrl) baseOpts.httpsProxy = proxyUrl;
@@ -432,7 +433,7 @@ async function fetchOkxBalanceForUser(userId: string): Promise<{ okxBalance: num
     if (agent) baseOpts.agent = agent;
     for (const sandboxMode of [false, true]) {
       try {
-        const exchange = new ccxt.okx({ ...baseOpts, options: { defaultType: 'swap', fetchMarkets: ['swap'], sandboxMode } });
+        const exchange = new ccxt.bitget({ ...baseOpts, options: { defaultType: 'swap', fetchMarkets: ['swap'], sandboxMode } });
         const balance = await exchange.fetchBalance();
         const usdt = (balance as any).USDT ?? balance?.usdt;
         const total = usdt?.total ?? 0;
@@ -473,7 +474,7 @@ router.get('/users/:id', requireAdmin, async (req: Request, res: Response) => {
     const totalPnl = closedOrders.reduce((s, o) => s + (o.pnl ?? 0), 0);
     const allOrders = [...openOrders, ...closedOrders].sort((a, b) => (b.open_time || '').localeCompare(a.open_time || '')).slice(0, 100);
     const telegramId = getTelegramIdForUser(userId);
-    const { okxBalance, okxBalanceError } = await fetchOkxBalanceForUser(userId);
+    const { okxBalance, okxBalanceError } = await fetchBitgetBalanceForUser(userId);
     const balance = getBalance(userId);
     res.json({
       id: u.id,

@@ -196,7 +196,7 @@ export default function AdminDashboard() {
               { label: 'Система', value: d.system.online ? 'ONLINE' : 'OFFLINE', ok: d.system.online },
               { label: 'Авто-торговля', value: d.system.autoTrading === 'active' ? 'Активна' : 'Выкл.', ok: d.system.autoTrading === 'active' },
               { label: 'WebSocket', value: d.system.websocket, ok: true },
-              { label: 'OKX API', value: d.system.okxApi, ok: d.system.okxApi === 'connected' },
+              { label: 'Bitget API', value: d.system.okxApi, ok: d.system.okxApi === 'connected' },
               { label: 'БД', value: `${d.system.database}${d.system.databaseMode === 'memory' ? ' (memory)' : d.system.databaseMode === 'sqlite' ? ' (SQLite)' : ''}`, ok: d.system.database === 'ok' },
               { label: 'Uptime', value: formatUptime(d.system.uptimeSeconds), ok: true }
             ].map((row) => (

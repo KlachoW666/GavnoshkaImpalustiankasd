@@ -1,6 +1,6 @@
 /**
- * Auto-Trader — исполнение ордеров через OKX (флаг + testnet)
- * ROADMAP: полная автоматизация с рисками — только при AUTO_TRADING_EXECUTION_ENABLED и опционально OKX_SANDBOX.
+ * Auto-Trader — исполнение ордеров через Bitget (флаг + testnet)
+ * Ключи: пользователь (Bitget) или .env BITGET_*.
  */
 
 import ccxt, { Exchange } from 'ccxt';
@@ -17,7 +17,7 @@ import { emotionalFilterInstance } from './emotionalFilter';
 import { logger } from '../lib/logger';
 import { getPositionSize } from '../lib/positionSizing';
 
-function okxProxyAgent(): InstanceType<typeof HttpsProxyAgent> | undefined {
+function exchangeProxyAgent(): InstanceType<typeof HttpsProxyAgent> | undefined {
   const proxyUrl = getProxy(config.proxyList) || config.proxy;
   if (!proxyUrl || !proxyUrl.startsWith('http')) return undefined;
   try {
@@ -55,33 +55,13 @@ export interface ExecuteResult {
   error?: string;
 }
 
-export interface UserOkxCreds {
+export interface UserBitgetCreds {
   apiKey: string;
   secret: string;
   passphrase?: string;
 }
 
-function buildExchange(useTestnet: boolean): Exchange {
-  const opts: Record<string, unknown> = {
-    apiKey: config.okx.apiKey,
-    secret: config.okx.secret,
-    password: config.okx.passphrase,
-    enableRateLimit: true,
-    options: {
-      defaultType: 'swap',
-      fetchMarkets: ['swap'],
-      sandboxMode: useTestnet
-    },
-    timeout: config.okx.timeout
-  };
-  const proxyUrl = getProxy(config.proxyList) || config.proxy;
-  if (proxyUrl) (opts as any).httpsProxy = proxyUrl;
-  const agent = okxProxyAgent();
-  if (agent) (opts as any).agent = agent;
-  return new ccxt.okx(opts);
-}
-
-function buildExchangeFromCreds(creds: UserOkxCreds, useTestnet: boolean): Exchange {
+function buildBitgetExchange(creds: { apiKey: string; secret: string; passphrase?: string }, useTestnet: boolean): Exchange {
   const opts: Record<string, unknown> = {
     apiKey: creds.apiKey,
     secret: creds.secret,
@@ -89,21 +69,36 @@ function buildExchangeFromCreds(creds: UserOkxCreds, useTestnet: boolean): Excha
     enableRateLimit: true,
     options: {
       defaultType: 'swap',
-      fetchMarkets: ['swap'],
-      sandboxMode: useTestnet
+      fetchMarkets: ['swap']
     },
-    timeout: config.okx.timeout
+    timeout: config.bitget.timeout
   };
+  if (useTestnet) (opts.options as any).sandboxMode = true;
   const proxyUrl = getProxy(config.proxyList) || config.proxy;
   if (proxyUrl) (opts as any).httpsProxy = proxyUrl;
-  const agent = okxProxyAgent();
+  const agent = exchangeProxyAgent();
   if (agent) (opts as any).agent = agent;
-  return new ccxt.okx(opts);
+  return new ccxt.bitget(opts);
+}
+
+function buildExchange(useTestnet: boolean): Exchange {
+  return buildBitgetExchange(
+    {
+      apiKey: config.bitget.apiKey,
+      secret: config.bitget.secret,
+      passphrase: config.bitget.passphrase
+    },
+    useTestnet
+  );
+}
+
+function buildExchangeFromCreds(creds: UserBitgetCreds, useTestnet: boolean): Exchange {
+  return buildBitgetExchange(creds, useTestnet);
 }
 
 /** Получить доступный баланс (USDT) для маржи */
 export async function getTradingBalance(useTestnet: boolean): Promise<number> {
-  if (!config.okx.hasCredentials) return 0;
+  if (!config.bitget.hasCredentials) return 0;
   const exchange = buildExchange(useTestnet);
   try {
     const balance = await exchange.fetchBalance();
@@ -119,7 +114,7 @@ export async function getTradingBalance(useTestnet: boolean): Promise<number> {
 
 /** Количество открытых позиций (swap) с ненулевым размером */
 export async function getOpenPositionsCount(useTestnet: boolean): Promise<number> {
-  if (!config.okx.hasCredentials) return 0;
+  if (!config.bitget.hasCredentials) return 0;
   const exchange = buildExchange(useTestnet);
   try {
     const positions = await exchange.fetchPositions();
@@ -146,7 +141,7 @@ export async function executeSignal(
   userCreds?: UserOkxCreds | null
 ): Promise<ExecuteResult> {
   const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
-  if (!useUserCreds && !config.okx.hasCredentials) {
+  if (!useUserCreds && !config.bitget.hasCredentials) {
     return { ok: false, error: 'OKX credentials not set (настройте ключи в профиле или в .env)' };
   }
 
@@ -155,7 +150,7 @@ export async function executeSignal(
     return { ok: false, error: canOpen.reason ?? 'Emotional filter: trading paused' };
   }
 
-  const useTestnet = options.useTestnet ?? config.okx.sandbox;
+  const useTestnet = options.useTestnet ?? config.bitget.sandbox;
   const exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
 
   let openCount: number;
@@ -458,7 +453,7 @@ export async function syncClosedOrdersFromOkx(
   clientId?: string | null
 ): Promise<{ synced: number }> {
   const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
-  if (!useUserCreds && !config.okx.hasCredentials) return { synced: 0 };
+  if (!useUserCreds && !config.bitget.hasCredentials) return { synced: 0 };
   const openOrders = listOrders({ status: 'open', clientId: clientId ?? undefined, limit: 200 });
   const okxOrders = openOrders.filter((o) => o.id && String(o.id).startsWith('okx-'));
   if (okxOrders.length === 0) return { synced: 0 };
@@ -518,7 +513,7 @@ export async function pullClosedOrdersFromOkx(
   clientId: string
 ): Promise<{ pulled: number }> {
   const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
-  if (!useUserCreds && !config.okx.hasCredentials) return { pulled: 0 };
+  if (!useUserCreds && !config.bitget.hasCredentials) return { pulled: 0 };
   const exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
   const since = Date.now() - 90 * 24 * 60 * 60 * 1000; // 90 дней
   let pulled = 0;
@@ -586,7 +581,7 @@ export async function syncOkxClosedOrdersForML(
   userId?: string | null
 ): Promise<{ fed: number }> {
   const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
-  if (!useUserCreds && !config.okx.hasCredentials) return { fed: 0 };
+  if (!useUserCreds && !config.bitget.hasCredentials) return { fed: 0 };
   const exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, false) : buildExchange(false);
   const since = Date.now() - 7 * 24 * 60 * 60 * 1000; // последние 7 дней
   let fed = 0;
@@ -636,7 +631,7 @@ export async function fetchPositionsForApi(useTestnet: boolean): Promise<Array<{
   unrealizedPnl?: number;
   leverage: number;
 }>> {
-  if (!config.okx.hasCredentials) return [];
+  if (!config.bitget.hasCredentials) return [];
   const exchange = buildExchange(useTestnet);
   try {
     const positions = await exchange.fetchPositions();
@@ -713,7 +708,7 @@ export async function getPositionsAndBalanceForApi(
   userCreds?: UserOkxCreds | null
 ): Promise<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; notional?: number; markPrice?: number; unrealizedPnl?: number; leverage: number; stopLoss?: number; takeProfit?: number }>; balance: number; openCount: number; balanceError?: string }> {
   const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
-  if (!useUserCreds && !config.okx.hasCredentials) {
+  if (!useUserCreds && !config.bitget.hasCredentials) {
     return { positions: [], balance: 0, openCount: 0 };
   }
   let exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);

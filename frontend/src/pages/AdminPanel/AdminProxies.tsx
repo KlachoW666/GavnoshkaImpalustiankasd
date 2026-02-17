@@ -122,7 +122,7 @@ export default function AdminProxies() {
         <span className="text-2xl">🌐</span>
         <div>
           <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Прокси</h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Прокси для OKX (обход Cloudflare). Добавление и проверка.</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Прокси для биржи Bitget (обход ограничений). Добавление и проверка.</p>
         </div>
       </div>
 

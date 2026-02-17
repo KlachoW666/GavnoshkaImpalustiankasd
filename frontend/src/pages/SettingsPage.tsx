@@ -19,7 +19,8 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('connections');
   const [settings, setSettings] = useState<Settings>(getSettings);
   const [connStatus, setConnStatus] = useState<Record<string, { ok?: boolean; msg?: string; checking?: boolean }>>({});
-  const [saveOkxStatus, setSaveOkxStatus] = useState<{ ok?: boolean; msg?: string; saving?: boolean }>({});
+  const [saveBitgetStatus, setSaveBitgetStatus] = useState<{ ok?: boolean; msg?: string; saving?: boolean }>({});
+  const [saveMassiveStatus, setSaveMassiveStatus] = useState<{ ok?: boolean; msg?: string; saving?: boolean }>({});
   const [tgTestStatus, setTgTestStatus] = useState<{ ok?: boolean; msg?: string; testing?: boolean }>({});
 
   useEffect(() => {
@@ -44,15 +45,15 @@ export default function SettingsPage() {
   };
 
   const checkConnection = async () => {
-    setConnStatus((s) => ({ ...s, okx: { checking: true } }));
+    setConnStatus((s) => ({ ...s, bitget: { checking: true } }));
     try {
-      const conn = settings.connections.okx;
+      const conn = settings.connections.bitget;
       const proxy = (settings.connections.proxy ?? user?.proxyUrl ?? '').trim() || undefined;
       const res = await fetch(`${API}/connections/check`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          exchange: 'OKX',
+          exchange: 'bitget',
           apiKey: conn.apiKey,
           apiSecret: conn.apiSecret,
           passphrase: conn.passphrase,
@@ -60,23 +61,16 @@ export default function SettingsPage() {
         })
       });
       const data = await res.json();
-      setConnStatus((s) => ({ ...s, okx: { ok: data.ok, msg: data.message } }));
+      setConnStatus((s) => ({ ...s, bitget: { ok: data.ok, msg: data.message } }));
       if (data.ok && token && conn.apiKey?.trim() && conn.apiSecret?.trim()) {
-        fetch(`${API}/auth/me/okx-connection`, {
+        fetch(`${API}/auth/me/bitget-connection`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            apiKey: conn.apiKey.trim(),
-            secret: conn.apiSecret.trim(),
-            passphrase: (conn.passphrase ?? '').trim()
-          })
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ apiKey: conn.apiKey.trim(), secret: conn.apiSecret.trim(), passphrase: (conn.passphrase ?? '').trim() })
         }).catch(() => {});
       }
     } catch (e: any) {
-      setConnStatus((s) => ({ ...s, okx: { ok: false, msg: e?.message || 'Ошибка сети' } }));
+      setConnStatus((s) => ({ ...s, bitget: { ok: false, msg: e?.message || 'Ошибка сети' } }));
     }
   };
 
@@ -105,47 +99,94 @@ export default function SettingsPage() {
   };
 
   const testPublicApi = async () => {
-    setConnStatus((s) => ({ ...s, public_okx: { checking: true } }));
+    setConnStatus((s) => ({ ...s, public_bitget: { checking: true } }));
     try {
       const res = await fetch(`${API}/connections/test-public`);
       const data = await res.json();
-      setConnStatus((s) => ({ ...s, public_okx: { ok: data.ok, msg: data.message } }));
+      setConnStatus((s) => ({ ...s, public_bitget: { ok: data.ok, msg: data.message } }));
     } catch (e: any) {
-      setConnStatus((s) => ({ ...s, public_okx: { ok: false, msg: e?.message || 'Ошибка' } }));
+      setConnStatus((s) => ({ ...s, public_bitget: { ok: false, msg: e?.message || 'Ошибка' } }));
     }
   };
 
-  const saveOkxForTrading = async () => {
-    const conn = settings.connections.okx;
+  const saveBitgetForTrading = async () => {
+    const conn = settings.connections.bitget;
     if (!conn.apiKey?.trim() || !conn.apiSecret?.trim()) {
-      setSaveOkxStatus({ ok: false, msg: 'Введите API Key и Secret' });
+      setSaveBitgetStatus({ ok: false, msg: 'Введите API Key и Secret' });
       return;
     }
     if (!token) {
-      setSaveOkxStatus({ ok: false, msg: 'Войдите в аккаунт, чтобы сохранить ключи на сервер' });
+      setSaveBitgetStatus({ ok: false, msg: 'Войдите в аккаунт, чтобы сохранить ключи на сервер' });
       return;
     }
-    setSaveOkxStatus({ saving: true });
+    setSaveBitgetStatus({ saving: true });
     try {
-      const res = await fetch(`${API}/auth/me/okx-connection`, {
+      const res = await fetch(`${API}/auth/me/bitget-connection`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          apiKey: conn.apiKey.trim(),
-          secret: conn.apiSecret.trim(),
-          passphrase: (conn.passphrase ?? '').trim()
-        })
+        body: JSON.stringify({ apiKey: conn.apiKey.trim(), secret: conn.apiSecret.trim(), passphrase: (conn.passphrase ?? '').trim() })
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {
-        setSaveOkxStatus({ ok: true, msg: 'Ключи сохранены. Исполнение ордеров и баланс будут использовать их.' });
+        setSaveBitgetStatus({ ok: true, msg: 'Ключи Bitget сохранены. Автоторговля и баланс будут использовать их.' });
       } else {
-        setSaveOkxStatus({ ok: false, msg: (data as { error?: string }).error || 'Ошибка сохранения' });
+        setSaveBitgetStatus({ ok: false, msg: (data as { error?: string }).error || 'Ошибка сохранения' });
       }
     } catch (e: any) {
-      setSaveOkxStatus({ ok: false, msg: e?.message || 'Ошибка сети' });
+      setSaveBitgetStatus({ ok: false, msg: e?.message || 'Ошибка сети' });
     } finally {
-      setSaveOkxStatus((s) => ({ ...s, saving: false }));
+      setSaveBitgetStatus((s) => ({ ...s, saving: false }));
+    }
+  };
+
+  const saveMassiveCredentials = async () => {
+    const m = settings.connections.massive;
+    if (!token) {
+      setSaveMassiveStatus({ ok: false, msg: 'Войдите в аккаунт для сохранения' });
+      return;
+    }
+    setSaveMassiveStatus({ saving: true });
+    try {
+      const res = await fetch(`${API}/auth/me/massive-api`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          apiKey: (m?.apiKey ?? '').trim(),
+          accessKeyId: (m?.accessKeyId ?? '').trim(),
+          secretAccessKey: (m?.secretAccessKey ?? '').trim(),
+          s3Endpoint: (m?.s3Endpoint ?? '').trim(),
+          bucket: (m?.bucket ?? '').trim()
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      setSaveMassiveStatus({ ok: res.ok && data.ok, msg: res.ok && data.ok ? 'Учётные данные Massive.com сохранены' : (data as { error?: string }).error || 'Ошибка' });
+    } catch (e: any) {
+      setSaveMassiveStatus({ ok: false, msg: e?.message || 'Ошибка сети' });
+    } finally {
+      setSaveMassiveStatus((s) => ({ ...s, saving: false }));
+    }
+  };
+
+  const checkMassiveConnection = async () => {
+    setConnStatus((s) => ({ ...s, massive: { checking: true } }));
+    try {
+      const m = settings.connections.massive;
+      const res = await fetch(`${API}/connections/check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          exchange: 'massive',
+          apiKey: (m?.apiKey ?? '').trim(),
+          accessKeyId: (m?.accessKeyId ?? '').trim(),
+          secretAccessKey: (m?.secretAccessKey ?? '').trim(),
+          s3Endpoint: (m?.s3Endpoint ?? '').trim(),
+          bucket: (m?.bucket ?? '').trim()
+        })
+      });
+      const data = await res.json();
+      setConnStatus((s) => ({ ...s, massive: { ok: data.ok, msg: data.message } }));
+    } catch (e: any) {
+      setConnStatus((s) => ({ ...s, massive: { ok: false, msg: e?.message || 'Ошибка' } }));
     }
   };
 
@@ -216,14 +257,14 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3 mb-5">
                 <span className="text-2xl">📈</span>
                 <div>
-                  <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>OKX</h2>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Ключи из .env или переопределите здесь</p>
+                  <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Bitget</h2>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Ключи из .env или переопределите здесь. Биржа для автоторговли.</p>
                 </div>
                 <label className="flex items-center gap-2 ml-auto">
                   <input
                     type="checkbox"
-                    checked={settings.connections.okx.enabled}
-                    onChange={(e) => update({ connections: { ...settings.connections, okx: { ...settings.connections.okx, enabled: e.target.checked } } })}
+                    checked={settings.connections.bitget.enabled}
+                    onChange={(e) => update({ connections: { ...settings.connections, bitget: { ...settings.connections.bitget, enabled: e.target.checked } } })}
                     className="rounded"
                   />
                   <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Включено</span>
@@ -234,8 +275,8 @@ export default function SettingsPage() {
                   <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>API Key</label>
                   <input
                     type="password"
-                    value={settings.connections.okx.apiKey}
-                    onChange={(e) => update({ connections: { ...settings.connections, okx: { ...settings.connections.okx, apiKey: e.target.value } } })}
+                    value={settings.connections.bitget.apiKey}
+                    onChange={(e) => update({ connections: { ...settings.connections, bitget: { ...settings.connections.bitget, apiKey: e.target.value } } })}
                     placeholder="Или из .env"
                     className="input-field w-full rounded-lg"
                   />
@@ -244,8 +285,8 @@ export default function SettingsPage() {
                   <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Secret</label>
                   <input
                     type="password"
-                    value={settings.connections.okx.apiSecret}
-                    onChange={(e) => update({ connections: { ...settings.connections, okx: { ...settings.connections.okx, apiSecret: e.target.value } } })}
+                    value={settings.connections.bitget.apiSecret}
+                    onChange={(e) => update({ connections: { ...settings.connections, bitget: { ...settings.connections.bitget, apiSecret: e.target.value } } })}
                     placeholder="Или из .env"
                     className="input-field w-full rounded-lg"
                   />
@@ -254,9 +295,9 @@ export default function SettingsPage() {
                   <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Passphrase</label>
                   <input
                     type="password"
-                    value={settings.connections.okx.passphrase}
-                    onChange={(e) => update({ connections: { ...settings.connections, okx: { ...settings.connections.okx, passphrase: e.target.value } } })}
-                    placeholder="Задаётся при создании ключа"
+                    value={settings.connections.bitget.passphrase}
+                    onChange={(e) => update({ connections: { ...settings.connections, bitget: { ...settings.connections.bitget, passphrase: e.target.value } } })}
+                    placeholder="Задаётся при создании ключа на Bitget"
                     className="input-field w-full rounded-lg"
                   />
                 </div>
@@ -275,37 +316,128 @@ export default function SettingsPage() {
               <div className="flex flex-wrap items-center gap-3 mt-4">
                 <button
                   onClick={checkConnection}
-                  disabled={connStatus.okx?.checking}
+                  disabled={connStatus.bitget?.checking}
                   className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
                   style={{ background: 'var(--accent)', color: 'white' }}
                 >
-                  {connStatus.okx?.checking ? 'Проверка…' : 'Проверить подключение'}
+                  {connStatus.bitget?.checking ? 'Проверка…' : 'Проверить подключение'}
                 </button>
                 <button
-                  onClick={saveOkxForTrading}
-                  disabled={saveOkxStatus.saving}
+                  onClick={saveBitgetForTrading}
+                  disabled={saveBitgetStatus.saving}
                   className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
                   style={{ background: 'var(--success)', color: 'white' }}
                 >
-                  {saveOkxStatus.saving ? 'Сохранение…' : 'Сохранить для торговли Real'}
+                  {saveBitgetStatus.saving ? 'Сохранение…' : 'Сохранить для торговли Real'}
                 </button>
                 <button
                   onClick={testPublicApi}
-                  disabled={connStatus.public_okx?.checking}
+                  disabled={connStatus.public_bitget?.checking}
                   className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
                   style={{ background: 'var(--bg-card-solid)', color: 'var(--text-secondary)' }}
                 >
-                  {connStatus.public_okx?.checking ? '…' : 'Тест публичного API'}
+                  {connStatus.public_bitget?.checking ? '…' : 'Тест публичного API'}
                 </button>
               </div>
-              {connStatus.okx?.msg && (
-                <p className={`mt-2 text-sm ${connStatus.okx.ok ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{connStatus.okx.msg}</p>
+              {connStatus.bitget?.msg && (
+                <p className={`mt-2 text-sm ${connStatus.bitget.ok ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{connStatus.bitget.msg}</p>
               )}
-              {saveOkxStatus.msg && (
-                <p className={`mt-2 text-sm ${saveOkxStatus.ok ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{saveOkxStatus.msg}</p>
+              {saveBitgetStatus.msg && (
+                <p className={`mt-2 text-sm ${saveBitgetStatus.ok ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{saveBitgetStatus.msg}</p>
               )}
-              {connStatus.public_okx?.msg && (
-                <p className={`mt-1 text-sm ${connStatus.public_okx.ok ? 'text-[var(--success)]' : 'text-[var(--warning)]'}`}>Публичный API: {connStatus.public_okx.msg}</p>
+              {connStatus.public_bitget?.msg && (
+                <p className={`mt-1 text-sm ${connStatus.public_bitget.ok ? 'text-[var(--success)]' : 'text-[var(--warning)]'}`}>Публичный API: {connStatus.public_bitget.msg}</p>
+              )}
+            </section>
+            <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid #853bb6' }}>
+              <div className="flex items-center gap-3 mb-5">
+                <span className="text-2xl">🌐</span>
+                <div>
+                  <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Massive.com</h2>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>API ключ и/или S3-учётные данные для <a href="https://massive.com" target="_blank" rel="noopener noreferrer" className="underline">massive.com</a> (REST API и S3-хранилище files.massive.com)</p>
+                </div>
+                <label className="flex items-center gap-2 ml-auto">
+                  <input
+                    type="checkbox"
+                    checked={settings.connections.massive?.enabled ?? false}
+                    onChange={(e) => update({ connections: { ...settings.connections, massive: { ...settings.connections.massive, enabled: e.target.checked } } })}
+                    className="rounded"
+                  />
+                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Включено</span>
+                </label>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-lg p-3 sm:col-span-2" style={miniCardStyle}>
+                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>API Key (опционально)</label>
+                  <input
+                    type="password"
+                    value={settings.connections.massive?.apiKey ?? ''}
+                    onChange={(e) => update({ connections: { ...settings.connections, massive: { ...settings.connections.massive, apiKey: e.target.value } } })}
+                    placeholder="Один ключ из панели massive.com"
+                    className="input-field w-full rounded-lg"
+                  />
+                </div>
+                <div className="rounded-lg p-3" style={miniCardStyle}>
+                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Access Key ID (S3)</label>
+                  <input
+                    type="password"
+                    value={settings.connections.massive?.accessKeyId ?? ''}
+                    onChange={(e) => update({ connections: { ...settings.connections, massive: { ...settings.connections.massive, accessKeyId: e.target.value } } })}
+                    placeholder="Access Key ID с massive.com"
+                    className="input-field w-full rounded-lg"
+                  />
+                </div>
+                <div className="rounded-lg p-3" style={miniCardStyle}>
+                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Secret Access Key (S3)</label>
+                  <input
+                    type="password"
+                    value={settings.connections.massive?.secretAccessKey ?? ''}
+                    onChange={(e) => update({ connections: { ...settings.connections, massive: { ...settings.connections.massive, secretAccessKey: e.target.value } } })}
+                    placeholder="Secret Access Key"
+                    className="input-field w-full rounded-lg"
+                  />
+                </div>
+                <div className="rounded-lg p-3" style={miniCardStyle}>
+                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>S3 Endpoint</label>
+                  <input
+                    type="text"
+                    value={settings.connections.massive?.s3Endpoint ?? ''}
+                    onChange={(e) => update({ connections: { ...settings.connections, massive: { ...settings.connections.massive, s3Endpoint: e.target.value } } })}
+                    placeholder="https://files.massive.com"
+                    className="input-field w-full rounded-lg"
+                  />
+                </div>
+                <div className="rounded-lg p-3" style={miniCardStyle}>
+                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Bucket</label>
+                  <input
+                    type="text"
+                    value={settings.connections.massive?.bucket ?? ''}
+                    onChange={(e) => update({ connections: { ...settings.connections, massive: { ...settings.connections.massive, bucket: e.target.value } } })}
+                    placeholder="flatfiles"
+                    className="input-field w-full rounded-lg"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 mt-4">
+                <button
+                  onClick={checkMassiveConnection}
+                  disabled={connStatus.massive?.checking}
+                  className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                  style={{ background: 'var(--accent)', color: 'white' }}
+                >
+                  {connStatus.massive?.checking ? 'Проверка…' : 'Проверить подключение'}
+                </button>
+                <button
+                  onClick={saveMassiveCredentials}
+                  disabled={saveMassiveStatus.saving}
+                  className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                  style={{ background: 'var(--success)', color: 'white' }}
+                >
+                  {saveMassiveStatus.saving ? 'Сохранение…' : 'Сохранить учётные данные'}
+                </button>
+              </div>
+              {(connStatus.massive?.msg || saveMassiveStatus.msg) && (
+                <p className={`mt-2 text-sm ${(connStatus.massive?.ok || saveMassiveStatus.ok) ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{connStatus.massive?.msg || saveMassiveStatus.msg}</p>
               )}
             </section>
             <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
@@ -313,7 +445,7 @@ export default function SettingsPage() {
                 <span className="text-2xl">📊</span>
                 <div className="flex-1">
                   <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>TradingView</h2>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Виджеты используют данные OKX</p>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Виджеты используют данные биржи</p>
                 </div>
                 <label className="flex items-center gap-2">
                   <input

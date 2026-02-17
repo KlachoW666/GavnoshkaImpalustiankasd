@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '../contexts/NavigationContext';
 
 const API = '/api';
-const PLATFORMS = [{ id: 'okx', label: 'OKX', exchange: 'okx' }];
+const PLATFORMS = [{ id: 'bitget', label: 'Bitget', exchange: 'bitget' }];
 const TIMEFRAMES = ['1m', '5m', '15m', '1h', '4h', '1d'];
 
 const TF_SECONDS: Record<string, number> = {
@@ -223,7 +223,7 @@ export default function ChartView() {
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [lastCandle, setLastCandle] = useState<OHLCVCandle | null>(null);
 
-  const exchangeId = 'okx';
+  const exchangeId = 'bitget';
   const { token } = useAuth();
   const chartStyle = displaySettings.chartStyle;
 

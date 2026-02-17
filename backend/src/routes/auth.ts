@@ -17,6 +17,9 @@ import {
   updateUserGroup,
   redeemActivationKeyForUser,
   setOkxCredentials,
+  setBitgetCredentials,
+  getMassiveCredentials,
+  setMassiveCredentials,
   consumeTelegramRegisterToken,
   consumeTelegramResetToken,
   setUserTelegramId,
@@ -287,7 +290,7 @@ router.get('/me/alerts', requireAuth, (req: Request, res: Response) => {
   }
 });
 
-/** PUT /api/auth/me/okx-connection — сохранить OKX ключи (для отображения баланса в админке) */
+/** PUT /api/auth/me/okx-connection — сохранить OKX ключи (legacy, для отображения баланса в админке) */
 router.put('/me/okx-connection', requireAuth, (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
@@ -299,6 +302,58 @@ router.put('/me/okx-connection', requireAuth, (req: Request, res: Response) => {
       return;
     }
     setOkxCredentials(userId, { apiKey, secret, passphrase });
+    res.json({ ok: true });
+  } catch (e) {
+    logger.error('Auth', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** PUT /api/auth/me/bitget-connection — сохранить Bitget ключи (автоторговля) */
+router.put('/me/bitget-connection', requireAuth, (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    const apiKey = (req.body?.apiKey as string)?.trim();
+    const secret = (req.body?.secret as string)?.trim();
+    const passphrase = (req.body?.passphrase as string)?.trim() ?? '';
+    if (!apiKey || !secret) {
+      res.status(400).json({ error: 'API Key и Secret обязательны для Bitget' });
+      return;
+    }
+    setBitgetCredentials(userId, { apiKey, secret, passphrase });
+    res.json({ ok: true });
+  } catch (e) {
+    logger.error('Auth', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** GET /api/auth/me/massive-api — наличие Massive.com API key и/или S3 (не сами ключи) */
+router.get('/me/massive-api', requireAuth, (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    const creds = getMassiveCredentials(userId);
+    const hasKey = !!creds?.api_key?.trim();
+    const hasS3 = !!(creds?.access_key_id?.trim() && creds?.secret_access_key?.trim());
+    res.json({ hasKey, hasS3 });
+  } catch (e) {
+    logger.error('Auth', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** PUT /api/auth/me/massive-api — сохранить Massive.com: API key и/или S3 (Access Key ID, Secret, Endpoint, Bucket) */
+router.put('/me/massive-api', requireAuth, (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    const body = req.body || {};
+    setMassiveCredentials(userId, {
+      apiKey: (body.apiKey as string)?.trim(),
+      accessKeyId: (body.accessKeyId as string)?.trim(),
+      secretAccessKey: (body.secretAccessKey as string)?.trim(),
+      s3Endpoint: (body.s3Endpoint as string)?.trim(),
+      bucket: (body.bucket as string)?.trim()
+    });
     res.json({ ok: true });
   } catch (e) {
     logger.error('Auth', (e as Error).message);

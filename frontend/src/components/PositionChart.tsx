@@ -87,7 +87,7 @@ export default function PositionChart({
 
     const loadCandles = (isInitial: boolean) => {
       const sym = requestedSymbol || chartSymbol(symbol);
-      fetch(`${API}/market/candles/${encodeURIComponent(sym)}?timeframe=${timeframe}&limit=100&exchange=okx`)
+      fetch(`${API}/market/candles/${encodeURIComponent(sym)}?timeframe=${timeframe}&limit=100&exchange=bitget`)
         .then((r) => r.json())
         .then((data) => {
           if (cancelled) return;

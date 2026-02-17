@@ -18,8 +18,8 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 
 const API = '/api';
-/** Партнёрская ссылка на регистрацию OKX (можно заменить в одном месте) */
-const OKX_AFFILIATE_URL = 'https://okx.com/join/44176948';
+/** Партнёрская ссылка на регистрацию Bitget (можно заменить в одном месте) */
+const BITGET_AFFILIATE_URL = 'https://www.bitget.com/referral/register';
 const QUICK_SYMBOLS = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'RIVER-USDT', 'DOGE-USDT', 'XRP-USDT'];
 const MAX_SYMBOLS = 5;
 const STORAGE_KEY = 'autoTradingSettings';
@@ -99,7 +99,7 @@ interface AutoTradingSettings {
   fullAuto: boolean;
   /** Полный автомат: брать топ монет из скринера (волатильность, объём, BB squeeze) вместо выбранных пар */
   useScanner: boolean;
-  /** Полный автомат: исполнение ордеров через OKX (нужен AUTO_TRADING_EXECUTION_ENABLED на сервере). Только реальный счёт. */
+  /** Полный автомат: исполнение ордеров через Bitget (нужен AUTO_TRADING_EXECUTION_ENABLED на сервере). Только реальный счёт. */
   executeOrders: boolean;
   /** Быстрый выход: множитель TP 0.5–1 (0.85 = уже TP, меньше время в позиции) */
   tpMultiplier: number;
@@ -390,7 +390,7 @@ export default function AutoTradingPage() {
   const [lastSignal, setLastSignal] = useState<TradingSignal | null>(null);
   const [lastBreakdown, setLastBreakdown] = useState<BreakdownType | null>(null);
   const [status, setStatus] = useState<'idle' | 'running' | 'error' | 'stopped_daily_loss'>('idle');
-  const [okxData, setOkxData] = useState<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number }>; balance: number; openCount: number; balanceError?: string; executionAvailable?: boolean } | null>(null);
+  const [bitgetData, setBitgetData] = useState<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number }>; balance: number; openCount: number; balanceError?: string; executionAvailable?: boolean } | null>(null);
   const [lastExecution, setLastExecution] = useState<{
     lastError?: string;
     lastSkipReason?: string;
@@ -421,7 +421,7 @@ export default function AutoTradingPage() {
   const leverage = mode === 'spot' ? 1 : settings.leverage;
   const { token, user } = useAuth();
 
-  /** История для отображения: при авторизации — с сервера (OKX/ордера по userId), иначе локальная. */
+  /** История для отображения: при авторизации — с сервера (Bitget/ордера по userId), иначе локальная. */
   const displayHistory = token ? serverHistory : history;
 
   const updateSetting = <K extends keyof AutoTradingSettings>(key: K, value: AutoTradingSettings[K]) => {
@@ -480,15 +480,15 @@ export default function AutoTradingPage() {
   const fetchOkxPositionsRef = useRef<() => void>(() => {});
   useEffect(() => {
     if (!enabled || !settings.executeOrders) {
-      setOkxData(null);
+      setBitgetData(null);
       return;
     }
     const fetchOkx = () => {
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
       api.get<{ positions: any[]; balance: number; openCount: number; balanceError?: string; executionAvailable?: boolean }>(`/trading/positions?useTestnet=false`, { headers })
-        .then((data) => setOkxData(data))
-        .catch(() => setOkxData({ positions: [], balance: 0, openCount: 0, balanceError: 'Не удалось загрузить баланс. Проверьте ключи OKX и сеть.' }));
+        .then((data) => setBitgetData(data))
+        .catch(() => setBitgetData({ positions: [], balance: 0, openCount: 0, balanceError: 'Не удалось загрузить баланс. Проверьте ключи Bitget и сеть.' }));
     };
     fetchOkxPositionsRef.current = fetchOkx;
     fetchOkx();
@@ -676,7 +676,7 @@ export default function AutoTradingPage() {
           if (!isTestSignal && now - lastOpen < cooldown * 1000) return;
 
           lastOpenTimeRef.current[sigNorm] = now;
-          // Ордера выставляет только бэкенд на реальном счёте OKX.
+          // Ордера выставляет только бэкенд на реальном счёте Bitget.
           return;
         }
       } catch {}
@@ -911,7 +911,7 @@ export default function AutoTradingPage() {
     return () => clearInterval(id);
   }, [positions.length, settings.autoClose, settings.autoCloseTp, settings.autoCloseSl, settings.useSignalSLTP, settings.trailingStopPercent, settings.fullAuto, settings.scalpingMode, settings.maxPositionDurationHours]);
 
-  /** При авторизации — метрики из закрытых сделок с сервера (OKX), иначе — локальный баланс и история */
+  /** При авторизации — метрики из закрытых сделок с сервера (Bitget), иначе — локальный баланс и история */
   const statsFromServer = Boolean(token);
   const validHistory = useMemo(
     () => (statsFromServer ? displayHistory : history).filter(validClosePrice),
@@ -956,8 +956,8 @@ export default function AutoTradingPage() {
     setStatus('stopped_daily_loss');
   }, [enabled, balance, initialBalance, settings.maxDailyLossPercent, statsFromServer]);
 
-  const okxConn = getSettings().connections.okx;
-  const hasApiKeys = !!(okxConn?.apiKey?.trim() && okxConn?.apiSecret?.trim());
+  const bitgetConn = getSettings().connections.bitget;
+  const hasApiKeys = !!(bitgetConn?.apiKey?.trim() && bitgetConn?.apiSecret?.trim());
 
   if (!hasApiKeys) {
     return (
@@ -975,7 +975,7 @@ export default function AutoTradingPage() {
             <div className="flex items-start gap-4 mb-6">
               <span className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl shrink-0" style={{ background: 'var(--warning)', color: 'white', opacity: 0.9 }}>🔑</span>
               <div>
-                <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Нужны API ключи OKX</h2>
+                <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Нужны API ключи Bitget</h2>
                 <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
                   Авто-торговля доступна только на реальном счёте — подключите биржу в Настройках
                 </p>
@@ -983,19 +983,19 @@ export default function AutoTradingPage() {
             </div>
             <div className="space-y-5 text-sm" style={{ color: 'var(--text-secondary)' }}>
               <p className="leading-relaxed">
-                Укажите API ключи OKX в разделе <strong>Настройки → Подключения</strong>. Ключи нужны для отображения баланса и (по желанию) исполнения ордеров.
+                Укажите API ключи Bitget в разделе <strong>Настройки → Подключения</strong>. Ключи нужны для отображения баланса и (по желанию) исполнения ордеров.
               </p>
               <div className="rounded-lg p-5 space-y-3" style={{ background: 'var(--bg-hover)', borderLeft: '4px solid var(--accent)' }}>
-                <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Нет аккаунта OKX?</p>
-                <p className="leading-relaxed">Зарегистрируйтесь по ссылке, создайте API ключи (OKX → API → Trading) и введите их в Настройках.</p>
-                <a href={OKX_AFFILIATE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: 'white' }}>
-                  Зарегистрироваться на OKX
+                <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Нет аккаунта Bitget?</p>
+                <p className="leading-relaxed">Зарегистрируйтесь по ссылке, создайте API ключи (Bitget → API → Trading) и введите их в Настройках.</p>
+                <a href={BITGET_AFFILIATE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: 'white' }}>
+                  Зарегистрироваться на Bitget
                 </a>
               </div>
               <div className="rounded-lg p-5 space-y-2" style={{ background: 'var(--bg-hover)' }}>
                 <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Как ввести ключи</p>
                 <ol className="list-decimal list-inside space-y-1.5 pl-1 text-sm">
-                  <li>Настройки → Подключения → блок OKX.</li>
+                  <li>Настройки → Подключения → блок Bitget.</li>
                   <li>API Key, Secret, Passphrase (только Trading, без Withdraw).</li>
                   <li>Сохранить.</li>
                 </ol>
@@ -1033,7 +1033,7 @@ export default function AutoTradingPage() {
                 <Badge variant="success" dot={enabled} pulse={enabled}>
                   {enabled ? 'Активно' : 'Выключено'}
                 </Badge>
-                <Badge variant="info">OKX Реальный счёт</Badge>
+                <Badge variant="info">Bitget Реальный счёт</Badge>
               </div>
               <p className="text-sm max-w-xl" style={{ color: 'var(--text-muted)' }}>
                 {settings.fullAuto
@@ -1096,7 +1096,7 @@ export default function AutoTradingPage() {
         {enabled && !settings.executeOrders && (
           <div className="mt-4 pt-4 border-t text-sm" style={{ borderColor: 'var(--border)' }}>
             <p className="font-medium" style={{ color: 'var(--warning)' }}>
-              Исполнение через OKX выключено — включите в настройках ниже, чтобы открывать позиции по сигналам.
+              Исполнение через Bitget выключено — включите в настройках ниже, чтобы открывать позиции по сигналам.
             </p>
           </div>
         )}
@@ -1133,7 +1133,7 @@ export default function AutoTradingPage() {
             )}
             {lastExecution.lastOrderId ? (
               <p className="font-medium" style={{ color: 'var(--success)' }}>
-                Последнее исполнение: ордер #{lastExecution.lastOrderId} (реальный счёт OKX)
+                Последнее исполнение: ордер #{lastExecution.lastOrderId} (реальный счёт Bitget)
               </p>
             ) : lastExecution.lastError ? (
               <p className="font-medium" style={{ color: 'var(--danger)' }} title={lastExecution.lastError}>
@@ -1155,7 +1155,7 @@ export default function AutoTradingPage() {
       {/* Режим и настройки */}
       <Card variant="glass" padding="normal">
         <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Режим и настройки</h2>
-        <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Полный автомат (скринер + исполнение на OKX) или ручной режим: пары, плечо, порог уверенности. Торговля только на реальном счёте.</p>
+        <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Полный автомат (скринер + исполнение на Bitget) или ручной режим: пары, плечо, порог уверенности. Торговля только на реальном счёте.</p>
         <div className="flex flex-wrap items-center gap-4 sm:gap-6 mb-6">
           <label className="flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition hover:border-[var(--accent)]/50 shrink-0" style={{ borderColor: settings.fullAuto ? 'var(--accent)' : 'var(--border)', background: settings.fullAuto ? 'var(--accent-dim)' : 'var(--bg-hover)' }}>
             <input
@@ -1195,12 +1195,12 @@ export default function AutoTradingPage() {
               onChange={(e) => updateSetting('executeOrders', e.target.checked)}
               className="rounded w-5 h-5 accent-[var(--accent)]"
             />
-            <span className="font-medium">Исполнение через OKX (только реальный счёт)</span>
+            <span className="font-medium">Исполнение через Bitget (только реальный счёт)</span>
           </label>
           {settings.executeOrders && (
             <>
               <p className="text-xs mt-1.5 max-w-md" style={{ color: 'var(--text-muted)' }}>
-                Ордера выставляются на реальном счёте OKX по ключам из профиля. Пополните торговый счёт USDT на okx.com.
+                Ордера выставляются на реальном счёте Bitget по ключам из профиля. Пополните торговый счёт USDT на bitget.com.
               </p>
               <div className="mt-4 space-y-4">
                   <div className="pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
@@ -1396,43 +1396,43 @@ export default function AutoTradingPage() {
 
         {settings.executeOrders && (
           <div className="mb-6 p-5 rounded-lg border" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
-            <p className={sectionTitleClass} style={sectionTitleStyle}>Позиции и баланс OKX</p>
+            <p className={sectionTitleClass} style={sectionTitleStyle}>Позиции и баланс Bitget</p>
             <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
               <p className="text-sm font-medium">
-                Позиции OKX (реальный счёт)
+                Позиции Bitget (реальный счёт)
               </p>
               <button
                 type="button"
-                onClick={() => { setOkxData(null); fetchOkxPositionsRef.current(); }}
+                onClick={() => { setBitgetData(null); fetchOkxPositionsRef.current(); }}
                 className="text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90"
                 style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
               >
-                {okxData ? 'Обновить баланс' : 'Загрузить баланс'}
+                {bitgetData ? 'Обновить баланс' : 'Загрузить баланс'}
               </button>
             </div>
-            {!okxData ? (
-              <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Загрузка баланса OKX…</p>
+            {!bitgetData ? (
+              <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Загрузка баланса Bitget…</p>
             ) : (
               <>
                 <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
-                  Баланс: ${(okxData.balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} · Открыто: {okxData.openCount ?? 0}
+                  Баланс: ${(bitgetData.balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} · Открыто: {bitgetData.openCount ?? 0}
                 </p>
-                {okxData.executionAvailable === false && (
+                {bitgetData.executionAvailable === false && (
                   <p className="text-xs mb-2" style={{ color: 'var(--warning)' }}>
                     Исполнение ордеров отключено на сервере. Включите AUTO_TRADING_EXECUTION_ENABLED=1 в .env на сервере.
                   </p>
                 )}
-                {okxData.balanceError && (
-                  <p className="text-xs mb-2" style={{ color: 'var(--danger)' }} title={okxData.balanceError}>
-                    Ошибка OKX: {okxData.balanceError}
+                {bitgetData.balanceError && (
+                  <p className="text-xs mb-2" style={{ color: 'var(--danger)' }} title={bitgetData.balanceError}>
+                    Ошибка Bitget: {bitgetData.balanceError}
                   </p>
                 )}
-                {!okxData.balanceError && (okxData.balance ?? 0) === 0 && (
+                {!bitgetData.balanceError && (bitgetData.balance ?? 0) === 0 && (
                   <p className="text-xs mb-2" style={{ color: 'var(--warning)' }}>
-                    Для исполнения ордеров пополните реальный счёт OKX: Finance → Transfer → USDT на Trading Account.
+                    Для исполнения ордеров пополните реальный счёт Bitget: Finance → Transfer → USDT на Trading Account.
                   </p>
                 )}
-                {okxData.positions && okxData.positions.length > 0 && (
+                {bitgetData.positions && bitgetData.positions.length > 0 && (
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
@@ -1446,7 +1446,7 @@ export default function AutoTradingPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {okxData.positions.map((p: any, i: number) => {
+                        {bitgetData.positions.map((p: any, i: number) => {
                           const symNorm = normSymbol((p.symbol || '').replace(/:.*$/, ''));
                           const base = symNorm ? symNorm.split('-')[0] : (p.symbol || '').split(/[/:-]/)[0] || '—';
                           const amountStr = p.contracts != null ? `${Math.abs(Number(p.contracts)).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${base}` : '—';
@@ -1611,16 +1611,16 @@ export default function AutoTradingPage() {
           <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Баланс и статистика</h3>
           <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
             {settings.executeOrders
-              ? 'P&L, win rate и метрики по сделкам (реальный счёт OKX)'
+              ? 'P&L, win rate и метрики по сделкам (реальный счёт Bitget)'
               : token
-                ? 'P&L и метрики по закрытым сделкам с сервера (OKX)'
+                ? 'P&L и метрики по закрытым сделкам с сервера (Bitget)'
                 : 'P&L, win rate (локальная демо-статистика)'}
           </p>
           <div className="grid grid-cols-2 gap-3">
-            {settings.executeOrders && okxData && !okxData.balanceError && (
+            {settings.executeOrders && bitgetData && !bitgetData.balanceError && (
               <div className="p-4 rounded-lg" style={{ background: 'var(--accent-dim)', borderLeft: '3px solid var(--accent)' }}>
-                <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Баланс OKX (реальный счёт)</p>
-                <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>${(okxData.balance ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</p>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Баланс Bitget (реальный счёт)</p>
+                <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>${(bitgetData.balance ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</p>
               </div>
             )}
             {!settings.fullAuto && !token && (
@@ -1717,10 +1717,10 @@ export default function AutoTradingPage() {
       <PositionsTable
         positions={(() => {
           const items: PositionItem[] = [];
-          if (settings.executeOrders && okxData?.positions) {
-            okxData.positions.forEach((p: any, i: number) => {
+          if (settings.executeOrders && bitgetData?.positions) {
+            bitgetData.positions.forEach((p: any, i: number) => {
               items.push({
-                id: `okx-${i}-${p.symbol ?? i}`,
+                id: `bitget-${i}-${p.symbol ?? i}`,
                 symbol: p.symbol || '—',
                 direction: p.side === 'long' ? 'LONG' : 'SHORT',
                 size: 0,
@@ -1733,7 +1733,7 @@ export default function AutoTradingPage() {
                 stopLoss: p.stopLoss != null ? Number(p.stopLoss) : undefined,
                 takeProfit: p.takeProfit != null ? [Number(p.takeProfit)] : undefined,
                 openTime: new Date().toISOString(),
-                source: 'okx',
+                source: 'bitget',
               });
             });
           }
@@ -1763,9 +1763,9 @@ export default function AutoTradingPage() {
         title="Открытые позиции"
         subtitle={
           settings.executeOrders
-            ? `OKX (реальный счёт) · ${okxData?.positions?.length ?? 0} позиций`
+            ? `Bitget (реальный счёт) · ${bitgetData?.positions?.length ?? 0} позиций`
             : !settings.executeOrders
-              ? 'Включите «Исполнение через OKX», чтобы видеть позиции с биржи'
+              ? 'Включите «Исполнение через Bitget», чтобы видеть позиции с биржи'
               : 'Локальные позиции (демо) — открыты вручную по сигналам'
         }
       />
@@ -1789,7 +1789,7 @@ export default function AutoTradingPage() {
           confidenceAtOpen: h.confidenceAtOpen,
         }))}
         title="История сделок"
-        subtitle={`${displayHistory.length} записей · ${token ? 'закрытые сделки с сервера (OKX)' : 'локальная демо-история'}`}
+        subtitle={`${displayHistory.length} записей · ${token ? 'закрытые сделки с сервера (Bitget)' : 'локальная демо-история'}`}
       />
     </div>
   );
