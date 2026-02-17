@@ -730,7 +730,9 @@ function scannerSymbolToMarket(s: string): string {
  * Если useScanner === true — сначала получаем топ монет из скринера (волатильность, объём, BB squeeze).
  * TP/SL, leverage, mode — определяются по анализу (ATR, волатильность, confluence).
  */
-const userCycleLocks = new Map<string, Promise<void>>();
+const LOCK_TIMEOUT_MS = 4 * 60 * 1000; // 4 мин — считаем блокировку «зависшей» и снимаем
+const userCycleLocks = new Map<string, { promise: Promise<void>; startedAt: number }>();
+const pendingRuns = new Map<string, { symbols: string[]; timeframe: string; useScanner: boolean; userId?: string; execOpts?: Parameters<typeof runAutoTradingBestCycle>[4] }>();
 const analysisSemaphore = new Semaphore(5);
 const analysisCache = new TtlCache<Awaited<ReturnType<typeof runAnalysis>>>(15_000);
 
@@ -744,19 +746,34 @@ async function runAutoTradingBestCycle(
   const lockKey = userId ?? '__global__';
   const existing = userCycleLocks.get(lockKey);
   if (existing) {
-    logger.info('runAutoTradingBestCycle', `Cycle already running for ${lockKey}, skipping`);
-    return;
+    const age = Date.now() - existing.startedAt;
+    if (age > LOCK_TIMEOUT_MS) {
+      userCycleLocks.delete(lockKey);
+      logger.warn('runAutoTradingBestCycle', `Lock timeout for ${lockKey} (${Math.round(age / 1000)}s), cleared`);
+    } else {
+      pendingRuns.set(lockKey, { symbols, timeframe, useScanner, userId, execOpts });
+      logger.info('runAutoTradingBestCycle', `Cycle already running for ${lockKey}, queued next run`);
+      return;
+    }
   }
 
   let releaseLock: () => void = () => {};
   const lockPromise = new Promise<void>((resolve) => { releaseLock = resolve; });
-  userCycleLocks.set(lockKey, lockPromise);
+  userCycleLocks.set(lockKey, { promise: lockPromise, startedAt: Date.now() });
 
   try {
     await runAutoTradingBestCycleInner(symbols, timeframe, useScanner, userId, execOpts);
   } finally {
     userCycleLocks.delete(lockKey);
     releaseLock();
+    const pending = pendingRuns.get(lockKey);
+    pendingRuns.delete(lockKey);
+    if (pending) {
+      logger.info('runAutoTradingBestCycle', `Running queued cycle for ${lockKey}`);
+      runAutoTradingBestCycle(pending.symbols, pending.timeframe, pending.useScanner, pending.userId, pending.execOpts).catch((e) =>
+        logger.error('runAutoTradingBestCycle', (e as Error).message)
+      );
+    }
   }
 }
 
