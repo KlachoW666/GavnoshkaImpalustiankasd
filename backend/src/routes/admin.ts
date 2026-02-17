@@ -10,7 +10,7 @@ import { config } from '../config';
 import { rateLimit } from '../middleware/rateLimit';
 import { getDashboardData, validateAdminPassword, createAdminToken, validateAdminToken } from '../services/adminService';
 import { stopAutoAnalyze, getAutoAnalyzeStatus, startAutoAnalyzeForUser } from './market';
-import { initDb, listOrders, getSetting, setSetting } from '../db';
+import { initDb, listOrders, deleteOrders, getSetting, setSetting } from '../db';
 import { computeAnalytics } from '../services/analyticsService';
 import { emotionalFilterInstance } from '../services/emotionalFilter';
 import {
@@ -236,6 +236,23 @@ router.put('/emotional-filter', requireAdmin, (req: Request, res: Response) => {
     const merged = stored ? { ...JSON.parse(stored), ...c } : c;
     setSetting(EMOTIONAL_FILTER_CONFIG_KEY, JSON.stringify(merged));
     res.json(emotionalFilterInstance.getConfig());
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/admin/orders/clear — очистка ордеров в БД (зависшие open или вся история). Body: { clientId?: string, status?: 'open' | 'closed' | 'all' } */
+router.post('/orders/clear', requireAdmin, (req: Request, res: Response) => {
+  try {
+    initDb();
+    const clientId = (req.body?.clientId as string)?.trim() || undefined;
+    const statusRaw = (req.body?.status as string)?.toLowerCase();
+    const status: 'open' | 'closed' | undefined =
+      statusRaw === 'open' ? 'open' : statusRaw === 'closed' ? 'closed' : statusRaw === 'all' ? undefined : undefined;
+    const deleted = deleteOrders({ clientId, status });
+    logger.info('Admin', 'Orders cleared', { clientId: clientId ?? 'all', status: status ?? 'all', deleted });
+    res.json({ ok: true, deleted });
   } catch (e) {
     logger.error('Admin', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });

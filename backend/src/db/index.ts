@@ -637,3 +637,38 @@ export function listOrders(opts?: { clientId?: string; status?: 'open' | 'closed
   const stmt = d.prepare(sql);
   return stmt.all(params) as OrderRow[];
 }
+
+/**
+ * Удалить ордера из БД (для очистки «зависших» открытых или всей истории).
+ * opts.status: 'open' | 'closed' | undefined (undefined = все).
+ * Возвращает число удалённых строк.
+ */
+export function deleteOrders(opts?: { clientId?: string; status?: 'open' | 'closed' }): number {
+  if (!initAttempted) initDb();
+  if (useMemoryStore) {
+    let removed = 0;
+    for (let i = memoryOrders.length - 1; i >= 0; i--) {
+      const o = memoryOrders[i];
+      if (opts?.clientId != null && o.client_id !== opts.clientId) continue;
+      if (opts?.status != null && o.status !== opts.status) continue;
+      memoryOrders.splice(i, 1);
+      removed++;
+    }
+    return removed;
+  }
+  const d = getDb();
+  if (!d) return 0;
+  let sql = 'DELETE FROM orders WHERE 1=1';
+  const params: Record<string, string | number> = {};
+  if (opts?.clientId) {
+    sql += ' AND client_id = @clientId';
+    params.clientId = opts.clientId;
+  }
+  if (opts?.status) {
+    sql += ' AND status = @status';
+    params.status = opts.status;
+  }
+  const stmt = d.prepare(sql);
+  const info = stmt.run(params);
+  return (info as { changes: number }).changes ?? 0;
+}

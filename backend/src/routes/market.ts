@@ -730,7 +730,7 @@ function scannerSymbolToMarket(s: string): string {
  * Если useScanner === true — сначала получаем топ монет из скринера (волатильность, объём, BB squeeze).
  * TP/SL, leverage, mode — определяются по анализу (ATR, волатильность, confluence).
  */
-const LOCK_TIMEOUT_MS = 4 * 60 * 1000; // 4 мин — считаем блокировку «зависшей» и снимаем
+const LOCK_TIMEOUT_MS = 8 * 60 * 1000; // 8 мин — цикл с анализом и внешним ИИ может занимать 5+ мин
 const QUEUED_LOG_COOLDOWN_MS = 45 * 1000; // не спамить лог «queued» чаще раза в 45 сек по ключу
 const userCycleLocks = new Map<string, { promise: Promise<void>; startedAt: number }>();
 const pendingRuns = new Map<string, { symbols: string[]; timeframe: string; useScanner: boolean; userId?: string; execOpts?: Parameters<typeof runAutoTradingBestCycle>[4] }>();
