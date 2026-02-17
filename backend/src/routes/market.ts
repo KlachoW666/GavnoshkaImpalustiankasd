@@ -1367,7 +1367,10 @@ router.post('/auto-analyze/stop', requireAuth, (req, res) => {
 export function restoreAutoTradingState(): void {
   try {
     const raw = getSetting(AUTO_ANALYZE_STATE_KEY);
-    if (!raw) return;
+    if (!raw) {
+      logger.info('auto-analyze', 'No saved auto-trading state found — start auto-trading from UI');
+      return;
+    }
     const sessions = JSON.parse(raw) as Array<{ userId: string; body: Record<string, unknown> }>;
     if (!Array.isArray(sessions) || sessions.length === 0) return;
     for (const { userId, body } of sessions) {
