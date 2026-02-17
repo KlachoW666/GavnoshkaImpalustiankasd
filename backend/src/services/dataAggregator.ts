@@ -20,7 +20,11 @@ export class DataAggregator {
       secret: bitget.hasCredentials ? bitget.secret : undefined,
       password: bitget.hasCredentials && bitget.passphrase ? bitget.passphrase : undefined,
       enableRateLimit: true,
-      options: { defaultType: 'swap', fetchMarkets: ['swap'] },
+      options: {
+        defaultType: 'swap',
+        fetchMarkets: ['swap'],
+        fetchCurrencies: false
+      },
       timeout: bitget.timeout
     };
     if (url) opts.httpsProxy = url;
