@@ -133,3 +133,13 @@ CREATE INDEX IF NOT EXISTS idx_activation_keys_used ON activation_keys(used_at);
 -- PREMIUM группа (после активации). Вкладка activate доступна всегда.
 INSERT OR IGNORE INTO groups (id, name, allowed_tabs) VALUES
 (4, 'PREMIUM', '["dashboard","signals","chart","demo","autotrade","scanner","pnl","settings","activate"]');
+
+-- Кэш рыночных данных (стакан, свечи, плотность) — снижение нагрузки на Bitget API
+CREATE TABLE IF NOT EXISTS market_data_cache (
+    symbol TEXT NOT NULL,
+    data_type TEXT NOT NULL,
+    data TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (symbol, data_type)
+);
+CREATE INDEX IF NOT EXISTS idx_market_data_cache_updated ON market_data_cache(symbol, data_type, updated_at);

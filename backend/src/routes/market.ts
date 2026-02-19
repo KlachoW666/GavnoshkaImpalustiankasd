@@ -32,7 +32,8 @@ import { adjustConfidence, update as mlUpdate, predict as mlPredict, getStats as
 import { getExternalAiConfig, hasAnyApiKey as externalAiHasKey, evaluateSignal as externalAiEvaluate } from '../services/externalAiService';
 import { FundingRateMonitor } from '../services/fundingRateMonitor';
 import { calcLiquidationPrice, calcLiquidationPriceSimple } from '../lib/liquidationPrice';
-import { executeSignal } from '../services/autoTrader';
+import { executeSignal, type DensityOptions } from '../services/autoTrader';
+import { subscribeSymbols } from '../services/bitgetOrderBookStream';
 import { initDb, insertOrder, getSetting, setSetting } from '../db';
 import { analyzeBtcTrend, applyBtcCorrelation, type BtcTrendResult } from '../services/btcCorrelation';
 import { getCurrentSession, applySessionFilter } from '../services/sessionFilter';
@@ -787,7 +788,7 @@ async function runAutoTradingBestCycle(
   timeframe = '5m',
   useScanner = false,
   userId?: string,
-  execOpts?: { executeOrders: boolean; useTestnet: boolean; maxPositions: number; sizePercent: number; sizeMode?: 'percent' | 'risk'; riskPct?: number; leverage: number; tpMultiplier?: number; minAiProb?: number }
+  execOpts?: { executeOrders: boolean; useTestnet: boolean; maxPositions: number; sizePercent: number; sizeMode?: 'percent' | 'risk'; riskPct?: number; leverage: number; tpMultiplier?: number; minAiProb?: number; density?: DensityOptions }
 ): Promise<void> {
   const lockKey = userId ?? '__global__';
   const existing = userCycleLocks.get(lockKey);
@@ -837,7 +838,7 @@ async function runAutoTradingBestCycleInner(
   timeframe = '5m',
   useScanner = false,
   userId?: string,
-  execOpts?: { executeOrders: boolean; useTestnet: boolean; maxPositions: number; sizePercent: number; sizeMode?: 'percent' | 'risk'; riskPct?: number; leverage: number; tpMultiplier?: number; minAiProb?: number }
+  execOpts?: { executeOrders: boolean; useTestnet: boolean; maxPositions: number; sizePercent: number; sizeMode?: 'percent' | 'risk'; riskPct?: number; leverage: number; tpMultiplier?: number; minAiProb?: number; density?: DensityOptions }
 ): Promise<void> {
   let syms = symbols.slice(0, MAX_SYMBOLS);
   if (useScanner) {
@@ -861,6 +862,8 @@ async function runAutoTradingBestCycleInner(
     }
   }
   if (syms.length === 0) syms = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT'];
+
+  subscribeSymbols(syms.slice(0, 20)).catch(() => {});
 
   const executeOrders = execOpts?.executeOrders ?? autoAnalyzeExecuteOrders;
   const useTestnet = execOpts?.useTestnet ?? autoAnalyzeUseTestnet;
@@ -1094,6 +1097,7 @@ async function runAutoTradingBestCycleInner(
     leverage
   });
 
+  subscribeSymbols([best.signal.symbol]).catch(() => {});
   const volMult = (best.breakdown as any)?.volatilityMultiplier as number | undefined;
   executeSignal(best.signal, {
     sizePercent,
@@ -1103,7 +1107,9 @@ async function runAutoTradingBestCycleInner(
     maxPositions,
     useTestnet,
     tpMultiplier,
-    volatilityMultiplier: volMult
+    volatilityMultiplier: volMult,
+    getOrderBook: (sym, limit) => aggregator.getOrderBook(sym, limit ?? 50),
+    density: execOpts?.density
   }, hasUserCreds ? userCreds : undefined).then((result) => {
     if (result.ok) {
       logger.info('runAutoTradingBestCycle', `Bitget order placed: ${result.orderId} (${useTestnet ? 'testnet' : 'real'})`);
@@ -1274,6 +1280,15 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   const sizeMode = body?.sizeMode === 'risk' ? 'risk' : 'percent';
   const riskPct = Math.max(0.01, Math.min(0.03, parseFloat(String(body?.riskPct)) || 0.02));
   const minConfidence = body?.minConfidence != null ? Math.max(0.5, Math.min(0.95, Number(body.minConfidence))) : undefined;
+  const densityBody = body?.density as Record<string, number> | undefined;
+  const densityOpts: DensityOptions | undefined = densityBody
+    ? {
+        maxSpreadPct: densityBody.maxSpreadPct,
+        minDepthUsd: densityBody.minDepthUsd,
+        maxPriceDeviationPct: densityBody.maxPriceDeviationPct,
+        maxSizeVsLiquidityPct: densityBody.maxSizeVsLiquidityPct
+      }
+    : undefined;
 
   autoAnalyzeExecuteOrders = executeOrders;
   autoAnalyzeUseTestnet = useTestnet;
@@ -1299,7 +1314,8 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
     minAiProb,
     sizeMode,
     riskPct,
-    ...(minConfidence != null ? { minConfidence } : {})
+    ...(minConfidence != null ? { minConfidence } : {}),
+    ...(densityOpts ? { density: densityOpts } : {})
   };
   try {
     const raw = getSetting(AUTO_ANALYZE_STATE_KEY);
@@ -1327,7 +1343,8 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
         riskPct,
         leverage,
         tpMultiplier,
-        minAiProb
+        minAiProb,
+        density: densityOpts
       }).catch((e) => logger.error('auto-analyze', (e as Error).message));
     } else {
       runManualCycle(syms, timeframe, mode, userId, {

@@ -288,6 +288,18 @@ export function initDb(): any {
         );
       `);
     } catch { /* migration: column/table may already exist */ }
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS market_data_cache (
+          symbol TEXT NOT NULL,
+          data_type TEXT NOT NULL,
+          data TEXT NOT NULL,
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          PRIMARY KEY (symbol, data_type)
+        );
+        CREATE INDEX IF NOT EXISTS idx_market_data_cache_updated ON market_data_cache(symbol, data_type, updated_at);
+      `);
+    } catch { /* migration: table may already exist */ }
     return db;
   } catch (err) {
     logger.error('DB', `SQLite init failed, falling back to in-memory store: ${(err as Error).message}`);
@@ -373,6 +385,50 @@ export { SETTINGS_KEY_STATS_DISPLAY };
 export function isMemoryStore(): boolean {
   if (!initAttempted) initDb();
   return useMemoryStore;
+}
+
+/** Кэш рыночных данных (стакан, свечи, плотность) — снижение нагрузки на Bitget API */
+export function getMarketDataCache(
+  symbol: string,
+  dataType: string,
+  ttlMs?: number
+): { data: unknown; updatedAt: string } | null {
+  if (!initAttempted) initDb();
+  if (useMemoryStore) return null;
+  const d = getDb();
+  if (!d) return null;
+  try {
+    const row = d.prepare('SELECT data, updated_at FROM market_data_cache WHERE symbol = ? AND data_type = ?').get(symbol, dataType) as { data: string; updated_at: string } | undefined;
+    if (!row?.data) return null;
+    const updatedAt = row.updated_at;
+    if (ttlMs != null && updatedAt) {
+      const updatedMs = new Date(updatedAt).getTime();
+      if (Number.isFinite(updatedMs) && Date.now() - updatedMs > ttlMs) return null;
+    }
+    let data: unknown;
+    try {
+      data = JSON.parse(row.data);
+    } catch {
+      return null;
+    }
+    return { data, updatedAt };
+  } catch (err) {
+    logger.warn('DB', `getMarketDataCache(${symbol}, ${dataType}) failed: ${(err as Error).message}`);
+    return null;
+  }
+}
+
+export function setMarketDataCache(symbol: string, dataType: string, data: unknown): void {
+  if (!initAttempted) initDb();
+  if (useMemoryStore) return;
+  const d = getDb();
+  if (!d) return;
+  try {
+    const json = typeof data === 'string' ? data : JSON.stringify(data);
+    d.prepare('INSERT OR REPLACE INTO market_data_cache (symbol, data_type, data, updated_at) VALUES (?, ?, ?, datetime(\'now\'))').run(symbol, dataType, json);
+  } catch (err) {
+    logger.warn('DB', `setMarketDataCache(${symbol}, ${dataType}) failed: ${(err as Error).message}`);
+  }
 }
 
 export interface OrderRow {

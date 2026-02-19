@@ -92,7 +92,27 @@ export const config = {
     '1h': 48,
     '4h': 12,
     '1d': 2
-  } as Record<string, number>
+  } as Record<string, number>,
+
+  /** TTL кэша рыночных данных в БД (мс) — снижение нагрузки на Bitget API */
+  marketDataCacheTtl: {
+    orderbook: envNum('MARKET_CACHE_TTL_ORDERBOOK_MS', 2_000),
+    density: envNum('MARKET_CACHE_TTL_DENSITY_MS', 2_000),
+    'candles_1m': envNum('MARKET_CACHE_TTL_CANDLES_1M_MS', 30_000),
+    'candles_5m': envNum('MARKET_CACHE_TTL_CANDLES_5M_MS', 60_000),
+    'candles_15m': envNum('MARKET_CACHE_TTL_CANDLES_15M_MS', 90_000),
+    'candles_1h': envNum('MARKET_CACHE_TTL_CANDLES_1H_MS', 120_000),
+    'candles_4h': envNum('MARKET_CACHE_TTL_CANDLES_4H_MS', 300_000),
+    'candles_1d': envNum('MARKET_CACHE_TTL_CANDLES_1D_MS', 600_000)
+  },
+
+  /** Пороги плотности рынка при открытии позиции */
+  density: {
+    maxSpreadPct: envNum('DENSITY_MAX_SPREAD_PCT', 0.1),
+    minDepthUsd: envNum('DENSITY_MIN_DEPTH_USD', 1000),
+    maxPriceDeviationPct: envNum('DENSITY_MAX_PRICE_DEVIATION_PCT', 0.5),
+    maxSizeVsLiquidityPct: envNum('DENSITY_MAX_SIZE_VS_LIQUIDITY_PCT', 20)
+  }
 };
 
 export default config;

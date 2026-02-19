@@ -16,6 +16,8 @@ import { TradingSignal } from '../types/signal';
 import { emotionalFilterInstance } from './emotionalFilter';
 import { logger } from '../lib/logger';
 import { getPositionSize } from '../lib/positionSizing';
+import { computeDensity } from './marketDensity';
+import { getOrderBookFromStream } from './bitgetOrderBookStream';
 
 function exchangeProxyAgent(): InstanceType<typeof HttpsProxyAgent> | undefined {
   const proxyUrl = getProxy(config.proxyList) || config.proxy;
@@ -25,6 +27,13 @@ function exchangeProxyAgent(): InstanceType<typeof HttpsProxyAgent> | undefined 
   } catch {
     return undefined;
   }
+}
+
+export interface DensityOptions {
+  maxSpreadPct?: number;
+  minDepthUsd?: number;
+  maxPriceDeviationPct?: number;
+  maxSizeVsLiquidityPct?: number;
 }
 
 export interface ExecuteOptions {
@@ -46,6 +55,10 @@ export interface ExecuteOptions {
   volatilityMultiplier?: number;
   /** Мин. Open Interest в USDT — пропустить вход, если ликвидность ниже (0 = не проверять) */
   minOpenInterestUsdt?: number;
+  /** Опция: получать стакан через агрегатор (БД-кэш) вместо прямого API */
+  getOrderBook?: (symbol: string, limit?: number) => Promise<{ bids: [number, number][]; asks: [number, number][] }>;
+  /** Пороги плотности (переопределяют config.density) */
+  density?: DensityOptions;
 }
 
 export interface ExecuteResult {
@@ -160,13 +173,20 @@ export async function executeSignal(
       exchange.fetchPositions(),
       exchange.fetchBalance()
     ]);
-    openCount = positionsRes.filter((p: any) => {
+    const openPositions = positionsRes.filter((p: any) => {
       const sz = Number(p.contracts ?? p.info?.pos ?? 0);
       return sz !== 0 && (p.side === 'long' || p.side === 'short');
-    }).length;
+    });
+    openCount = openPositions.length;
     const usdt = (balanceRes as any).USDT ?? balanceRes?.usdt;
     const free = usdt?.free ?? usdt?.total ?? 0;
     balance = typeof free === 'number' ? free : 0;
+
+    const signalSym = normalizeSymbol(signal.symbol);
+    const hasSameSymbol = openPositions.some((p: any) => normalizeSymbol(p.symbol ?? p.info?.symbol ?? '') === signalSym);
+    if (hasSameSymbol) {
+      return { ok: false, error: `Уже есть открытая позиция по ${signalSym}. Не открываем вторую.` };
+    }
   } catch (e) {
     const msg = (e as Error).message || String(e);
     logger.warn('AutoTrader', 'executeSignal fetch positions/balance failed', { error: msg });
@@ -312,6 +332,60 @@ export async function executeSignal(
       ok: false,
       error: `Объём позиции получился меньше минимума Bitget (~$${MIN_NOTIONAL_USD}). Пополните счёт или увеличьте «Долю баланса».`
     };
+  }
+
+  const densityCfg = options.density ?? config.density;
+  if (densityCfg) {
+    try {
+      let bids: [number, number][];
+      let asks: [number, number][];
+      const fromStream = getOrderBookFromStream(symbol);
+      const streamFreshMs = 2_000;
+      if (fromStream && (fromStream.bids.length > 0 || fromStream.asks.length > 0) && (Date.now() - fromStream.ts) < streamFreshMs) {
+        bids = fromStream.bids;
+        asks = fromStream.asks;
+      } else if (options.getOrderBook) {
+        const ob = await options.getOrderBook(symbol, 50);
+        bids = (ob.bids || []).slice(0, 50);
+        asks = (ob.asks || []).slice(0, 50);
+      } else {
+        const ob = await exchange.fetchOrderBook(ccxtSymbol, 50);
+        bids = (ob.bids || []).slice(0, 50).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
+        asks = (ob.asks || []).slice(0, 50).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
+      }
+      const density = computeDensity({ bids, asks }, signal.direction === 'LONG' ? 'LONG' : 'SHORT');
+
+      if (densityCfg.maxSpreadPct != null && density.spreadPct > densityCfg.maxSpreadPct) {
+        return { ok: false, error: `Спред стакана ${density.spreadPct.toFixed(3)}% выше порога ${densityCfg.maxSpreadPct}%. Вход отменён.` };
+      }
+      const minDepth = densityCfg.minDepthUsd ?? 0;
+      if (minDepth > 0) {
+        const depthUsd = signal.direction === 'LONG' ? density.depthAskUsd : density.depthBidUsd;
+        if (depthUsd < minDepth) {
+          return { ok: false, error: `Ликвидность в стакане $${depthUsd.toFixed(0)} ниже порога $${minDepth}. Вход отменён.` };
+        }
+      }
+      const maxDevPct = densityCfg.maxPriceDeviationPct ?? 0.5;
+      if (maxDevPct > 0 && entryPrice > 0 && density.midPrice > 0) {
+        const devPct = Math.abs(density.midPrice - entryPrice) / entryPrice * 100;
+        if (devPct > maxDevPct) {
+          return { ok: false, error: `Цена отклонилась от сигнала на ${devPct.toFixed(2)}% (макс. ${maxDevPct}%). Вход отменён.` };
+        }
+      }
+      const maxLiqPct = densityCfg.maxSizeVsLiquidityPct ?? 20;
+      if (maxLiqPct > 0 && density.availableVolumeUsdIn05Pct > 0) {
+        const maxByLiq = density.availableVolumeUsdIn05Pct * (maxLiqPct / 100);
+        if (positionValue > maxByLiq) {
+          positionValue = maxByLiq;
+          amount = roundToPrecision(Math.max(positionValue / entryPrice, getBitgetMinAmountAndPrecision(ccxtSymbol).minAmount), getBitgetMinAmountAndPrecision(ccxtSymbol).precision);
+          if (amount * entryPrice < MIN_NOTIONAL_USD) {
+            return { ok: false, error: `Размер скорректирован по ликвидности стакана; получился ниже минимума Bitget. Вход отменён.` };
+          }
+        }
+      }
+    } catch (e) {
+      logger.warn('AutoTrader', 'Density/pre-execution check failed, proceeding', { symbol: signal.symbol, error: (e as Error).message });
+    }
   }
 
   const side = signal.direction === 'LONG' ? 'buy' : 'sell';

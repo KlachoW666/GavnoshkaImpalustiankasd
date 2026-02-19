@@ -40,6 +40,15 @@ export function toOkxInstId(symbol: string): string {
 }
 
 /**
+ * Bitget WebSocket / REST instId: BTC-USDT -> BTCUSDT
+ */
+export function toBitgetInstId(symbol: string): string {
+  const s = normalizeSymbol(symbol);
+  if (!s || !s.includes('-')) return s ? s.replace('-', '') : 'BTCUSDT';
+  return s.replace('-', '');
+}
+
+/**
  * Validate symbol format (basic check)
  */
 export function isValidSymbol(symbol: string): boolean {

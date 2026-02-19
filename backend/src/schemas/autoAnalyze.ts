@@ -21,7 +21,14 @@ export const autoAnalyzeStartSchema = z.object({
   /** AI-фильтр: мин. вероятность выигрыша (0–1). 0 = выкл. Ордер не открывается, если ML-оценка ниже порога. */
   minAiProb: z.number().min(0).max(1).optional().catch(undefined),
   /** Мин. уверенность (0.5–0.95) для Manual+execute — ордер не откроется ниже порога */
-  minConfidence: z.number().min(0.5).max(0.95).optional().catch(undefined)
+  minConfidence: z.number().min(0.5).max(0.95).optional().catch(undefined),
+  /** Пороги плотности рынка при открытии позиции (переопределяют .env) */
+  density: z.object({
+    maxSpreadPct: z.number().min(0).max(1).optional(),
+    minDepthUsd: z.number().min(0).optional(),
+    maxPriceDeviationPct: z.number().min(0).max(5).optional(),
+    maxSizeVsLiquidityPct: z.number().min(0).max(100).optional()
+  }).optional()
 }).passthrough();
 
 export type AutoAnalyzeStartBody = z.infer<typeof autoAnalyzeStartSchema>;

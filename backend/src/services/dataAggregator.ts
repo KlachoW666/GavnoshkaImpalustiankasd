@@ -2,7 +2,10 @@ import ccxt, { Exchange } from 'ccxt';
 import { OHLCVCandle } from '../types/candle';
 import { config } from '../config';
 import { getProxy } from '../db/proxies';
+import { getMarketDataCache, setMarketDataCache } from '../db';
 import { toOkxCcxtSymbol } from '../lib/symbol';
+import { computeDensity } from './marketDensity';
+import { getOrderBookFromStream } from './bitgetOrderBookStream';
 import { logger } from '../lib/logger';
 import { TtlCache } from '../lib/ttlCache';
 
@@ -66,6 +69,18 @@ export class DataAggregator {
     const cached = this.ohlcvCache.get(cacheKey);
     if (cached) return cached;
 
+    const dataType = `candles_${timeframe}_${limit}`;
+    const ttlKey = `candles_${timeframe}` as keyof typeof config.marketDataCacheTtl;
+    const ttlMs = (config.marketDataCacheTtl && ttlKey in config.marketDataCacheTtl ? config.marketDataCacheTtl[ttlKey] : 60_000) as number;
+    const fromDb = getMarketDataCache(symbol, dataType, ttlMs);
+    if (fromDb?.data && Array.isArray(fromDb.data) && fromDb.data.length > 0) {
+      const candles = fromDb.data as OHLCVCandle[];
+      if (candles.every((c) => typeof c?.timestamp === 'number' && typeof c?.close === 'number')) {
+        this.ohlcvCache.set(cacheKey, candles);
+        return candles;
+      }
+    }
+
     const ccxtSymbol = this.toCcxtSymbol(symbol);
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
@@ -80,6 +95,7 @@ export class DataAggregator {
             volume: Number(row[5] ?? 0)
           }));
           this.ohlcvCache.set(cacheKey, candles);
+          setMarketDataCache(symbol, dataType, candles);
           return candles;
         }
       } catch (e) {
@@ -109,6 +125,38 @@ export class DataAggregator {
     const cachedOb = this.obCache.get(obCacheKey);
     if (cachedOb) return cachedOb;
 
+    const streamTtlMs = 2_000;
+    const fromStream = getOrderBookFromStream(symbol);
+    if (fromStream && (fromStream.bids.length > 0 || fromStream.asks.length > 0) && (Date.now() - fromStream.ts) < streamTtlMs) {
+      const result = { bids: fromStream.bids, asks: fromStream.asks };
+      this.obCache.set(obCacheKey, result);
+      const dataType = `orderbook_${limit}`;
+      setMarketDataCache(symbol, dataType, result);
+      try {
+        const density = computeDensity(result);
+        setMarketDataCache(symbol, 'density', {
+          spreadPct: density.spreadPct,
+          midPrice: density.midPrice,
+          depthBidUsd: density.depthBidUsd,
+          depthAskUsd: density.depthAskUsd,
+          imbalance: density.imbalance
+        });
+      } catch (_) { /* ignore */ }
+      return result;
+    }
+
+    const dataType = `orderbook_${limit}`;
+    const ttlMs = config.marketDataCacheTtl?.orderbook ?? 2_000;
+    const fromDb = getMarketDataCache(symbol, dataType, ttlMs);
+    if (fromDb?.data && typeof fromDb.data === 'object' && 'bids' in fromDb.data && 'asks' in fromDb.data) {
+      const result = {
+        bids: (fromDb.data as { bids: [number, number][] }).bids ?? [],
+        asks: (fromDb.data as { asks: [number, number][] }).asks ?? []
+      };
+      this.obCache.set(obCacheKey, result);
+      return result;
+    }
+
     const ccxtSymbol = this.toCcxtSymbol(symbol);
     const bookLimit = Math.min(limit, config.limits.orderBook);
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -118,6 +166,17 @@ export class DataAggregator {
         const asks = (ob.asks || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
         const result = { bids, asks };
         this.obCache.set(obCacheKey, result);
+        setMarketDataCache(symbol, dataType, result);
+        try {
+          const density = computeDensity(result);
+          setMarketDataCache(symbol, 'density', {
+            spreadPct: density.spreadPct,
+            midPrice: density.midPrice,
+            depthBidUsd: density.depthBidUsd,
+            depthAskUsd: density.depthAskUsd,
+            imbalance: density.imbalance
+          });
+        } catch (_) { /* ignore density save errors */ }
         return result;
       } catch (e) {
         logger.warn('DataAggregator', 'OrderBook fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
