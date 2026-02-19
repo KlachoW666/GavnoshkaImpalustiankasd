@@ -768,6 +768,7 @@ const LOCK_TIMEOUT_MS = 8 * 60 * 1000; // 8 мин — цикл с анализ�
 const QUEUED_LOG_COOLDOWN_MS = 120 * 1000; // не спамить лог «queued» чаще раза в 2 мин по ключу
 const ANALYSIS_SYMBOL_TIMEOUT_MS = 90_000; // 90s на символ — защита от зависания при долгом ответе API/прокси
 const BTC_FETCH_TIMEOUT_MS = 45_000; // 45s на загрузку свечей BTC
+const SCANNER_TIMEOUT_MS = 60_000; // 60s на сканер — иначе цикл не продолжается
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
@@ -847,12 +848,16 @@ async function runAutoTradingBestCycleInner(
       const { CoinScanner } = await import('../services/coinScanner');
       const scanner = new CoinScanner();
       const defaultSymbols = CoinScanner.getDefaultSymbols();
-      const topCoins = await scanner.getTopCandidates(defaultSymbols, MAX_SYMBOLS, {
-        minVolume24h: 300_000,
-        minVolatility24h: 3.5,
-        checkBBSqueeze: true,
-        checkMomentum: true
-      });
+      const topCoins = await withTimeout(
+        scanner.getTopCandidates(defaultSymbols, MAX_SYMBOLS, {
+          minVolume24h: 300_000,
+          minVolatility24h: 3.5,
+          checkBBSqueeze: true,
+          checkMomentum: true
+        }),
+        SCANNER_TIMEOUT_MS,
+        'Scanner getTopCandidates'
+      );
       const fromScanner = topCoins.map((c) => scannerSymbolToMarket(c.symbol)).filter(Boolean);
       if (fromScanner.length > 0) {
         syms = fromScanner;
@@ -860,6 +865,7 @@ async function runAutoTradingBestCycleInner(
       } else logger.warn('runAutoTradingBestCycle', 'Scanner returned no coins, using fallback symbols');
     } catch (e) {
       logger.warn('runAutoTradingBestCycle', (e as Error).message, { useScanner: true });
+      // syms остаётся symbols.slice(0, MAX_SYMBOLS) — цикл продолжается с fallback
     }
   }
   if (syms.length === 0) syms = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT'];
