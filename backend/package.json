@@ -10,7 +10,6 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@massive.com/client-js": "^10.3.0",
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.6.2",
     "ccxt": "^4.2.0",
