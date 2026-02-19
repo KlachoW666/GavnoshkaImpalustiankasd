@@ -802,7 +802,7 @@ async function runAutoTradingBestCycle(
       const now = Date.now();
       if (now - (lastQueuedLogAt.get(lockKey) ?? 0) >= QUEUED_LOG_COOLDOWN_MS) {
         lastQueuedLogAt.set(lockKey, now);
-        logger.debug('runAutoTradingBestCycle', `Cycle already running for ${lockKey}, next run queued`);
+        logger.info('runAutoTradingBestCycle', 'Cycle queued (another run in progress)', { lockKey, ageSec: Math.round((Date.now() - existing.startedAt) / 1000) });
       }
       return;
     }
@@ -840,6 +840,7 @@ async function runAutoTradingBestCycleInner(
   userId?: string,
   execOpts?: { executeOrders: boolean; useTestnet: boolean; maxPositions: number; sizePercent: number; sizeMode?: 'percent' | 'risk'; riskPct?: number; leverage: number; tpMultiplier?: number; minAiProb?: number; density?: DensityOptions }
 ): Promise<void> {
+  logger.info('runAutoTradingBestCycle', 'Cycle started', { useScanner, symbolsCount: symbols.length, userId: userId ?? 'global' });
   let syms = symbols.slice(0, MAX_SYMBOLS);
   if (useScanner) {
     try {
@@ -862,6 +863,7 @@ async function runAutoTradingBestCycleInner(
     }
   }
   if (syms.length === 0) syms = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT'];
+  logger.info('runAutoTradingBestCycle', 'Symbols for cycle', { count: syms.length, symbols: syms.slice(0, 10) });
 
   subscribeSymbols(syms.slice(0, 20)).catch(() => {});
 
