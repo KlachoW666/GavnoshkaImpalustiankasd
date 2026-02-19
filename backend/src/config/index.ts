@@ -44,6 +44,8 @@ export const config = {
     secret: envStr('BITGET_SECRET'),
     passphrase: envStr('BITGET_PASSPHRASE'),
     timeout: Math.max(15000, envNum('BITGET_TIMEOUT', 30000)),
+    /** Макс. запросов в секунду к Bitget REST (очередь, не отмена). */
+    rateLimitPerSecond: Math.max(1, Math.min(20, envNum('BITGET_RATE_LIMIT_PER_SECOND', 6))),
     get hasCredentials(): boolean {
       return Boolean(this.apiKey && this.secret);
     },
@@ -94,14 +96,14 @@ export const config = {
     '1d': 2
   } as Record<string, number>,
 
-  /** TTL кэша рыночных данных в БД (мс) — снижение нагрузки на Bitget API */
+  /** TTL кэша рыночных данных в БД (мс) — снижение нагрузки на Bitget API; увеличено по умолчанию для свечей */
   marketDataCacheTtl: {
     orderbook: envNum('MARKET_CACHE_TTL_ORDERBOOK_MS', 2_000),
     density: envNum('MARKET_CACHE_TTL_DENSITY_MS', 2_000),
     'candles_1m': envNum('MARKET_CACHE_TTL_CANDLES_1M_MS', 30_000),
-    'candles_5m': envNum('MARKET_CACHE_TTL_CANDLES_5M_MS', 60_000),
-    'candles_15m': envNum('MARKET_CACHE_TTL_CANDLES_15M_MS', 90_000),
-    'candles_1h': envNum('MARKET_CACHE_TTL_CANDLES_1H_MS', 120_000),
+    'candles_5m': envNum('MARKET_CACHE_TTL_CANDLES_5M_MS', 90_000),
+    'candles_15m': envNum('MARKET_CACHE_TTL_CANDLES_15M_MS', 120_000),
+    'candles_1h': envNum('MARKET_CACHE_TTL_CANDLES_1H_MS', 180_000),
     'candles_4h': envNum('MARKET_CACHE_TTL_CANDLES_4H_MS', 300_000),
     'candles_1d': envNum('MARKET_CACHE_TTL_CANDLES_1D_MS', 600_000)
   },

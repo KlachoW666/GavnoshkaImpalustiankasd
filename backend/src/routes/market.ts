@@ -34,6 +34,7 @@ import { FundingRateMonitor } from '../services/fundingRateMonitor';
 import { calcLiquidationPrice, calcLiquidationPriceSimple } from '../lib/liquidationPrice';
 import { executeSignal, type DensityOptions } from '../services/autoTrader';
 import { subscribeSymbols } from '../services/bitgetOrderBookStream';
+import { subscribeMarketSymbols } from '../services/bitgetMarketStream';
 import { initDb, insertOrder, getSetting, setSetting } from '../db';
 import { analyzeBtcTrend, applyBtcCorrelation, type BtcTrendResult } from '../services/btcCorrelation';
 import { getCurrentSession, applySessionFilter } from '../services/sessionFilter';
@@ -872,6 +873,7 @@ async function runAutoTradingBestCycleInner(
   logger.info('runAutoTradingBestCycle', 'Symbols for cycle', { count: syms.length, symbols: syms.slice(0, 10) });
 
   subscribeSymbols(syms.slice(0, 20)).catch(() => {});
+  subscribeMarketSymbols(syms.slice(0, 6)).catch(() => {}); // свечи + тикер WS (до 48 каналов)
 
   const executeOrders = execOpts?.executeOrders ?? autoAnalyzeExecuteOrders;
   const useTestnet = execOpts?.useTestnet ?? autoAnalyzeUseTestnet;
@@ -1106,6 +1108,7 @@ async function runAutoTradingBestCycleInner(
   });
 
   subscribeSymbols([best.signal.symbol]).catch(() => {});
+  subscribeMarketSymbols([best.signal.symbol]).catch(() => {});
   const volMult = (best.breakdown as any)?.volatilityMultiplier as number | undefined;
   executeSignal(best.signal, {
     sizePercent,
