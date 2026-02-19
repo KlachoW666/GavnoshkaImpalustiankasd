@@ -5,7 +5,7 @@ import { getProxy } from '../db/proxies';
 import { getMarketDataCache, setMarketDataCache } from '../db';
 import { toOkxCcxtSymbol, toMassiveTicker } from '../lib/symbol';
 import { computeDensity } from './marketDensity';
-import { getAggs, getOrderBookFromSnapshot } from './massiveClient';
+import { getAggs, getOrderBookFromSnapshot, getCryptoSnapshotTicker } from './massiveClient';
 import { getOrderBookFromStream } from './bitgetOrderBookStream';
 import { getCandlesFromStream, getTickerFromStream } from './bitgetMarketStream';
 import { logger } from '../lib/logger';
@@ -111,21 +111,18 @@ export class DataAggregator {
 
     promise = (async (): Promise<OHLCVCandle[]> => {
       if (config.useMassiveForMarketData) {
-        try {
-          const ticker = toMassiveTicker(symbol);
-          const toMs = Date.now();
-          const tfMs = this.timeframeToMs(timeframe);
-          const fromMs = toMs - limit * tfMs;
-          const data = await getAggs(ticker, timeframe, fromMs, toMs, limit);
-          if (data?.length) {
-            const candles = data.slice(-limit);
-            this.ohlcvCache.set(cacheKey, candles);
-            setMarketDataCache(symbol, dataType, candles);
-            return candles;
-          }
-        } catch (e) {
-          logger.warn('DataAggregator', 'Massive OHLCV failed', { symbol, error: (e as Error).message });
+        const ticker = toMassiveTicker(symbol);
+        const toMs = Date.now();
+        const tfMs = this.timeframeToMs(timeframe);
+        const fromMs = toMs - limit * tfMs;
+        const data = await getAggs(ticker, timeframe, fromMs, toMs, limit);
+        if (data?.length) {
+          const candles = data.slice(-limit);
+          this.ohlcvCache.set(cacheKey, candles);
+          setMarketDataCache(symbol, dataType, candles);
+          return candles;
         }
+        return this.getMockCandles(symbol, timeframe, limit);
       }
       const ccxtSymbol = this.toCcxtSymbol(symbol);
       for (let attempt = 0; attempt < 2; attempt++) {
@@ -216,29 +213,25 @@ export class DataAggregator {
 
     promise = (async (): Promise<{ bids: [number, number][]; asks: [number, number][] }> => {
       if (config.useMassiveForMarketData) {
+        const ticker = toMassiveTicker(symbol);
+        const ob = await getOrderBookFromSnapshot(ticker);
+        const bookLimit = Math.min(limit, config.limits.orderBook);
+        const bids = (ob.bids || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
+        const asks = (ob.asks || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
+        const result = { bids, asks };
+        this.obCache.set(obCacheKey, result);
+        setMarketDataCache(symbol, dataType, result);
         try {
-          const ticker = toMassiveTicker(symbol);
-          const ob = await getOrderBookFromSnapshot(ticker);
-          const bookLimit = Math.min(limit, config.limits.orderBook);
-          const bids = (ob.bids || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
-          const asks = (ob.asks || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
-          const result = { bids, asks };
-          this.obCache.set(obCacheKey, result);
-          setMarketDataCache(symbol, dataType, result);
-          try {
-            const density = computeDensity(result);
-            setMarketDataCache(symbol, 'density', {
-              spreadPct: density.spreadPct,
-              midPrice: density.midPrice,
-              depthBidUsd: density.depthBidUsd,
-              depthAskUsd: density.depthAskUsd,
-              imbalance: density.imbalance
-            });
-          } catch (_) { /* ignore */ }
-          return result;
-        } catch (e) {
-          logger.warn('DataAggregator', 'Massive OrderBook failed', { symbol, error: (e as Error).message });
-        }
+          const density = computeDensity(result);
+          setMarketDataCache(symbol, 'density', {
+            spreadPct: density.spreadPct,
+            midPrice: density.midPrice,
+            depthBidUsd: density.depthBidUsd,
+            depthAskUsd: density.depthAskUsd,
+            imbalance: density.imbalance
+          });
+        } catch (_) { /* ignore */ }
+        return result;
       }
       const ccxtSymbol = this.toCcxtSymbol(symbol);
       const bookLimit = Math.min(limit, config.limits.orderBook);
@@ -285,6 +278,16 @@ export class DataAggregator {
   async getCurrentPrice(symbol: string): Promise<number> {
     const cachedPrice = this.priceCache.get(symbol);
     if (cachedPrice) return cachedPrice;
+
+    if (config.useMassiveForMarketData) {
+      const snap = await getCryptoSnapshotTicker(toMassiveTicker(symbol));
+      const p = snap?.lastTrade?.p ?? snap?.min?.c;
+      if (typeof p === 'number' && p > 0) {
+        this.priceCache.set(symbol, p);
+        return p;
+      }
+      return this.getSymbolBasePrice(symbol);
+    }
 
     const fromTicker = getTickerFromStream(symbol, 5_000);
     if (fromTicker && fromTicker.last > 0) {
