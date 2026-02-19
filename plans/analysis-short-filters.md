@@ -28,14 +28,25 @@
 
 Константы в начале `market.ts`: `SHARP_DROP_*` (5m) и `SHARP_DROP_15M_*` (15m).
 
-## 3. Блокировка входа против HTF
+## 3. SHORT при восходящем движении (не шортить против ралли)
+
+**Файл:** `backend/src/routes/market.ts` — `runAnalysis`, после фильтра резкого падения.
+
+- **Условие:** направление сигнала SHORT и `priceDirection === 'up'` (последние 5 свечей 5m: close ≥ close 5 свечей назад).
+- **Действие:** снижение confidence на `SHORT_AGAINST_UP_MOVE_PENALTY` (0.10).
+- **Логика:** не открывать SHORT, когда последние свечи идут вверх — не шортить против текущего ралли.
+- **Лог:** `[runAnalysis] confidence reduced: short against up move (5m)` (symbol).
+
+Константа: `SHORT_AGAINST_UP_MOVE_PENALTY` в начале `market.ts`.
+
+## 4. Блокировка входа против HTF
 
 **Файл:** `backend/src/routes/market.ts`.
 
 - В анализе: при `againstHTF` (сигнал против старшего тренда 1d/4h) в breakdown выставляется `blockEntryWhenAgainstHTF = againstHTF && confidence < AGAINST_HTF_MIN_CONFIDENCE` (0.72).
 - В авто-цикле: если у лучшего сигнала `best.breakdown.blockEntryWhenAgainstHTF`, ордер не открывается, в лог пишется причина.
 
-## 4. Условие обхода AI gate (strong technical)
+## 5. Условие обхода AI gate (strong technical)
 
 **Файл:** `backend/src/routes/market.ts` — после оценки внешнего ИИ.
 

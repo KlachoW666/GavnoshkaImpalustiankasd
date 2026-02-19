@@ -80,7 +80,8 @@ export class DataAggregator {
     const ttlMs = (config.marketDataCacheTtl && ttlKey in config.marketDataCacheTtl ? config.marketDataCacheTtl[ttlKey] : 60_000) as number;
 
     const fromStream = getCandlesFromStream(symbol, timeframe, ttlMs);
-    if (fromStream && fromStream.length >= Math.min(limit, 2)) {
+    const minCandlesFromStream = 50;
+    if (fromStream && fromStream.length >= Math.min(limit, minCandlesFromStream)) {
       const candles = fromStream.slice(-limit);
       this.ohlcvCache.set(cacheKey, candles);
       setMarketDataCache(symbol, dataType, candles);

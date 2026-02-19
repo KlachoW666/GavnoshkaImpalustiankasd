@@ -686,6 +686,12 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
     }
   }
 
+  // SHORT при восходящем движении (последние 5 свечей 5m вверх): не шортить против ралли
+  if (direction === 'SHORT' && priceDirection === 'up') {
+    confidence = Math.max(0.45, confidence - SHORT_AGAINST_UP_MOVE_PENALTY);
+    if (!opts?.silent) logger.info('runAnalysis', 'confidence reduced: short against up move (5m)', { symbol: sym });
+  }
+
   // Блокировка авто-входа при против HTF и низком confidence после штрафа
   (breakdown as any).blockEntryWhenAgainstHTF = againstHTF && confidence < AGAINST_HTF_MIN_CONFIDENCE;
 
@@ -807,6 +813,8 @@ const SHARP_DROP_CONFIDENCE_PENALTY = 0.10;
 const SHARP_DROP_15M_CANDLES = 4;
 const SHARP_DROP_15M_PCT = 2;
 const SHARP_DROP_15M_CONFIDENCE_PENALTY = 0.05;
+/** SHORT при восходящем движении (последние 5 свечей 5m вверх): не шортить против текущего ралли */
+const SHORT_AGAINST_UP_MOVE_PENALTY = 0.10;
 /** Блокировка входа против HTF: мин. confidence после штрафа, иначе не передавать в авто-цикл */
 const AGAINST_HTF_MIN_CONFIDENCE = 0.72;
 /** AI gate bypass: мин. effectiveAiProb при strong technical, и мин. external AI score (0–1) */
