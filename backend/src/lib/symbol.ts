@@ -40,6 +40,18 @@ export function toOkxInstId(symbol: string): string {
 }
 
 /**
+ * Massive.com (Polygon) ticker: BTC-USDT -> X:BTCUSD
+ */
+export function toMassiveTicker(symbol: string): string {
+  const s = normalizeSymbol(symbol);
+  if (!s || !s.includes('-')) return 'X:BTCUSD';
+  const [base, quote] = s.split('-');
+  const q = (OKX_SYMBOL_MAP[quote] ?? quote).replace(/USDT/i, 'USD');
+  const b = OKX_SYMBOL_MAP[base] ?? base;
+  return `X:${b}${q}`;
+}
+
+/**
  * Bitget WebSocket / REST instId: BTC-USDT -> BTCUSDT
  */
 export function toBitgetInstId(symbol: string): string {

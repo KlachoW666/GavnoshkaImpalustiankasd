@@ -78,6 +78,22 @@ export const config = {
     candlesMax: 1000
   },
 
+  /** Massive.com (Polygon) — рыночные данные (свечи, снапшот). Ключи только из .env. */
+  massive: {
+    apiKey: envStr('MASSIVE_API_KEY'),
+    baseUrl: envStr('MASSIVE_API_BASE_URL', 'https://api.polygon.io'),
+    /** Запросов в секунду (по умолчанию 4 = обновление каждые 0.25 с: стакан, объём, график, перекупленность и т.д.). */
+    rateLimitPerSecond: Math.max(1, Math.min(20, envNum('MASSIVE_RATE_LIMIT_PER_SECOND', 4))),
+    get enabled(): boolean {
+      return Boolean(this.apiKey);
+    }
+  },
+
+  /** Использовать Massive для рыночных данных (свечи, стакан) вместо Bitget. Требует MASSIVE_API_KEY. */
+  get useMassiveForMarketData(): boolean {
+    return envBool('USE_MASSIVE_FOR_MARKET_DATA', false) && Boolean(config.massive.apiKey);
+  },
+
   /** Внешний ИИ (OpenAI / Claude) для оценки сигнала перед открытием позиции. Ключи — в .env. */
   openai: {
     apiKey: envStr('OPENAI_API_KEY')
@@ -96,10 +112,10 @@ export const config = {
     '1d': 2
   } as Record<string, number>,
 
-  /** TTL кэша рыночных данных в БД (мс) — снижение нагрузки на Bitget API; увеличено по умолчанию для свечей */
+  /** TTL кэша рыночных данных (мс). При Massive 0.25 с: ORDERBOOK/DENSITY=250, стакан/объём/график/перекупленность обновляются каждые 0.25 с. */
   marketDataCacheTtl: {
-    orderbook: envNum('MARKET_CACHE_TTL_ORDERBOOK_MS', 2_000),
-    density: envNum('MARKET_CACHE_TTL_DENSITY_MS', 2_000),
+    orderbook: envNum('MARKET_CACHE_TTL_ORDERBOOK_MS', 250),
+    density: envNum('MARKET_CACHE_TTL_DENSITY_MS', 250),
     'candles_1m': envNum('MARKET_CACHE_TTL_CANDLES_1M_MS', 30_000),
     'candles_5m': envNum('MARKET_CACHE_TTL_CANDLES_5M_MS', 90_000),
     'candles_15m': envNum('MARKET_CACHE_TTL_CANDLES_15M_MS', 120_000),
