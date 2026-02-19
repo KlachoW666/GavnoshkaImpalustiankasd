@@ -36,7 +36,7 @@ async function throttle(): Promise<void> {
 
 function getBaseUrl(): string {
   const url = config.massive.baseUrl.replace(/\/$/, '');
-  return url || 'https://api.polygon.io';
+  return url || 'https://api.massive.com';
 }
 
 async function request<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {

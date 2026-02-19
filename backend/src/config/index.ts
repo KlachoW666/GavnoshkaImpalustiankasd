@@ -82,7 +82,7 @@ export const config = {
   massive: {
     /** REST API (вкладка "Accessing the API") — для /v2/aggs, /v3/snapshot */
     apiKey: envStr('MASSIVE_API_KEY'),
-    baseUrl: envStr('MASSIVE_API_BASE_URL', 'https://api.polygon.io'),
+    baseUrl: envStr('MASSIVE_API_BASE_URL', 'https://api.massive.com'),
     /** S3 flat files (вкладка "Accessing Flat Files (S3)") — для доступа к файлам */
     accessKeyId: envStr('MASSIVE_ACCESS_KEY_ID'),
     secretAccessKey: envStr('MASSIVE_SECRET_ACCESS_KEY'),
