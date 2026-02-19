@@ -48,13 +48,20 @@ export interface FailedSignalHint {
 export const RSI_OVERSOLD = 30;
 export const RSI_OVERBOUGHT = 70;
 
+/** SHORT в перепроданности: RSI ниже порога при падении цены = риск отскока, не шортить вдогонку */
+export const RSI_OVERSOLD_SHORT_RISK = 35;
+
 /** Schwager: величина снижения confidence при провалившемся сигнале */
 export const FAILED_SIGNAL_CONFIDENCE_REDUCTION = 0.12;
+
+/** Снижение confidence при SHORT в перепроданности (риск отскока) */
+export const SHORT_OVERSOLD_CONFIDENCE_REDUCTION = 0.10;
 
 /**
  * Schwager: распознавание провалившихся сигналов.
  * Когда RSI в экстремуме (перекуплен/перепродан), а цена идёт против ожидаемого разворота — сигнал ненадёжен.
  * LONG при RSI oversold + падение цены = «ловля ножа». SHORT при RSI overbought + рост цены = шорт против тренда.
+ * Доп.: SHORT при RSI oversold + падение цены = шорт в перепроданность, риск отскока.
  */
 export function detectFailedSignalHint(
   rsi: number | null | undefined,
@@ -62,6 +69,16 @@ export function detectFailedSignalHint(
   signalDirection: 'LONG' | 'SHORT'
 ): FailedSignalHint | null {
   if (rsi == null) return null;
+
+  // SHORT в перепроданности: цена уже упала, RSI низкий — отскок вероятен, шорт рискован
+  if (signalDirection === 'SHORT' && rsi <= RSI_OVERSOLD_SHORT_RISK && priceDirection === 'down') {
+    return {
+      rsiExtreme: true,
+      priceAgainstRsi: true,
+      reduceConfidence: SHORT_OVERSOLD_CONFIDENCE_REDUCTION
+    };
+  }
+
   const rsiExtreme = rsi <= RSI_OVERSOLD || rsi >= RSI_OVERBOUGHT;
   if (!rsiExtreme) return null;
 

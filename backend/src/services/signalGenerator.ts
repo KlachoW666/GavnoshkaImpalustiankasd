@@ -1,6 +1,7 @@
 import { TradingSignal } from '../types/signal';
 import { CandlePattern } from '../types/candle';
-import { ASYMMETRIC_RR_MIN, MIN_TP_DISTANCE_PCT, detectFailedSignalHint } from '../lib/tradingPrinciples';
+import { ASYMMETRIC_RR_MIN, MIN_TP_DISTANCE_PCT, detectFailedSignalHint, SHORT_OVERSOLD_CONFIDENCE_REDUCTION } from '../lib/tradingPrinciples';
+import { logger } from '../lib/logger';
 import { DEFAULT_TRAILING_CONFIG } from '../lib/trailingStop';
 
 /**
@@ -128,6 +129,9 @@ export class SignalGenerator {
       : null;
     if (failedHint) {
       confidence = Math.max(0.45, confidence - failedHint.reduceConfidence);
+      if (failedHint.reduceConfidence === SHORT_OVERSOLD_CONFIDENCE_REDUCTION) {
+        logger.info('SignalGenerator', 'confidence reduced: short into oversold', { symbol: params.symbol, rsi: params.rsi, priceDirection: params.priceDirection });
+      }
     }
 
     if (params.falseBreakoutRisk) {

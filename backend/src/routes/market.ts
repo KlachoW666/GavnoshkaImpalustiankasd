@@ -660,6 +660,35 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
         : 'down'
       : 'up';
 
+  // Фильтр SHORT после резкого падения (5m + 15m): не шортить вдогонку, риск отскока
+  if (direction === 'SHORT' && entryPrice > 0) {
+    if (candles5m.length >= SHARP_DROP_CANDLES) {
+      const idx5 = candles5m.length - SHARP_DROP_CANDLES;
+      const pastClose5 = candles5m[idx5]?.close;
+      if (pastClose5 != null && pastClose5 > 0) {
+        const dropPct5 = ((pastClose5 - entryPrice) / pastClose5) * 100;
+        if (dropPct5 >= SHARP_DROP_PCT) {
+          confidence = Math.max(0.45, confidence - SHARP_DROP_CONFIDENCE_PENALTY);
+          if (!opts?.silent) logger.info('runAnalysis', 'confidence reduced: sharp drop before short (5m)', { symbol: sym, dropPct: dropPct5.toFixed(2), candles: SHARP_DROP_CANDLES });
+        }
+      }
+    }
+    if (candles15m.length >= SHARP_DROP_15M_CANDLES) {
+      const idx15 = candles15m.length - SHARP_DROP_15M_CANDLES;
+      const pastClose15 = candles15m[idx15]?.close;
+      if (pastClose15 != null && pastClose15 > 0) {
+        const dropPct15 = ((pastClose15 - entryPrice) / pastClose15) * 100;
+        if (dropPct15 >= SHARP_DROP_15M_PCT) {
+          confidence = Math.max(0.45, confidence - SHARP_DROP_15M_CONFIDENCE_PENALTY);
+          if (!opts?.silent) logger.info('runAnalysis', 'confidence reduced: sharp drop before short (15m)', { symbol: sym, dropPct: dropPct15.toFixed(2), candles: SHARP_DROP_15M_CANDLES });
+        }
+      }
+    }
+  }
+
+  // Блокировка авто-входа при против HTF и низком confidence после штрафа
+  (breakdown as any).blockEntryWhenAgainstHTF = againstHTF && confidence < AGAINST_HTF_MIN_CONFIDENCE;
+
   let signal = signalGenerator.generateSignal({
     symbol: sym.replace('-', '/'),
     exchange: 'OKX',
@@ -770,6 +799,19 @@ const QUEUED_LOG_COOLDOWN_MS = 120 * 1000; // не спамить лог «queue
 const ANALYSIS_SYMBOL_TIMEOUT_MS = 90_000; // 90s на символ — защита от зависания при долгом ответе API/прокси
 const BTC_FETCH_TIMEOUT_MS = 45_000; // 45s на загрузку свечей BTC
 const SCANNER_TIMEOUT_MS = 60_000; // 60s на сканер — иначе цикл не продолжается
+/** Фильтр SHORT после резкого падения (5m): число свечей и порог падения (%) — не шортить вдогонку */
+const SHARP_DROP_CANDLES = 8;
+const SHARP_DROP_PCT = 1.5;
+const SHARP_DROP_CONFIDENCE_PENALTY = 0.10;
+/** То же по 15m для максимального эффекта (старший ТФ подтверждает падение) */
+const SHARP_DROP_15M_CANDLES = 4;
+const SHARP_DROP_15M_PCT = 2;
+const SHARP_DROP_15M_CONFIDENCE_PENALTY = 0.05;
+/** Блокировка входа против HTF: мин. confidence после штрафа, иначе не передавать в авто-цикл */
+const AGAINST_HTF_MIN_CONFIDENCE = 0.72;
+/** AI gate bypass: мин. effectiveAiProb при strong technical, и мин. external AI score (0–1) */
+const TECH_OVERRIDE_MIN_AI_PROB = 0.25;
+const TECH_OVERRIDE_MIN_EXTERNAL_AI = 0.55;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
@@ -1025,6 +1067,14 @@ async function runAutoTradingBestCycleInner(
     return;
   }
 
+  /** Блокировка входа против HTF при низком confidence после штрафа */
+  if ((best.breakdown as any)?.blockEntryWhenAgainstHTF) {
+    const skipReason = 'Сигнал против старшего тренда (HTF), confidence ниже порога. Ордер не открыт.';
+    logger.info('runAutoTradingBestCycle', skipReason, { symbol: best.signal.symbol });
+    setLastExecution(undefined, undefined, skipReason, aiInfoForExecution(undefined, false));
+    return;
+  }
+
   /** Risk/Reward: не открывать при слабом R:R (чаще убытки). 100% в плюс невозможно — отсекаем худшие по R:R. */
   const rr = best.signal.risk_reward ?? 0;
   const aiProb = best.signal.aiWinProbability ?? 0;
@@ -1072,6 +1122,14 @@ async function runAutoTradingBestCycleInner(
     } catch (e) {
       logger.warn('runAutoTradingBestCycle', 'External AI evaluation failed', { error: (e as Error).message });
     }
+  }
+
+  /** При обходе AI gate (strong technical) требуем мин. effectiveAiProb или мин. оценку внешнего ИИ */
+  if (techOverride && effectiveAiProb < TECH_OVERRIDE_MIN_AI_PROB && (externalAiScore == null || externalAiScore < TECH_OVERRIDE_MIN_EXTERNAL_AI)) {
+    const skipReason = `AI: при strong technical требуется effectiveAiProb >= ${(TECH_OVERRIDE_MIN_AI_PROB * 100).toFixed(0)}% или внешний ИИ >= ${(TECH_OVERRIDE_MIN_EXTERNAL_AI * 100).toFixed(0)}%. Ордер не открыт.`;
+    logger.info('runAutoTradingBestCycle', skipReason, { symbol: best.signal.symbol, effectiveAiProb: effectiveAiProb * 100, externalAiScore: externalAiScore != null ? externalAiScore * 100 : null });
+    setLastExecution(undefined, undefined, skipReason, aiInfoForExecution(externalAiScore ?? undefined, externalAiUsed));
+    return;
   }
 
   /** OKX Funding Rate: не открывать LONG при высоком плюсе, SHORT при высоком минусе (MaksBaks Урок 5) */
