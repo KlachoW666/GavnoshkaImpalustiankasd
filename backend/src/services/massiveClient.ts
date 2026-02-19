@@ -35,6 +35,7 @@ async function throttle(): Promise<void> {
 }
 
 function getBaseUrl(): string {
+  // Ключи из massive.com (ClabX) работают только с api.massive.com; Polygon.io — с api.polygon.io
   return (config.massive.baseUrl || 'https://api.massive.com').replace(/\/$/, '');
 }
 
@@ -57,17 +58,29 @@ async function massiveFetch(path: string, searchParams?: Record<string, string>)
       if (v != null && v !== '') url.searchParams.set(k, v);
     }
   }
-  const res = await fetch(url.toString(), { method: 'GET' });
+  const res = await fetch(url.toString(), {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: 'application/json'
+    }
+  });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = typeof body === 'object' && body !== null && 'error' in body
-      ? String((body as { error?: string }).error)
-      : res.statusText;
+    const isUnknownKey = res.status === 401 && typeof body === 'object' && body !== null && String((body as { error?: string }).error).includes('Unknown API Key');
     logger.warn('MassiveClient', 'API error', {
       path: url.pathname,
       status: res.status,
       body: typeof body === 'object' ? JSON.stringify(body) : String(body)
     });
+    if (isUnknownKey) {
+      throw new Error(
+        'Massive API 401 Unknown API Key. For massive.com keys use MASSIVE_API_BASE_URL=https://api.massive.com and MASSIVE_API_KEY from massive.com dashboard (Accessing the API). Restart app after changing .env.'
+      );
+    }
+    const msg = typeof body === 'object' && body !== null && 'error' in body
+      ? String((body as { error?: string }).error)
+      : res.statusText;
     throw new Error(`Massive API ${res.status}: ${typeof body === 'object' ? JSON.stringify(body) : msg}`);
   }
   return body;
