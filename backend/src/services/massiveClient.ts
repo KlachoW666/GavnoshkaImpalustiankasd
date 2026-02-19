@@ -40,22 +40,24 @@ function getBaseUrl(): string {
 }
 
 async function request<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
-  if (!config.massive.apiKey) {
-    throw new Error('MASSIVE_API_KEY is not set');
+  const apiKey = config.massive.apiKey?.trim();
+  if (!apiKey) {
+    throw new Error('MASSIVE_API_KEY is not set. Set it in .env (e.g. MASSIVE_API_KEY=your-key).');
   }
   await throttle();
   const base = getBaseUrl();
   const search = new URLSearchParams();
+  search.set('apiKey', apiKey);
   if (params) {
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined && v !== '') search.set(k, String(v));
     }
   }
-  const url = `${base}${path}${search.toString() ? `?${search}` : ''}`;
+  const url = `${base}${path}?${search.toString()}`;
   const res = await fetch(url, {
     method: 'GET',
     headers: {
-      'x-api-key': config.massive.apiKey,
+      'x-api-key': apiKey,
       Accept: 'application/json'
     }
   });

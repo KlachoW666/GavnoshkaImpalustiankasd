@@ -78,14 +78,23 @@ export const config = {
     candlesMax: 1000
   },
 
-  /** Massive.com (Polygon) — рыночные данные (свечи, снапшот). Ключи только из .env. */
+  /** Massive.com (Polygon) — рыночные данные (свечи, снапшот, S3 flat files). Все ключи только из .env. */
   massive: {
+    /** REST API (вкладка "Accessing the API") — для /v2/aggs, /v3/snapshot */
     apiKey: envStr('MASSIVE_API_KEY'),
     baseUrl: envStr('MASSIVE_API_BASE_URL', 'https://api.polygon.io'),
-    /** Запросов в секунду (по умолчанию 4 = обновление каждые 0.25 с: стакан, объём, график, перекупленность и т.д.). */
+    /** S3 flat files (вкладка "Accessing Flat Files (S3)") — для доступа к файлам */
+    accessKeyId: envStr('MASSIVE_ACCESS_KEY_ID'),
+    secretAccessKey: envStr('MASSIVE_SECRET_ACCESS_KEY'),
+    s3Endpoint: envStr('MASSIVE_S3_ENDPOINT', 'https://files.massive.com'),
+    s3Bucket: envStr('MASSIVE_S3_BUCKET', 'flatfiles'),
+    /** Запросов в секунду (по умолчанию 4 = обновление каждые 0.25 с). */
     rateLimitPerSecond: Math.max(1, Math.min(20, envNum('MASSIVE_RATE_LIMIT_PER_SECOND', 4))),
     get enabled(): boolean {
       return Boolean(this.apiKey);
+    },
+    get s3Enabled(): boolean {
+      return Boolean(this.accessKeyId && this.secretAccessKey && this.s3Endpoint && this.s3Bucket);
     }
   },
 
