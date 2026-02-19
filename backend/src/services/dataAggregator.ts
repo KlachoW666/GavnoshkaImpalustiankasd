@@ -55,7 +55,8 @@ export class DataAggregator {
     setBitgetRateLimit(config.bitget.rateLimitPerSecond);
     const proxyUrl = getProxy(config.proxyList) || config.proxy || '';
     if (config.useMassiveForMarketData) {
-      logger.info('DataAggregator', `Market data: Massive.com (${config.massive.rateLimitPerSecond}/s, ~${1000 / config.massive.rateLimitPerSecond}ms); fallback Bitget rate=${config.bitget.rateLimitPerSecond}/s`);
+      const base = (config.massive.baseUrl || 'https://api.massive.com').replace(/\/$/, '');
+      logger.info('DataAggregator', `Market data: Massive.com base=${base} apiKey=${config.massive.apiKey ? 'set' : 'MISSING'} (${config.massive.rateLimitPerSecond}/s); fallback Bitget rate=${config.bitget.rateLimitPerSecond}/s`);
     } else {
       logger.info('DataAggregator', `Bitget: public${config.bitget.hasCredentials ? ' + trading' : ''}${proxyUrl ? ' [proxy]' : ''} rate=${config.bitget.rateLimitPerSecond}/s`);
     }

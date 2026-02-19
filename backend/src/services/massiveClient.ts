@@ -62,6 +62,7 @@ async function massiveFetch(path: string, searchParams?: Record<string, string>)
     method: 'GET',
     headers: {
       Authorization: `Bearer ${apiKey}`,
+      'X-API-Key': apiKey,
       Accept: 'application/json'
     }
   });
