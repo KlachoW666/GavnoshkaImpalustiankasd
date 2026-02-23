@@ -5,7 +5,7 @@
 
 export type Page =
   | 'dashboard' | 'signals' | 'chart' | 'trade' | 'demo'
-  | 'autotrade' | 'scanner' | 'pnl' | 'analytics' | 'settings'
+  | 'autotrade' | 'scanner' | 'pnl' | 'settings'
   | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms'
   | 'help' | 'backtest' | 'copy' | 'social' | 'trader' | 'wallet';
 
@@ -18,7 +18,6 @@ export const PAGE_PATHS: Record<Page, string> = {
   autotrade: '/auto',
   scanner: '/scanner',
   pnl: '/pnl',
-  analytics: '/analytics',
   settings: '/settings',
   activate: '/activate',
   admin: '/admin',
@@ -91,7 +90,6 @@ export const ALL_PAGES: NavItem[] = [
   { id: 'demo', label: 'Демо', group: 'trading' },
   { id: 'scanner', label: 'Скринер', group: 'analytics' },
   { id: 'pnl', label: 'PNL', group: 'analytics' },
-  { id: 'analytics', label: 'Аналитика', group: 'analytics' },
   { id: 'backtest', label: 'Бэктест', group: 'analytics' },
   { id: 'copy', label: 'Копитрейдинг', group: 'analytics' },
   { id: 'social', label: 'Социальная', group: 'analytics' },

@@ -16,7 +16,7 @@ export default function AdminTrading() {
   const [efForm, setEfForm] = useState({ cooldownMinutes: 30, maxLossStreak: 3, maxDailyDrawdownPct: 5 });
 
   const fetchStatus = () => {
-    adminApi.get<{ running: boolean }>('/admin/trading/status').then(setStatus).catch(() => setStatus(null));
+    adminApi.get<{ running: boolean }>('/admin/auto-analyze/status').then(setStatus).catch(() => setStatus(null));
   };
 
   useEffect(() => {
@@ -48,8 +48,8 @@ export default function AdminTrading() {
     setLoading('stop');
     setMessage('');
     try {
-      await adminApi.post('/admin/trading/stop');
-      setMessage('Авто-торговля остановлена у всех пользователей.');
+      await adminApi.post('/admin/auto-analyze/stop');
+      setMessage('Авто-админ (пул копитрейдинга) остановлен.');
       fetchStatus();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Ошибка');
@@ -81,10 +81,10 @@ export default function AdminTrading() {
         fullAuto: true,
         useScanner: true,
         intervalMs: 60000,
-        executeOrders: false,
-        useTestnet: true
+        executeOrders: true,
+        useTestnet: false
       });
-      setMessage('Авто-торговля запущена (админ). Остановка — кнопками ниже.');
+      setMessage('Авто-админ запущен: торговля пулом копитрейдинга (счёт Bitget). PnL распределяется по балансам подписчиков.');
       fetchStatus();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Ошибка');
@@ -104,8 +104,8 @@ export default function AdminTrading() {
       <div className="flex items-center gap-3">
         <span className="text-2xl">📈</span>
         <div>
-          <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Управление торговлей</h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Запуск, пауза и экстренная остановка авто-торговли</p>
+          <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Авто-админ (пул копитрейдинга)</h2>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Торговля с общего счёта Bitget; пополнения копитрейдинга — в пуле. PnL распределяется по балансам и провайдерам (high-water-mark).</p>
         </div>
       </div>
 
@@ -113,7 +113,7 @@ export default function AdminTrading() {
         <section className="rounded-lg p-4 shadow-lg border-l-4" style={{ ...cardStyle, borderLeftColor: status.running ? 'var(--success)' : 'var(--text-muted)' }}>
           <p className="text-sm">
             Статус: <strong style={{ color: status.running ? 'var(--success)' : 'var(--text-secondary)' }}>
-              {status.running ? 'Активно (у одного или нескольких пользователей)' : 'Остановлено'}
+              {status.running ? 'Пул торгует (авто-админ)' : 'Остановлено'}
             </strong>
           </p>
         </section>
@@ -128,7 +128,7 @@ export default function AdminTrading() {
           <span className="text-2xl">⚡</span>
           <div>
             <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Быстрые действия</h3>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Полные настройки — в разделе «Авто» главного приложения</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Только админ: торговля идёт с пула копитрейдинга, синхронизация с распределением PnL</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-3">

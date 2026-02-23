@@ -10,6 +10,8 @@ const API = '/api';
 const PLATFORMS = [{ id: 'bitget', label: 'Bitget', exchange: 'bitget' }];
 const TIMEFRAMES = ['1m', '5m', '15m', '1h', '4h', '1d'];
 
+type DataSource = 'massive' | 'bitget';
+
 const TF_SECONDS: Record<string, number> = {
   '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400
 };
@@ -222,6 +224,7 @@ export default function ChartView() {
   const [lastSignal, setLastSignal] = useState<any>(null);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [lastCandle, setLastCandle] = useState<OHLCVCandle | null>(null);
+  const [dataSource, setDataSource] = useState<DataSource>('bitget');
 
   const exchangeId = 'bitget';
   const { token } = useAuth();
@@ -368,6 +371,15 @@ export default function ChartView() {
       })
       .catch(() => {});
   };
+
+  useEffect(() => {
+    fetch(`${API}/market/data-source`)
+      .then((r) => r.json())
+      .then((data: { source?: string }) => {
+        if (data.source === 'massive' || data.source === 'bitget') setDataSource(data.source);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -537,228 +549,164 @@ export default function ChartView() {
   }, [symbol]);
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 shrink-0 rounded-lg p-3 glass border" style={{ borderColor: 'var(--border)' }}>
-        <div className="flex items-center gap-3">
-          <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} style={{ color: 'var(--accent)' }}>
-            <path d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <h1 className="text-sm font-bold tracking-tight">График</h1>
+    <div className="flex flex-col gap-5 min-h-0">
+      {/* Header: График + источник данных Massive/Bitget + Сигналы */}
+      <header className="flex flex-wrap items-center justify-between gap-4 shrink-0 py-2">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16" />
+              </svg>
+            </div>
+            <h1 className="text-lg font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>График</h1>
+          </div>
+          <span
+            className="px-3 py-1 rounded-lg text-xs font-medium"
+            style={{
+              background: dataSource === 'massive' ? 'var(--accent-dim)' : 'var(--bg-hover)',
+              color: dataSource === 'massive' ? 'var(--accent)' : 'var(--text-muted)'
+            }}
+          >
+            Данные: {dataSource === 'massive' ? 'Massive.com' : 'Bitget'}
+          </span>
+          {live && (
+            <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--primary)' }}>
+              <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: 'var(--primary)', boxShadow: '0 0 8px var(--primary)' }} />
+              Live
+            </span>
+          )}
         </div>
         <button
           type="button"
-          onClick={() => {
-            if (typeof window !== 'undefined') {
-              window.history.pushState({}, '', '/signals');
-            }
-            navigateTo('signals');
-          }}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--bg-hover)]"
-          style={{ color: 'var(--accent)' }}
+          onClick={() => { if (typeof window !== 'undefined') window.history.pushState({}, '', '/signals'); navigateTo('signals'); }}
+          className="px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+          style={{ background: 'var(--accent)', color: '#000' }}
         >
           Сигналы →
         </button>
-      </div>
+      </header>
 
-      <div className="flex gap-6 flex-col lg:flex-row min-h-0 overflow-hidden">
-        <div className="flex-1 min-w-0 flex flex-col gap-4 min-h-0 overflow-hidden">
-          <div className="flex flex-wrap gap-4 items-center shrink-0">
-          <div className="flex rounded-[10px] overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
-            {PLATFORMS.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setPlatform(p.id)}
-                className={`px-4 py-2 text-sm font-medium transition ${
-                  platform === p.id
-                    ? 'btn-primary text-white'
-                    : 'rounded-[10px] px-4 py-2 text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)]'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <input
-            value={symbol}
-            onChange={(e) => setSymbol(e.target.value.toUpperCase().replace(/\s/g, ''))}
-            placeholder="BTC-USDT"
-            className="input-field min-w-[140px]"
-          />
-          <select
-            value={timeframe}
-            onChange={(e) => setTimeframe(e.target.value)}
-            className="input-field w-auto"
-          >
-            {TIMEFRAMES.map((tf) => (
-              <option key={tf} value={tf}>{tf}</option>
-            ))}
-          </select>
-          <label className="flex items-center gap-2 cursor-pointer">
+      <div className="flex gap-5 flex-col xl:flex-row min-h-0 flex-1">
+        {/* Левая колонка: панель инструментов + график */}
+        <div className="flex-1 min-w-0 flex flex-col gap-4">
+          {/* Строка: символ, таймфреймы, биржа, Real-time */}
+          <div className="flex flex-wrap items-center gap-3 p-4 rounded-2xl" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
             <input
-              type="checkbox"
-              checked={live}
-              onChange={(e) => setLive(e.target.checked)}
-              className="rounded"
+              value={symbol}
+              onChange={(e) => setSymbol(e.target.value.toUpperCase().replace(/\s/g, ''))}
+              placeholder="BTC-USDT"
+              className="px-4 py-2.5 rounded-xl text-sm font-mono min-w-[140px]"
+              style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
             />
-            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Real-time</span>
-          </label>
-          {loading && <span style={{ color: 'var(--text-muted)' }}>Загрузка...</span>}
-          {live && <span className="text-[var(--primary)] text-sm flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] animate-pulse" style={{ boxShadow: '0 0 8px var(--primary)' }} /> Live</span>}
-        </div>
+            <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+              {TIMEFRAMES.map((tf) => (
+                <button
+                  key={tf}
+                  type="button"
+                  onClick={() => setTimeframe(tf)}
+                  className="px-4 py-2.5 text-sm font-medium transition-colors"
+                  style={{
+                    background: timeframe === tf ? 'var(--accent)' : 'var(--bg-surface)',
+                    color: timeframe === tf ? '#000' : 'var(--text-muted)'
+                  }}
+                >
+                  {tf}
+                </button>
+              ))}
+            </div>
+            <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+              {PLATFORMS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setPlatform(p.id)}
+                  className={`px-4 py-2.5 text-sm font-medium transition-colors ${platform === p.id ? 'text-white' : ''}`}
+                  style={{ background: platform === p.id ? 'var(--accent)' : 'var(--bg-surface)', color: platform === p.id ? '#000' : 'var(--text-muted)' }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" checked={live} onChange={(e) => setLive(e.target.checked)} className="rounded" />
+              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Real-time</span>
+            </label>
+            {loading && <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Загрузка...</span>}
+          </div>
 
-        <div className="rounded-[14px] overflow-hidden shrink-0 card flex flex-col">
-            <div className="px-4 py-2 flex flex-wrap items-center gap-3 border-b" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
-              <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-                Инструмент: <strong style={{ color: 'var(--text-primary)' }}>{symbol || 'BTC-USDT'}</strong>
-              </span>
-              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>•</span>
-              <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-                Таймфрейм: <strong style={{ color: 'var(--text-primary)' }}>{timeframe}</strong>
-              </span>
-              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>•</span>
-              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{platform.toUpperCase()}</span>
+          {/* Блок графика: OHLC strip + canvas */}
+          <div className="rounded-2xl overflow-hidden flex flex-col flex-1 min-h-0" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+            <div className="px-5 py-3 flex flex-wrap items-center gap-6 border-b" style={{ borderColor: 'var(--border)', background: 'var(--bg-surface)' }}>
+              <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{symbol || 'BTC-USDT'}</span>
               {currentPrice != null && (
+                <span className="text-lg font-mono font-semibold" style={{ color: 'var(--accent)' }}>
+                  {currentPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              )}
+              {lastCandle && (
                 <>
-                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>•</span>
-                  <span className="text-sm font-mono" style={{ color: 'var(--primary)' }}>
-                    Цена: {currentPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>О <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{Number(lastCandle.open).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</span></span>
+                  <span className="text-xs" style={{ color: 'var(--success)' }}>H <span className="font-mono">{Number(lastCandle.high).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</span></span>
+                  <span className="text-xs" style={{ color: 'var(--danger)' }}>L <span className="font-mono">{Number(lastCandle.low).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</span></span>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>C <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{Number(lastCandle.close).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</span></span>
+                  {(() => {
+                    const ch = lastCandle.close - lastCandle.open;
+                    const pct = lastCandle.open ? (ch / lastCandle.open) * 100 : 0;
+                    const up = ch >= 0;
+                    return (
+                      <span className="text-sm font-mono font-medium" style={{ color: up ? 'var(--success)' : 'var(--danger)' }}>
+                        {up ? '+' : ''}{ch.toLocaleString('ru-RU', { minimumFractionDigits: 2 })} ({up ? '+' : ''}{pct.toFixed(2)}%)
+                      </span>
+                    );
+                  })()}
                 </>
               )}
             </div>
-            {lastCandle && (
-              <div className="px-4 py-2 flex flex-wrap items-center gap-4 border-b" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
-                <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>ОТКР</span>
-                <span className="text-sm font-mono" style={{ color: 'var(--text-primary)' }}>
-                  {Number(lastCandle.open).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-                <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>МАКС</span>
-                <span className="text-sm font-mono" style={{ color: 'var(--success)' }}>
-                  {Number(lastCandle.high).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-                <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>МИН</span>
-                <span className="text-sm font-mono" style={{ color: 'var(--danger)' }}>
-                  {Number(lastCandle.low).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-                <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>ЗАКР</span>
-                <span className="text-sm font-mono" style={{ color: 'var(--text-primary)' }}>
-                  {Number(lastCandle.close).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-                {(() => {
-                  const ch = lastCandle.close - lastCandle.open;
-                  const pct = lastCandle.open ? (ch / lastCandle.open) * 100 : 0;
-                  const up = ch >= 0;
-                  return (
-                    <>
-                      <span className="text-sm font-mono" style={{ color: up ? 'var(--success)' : 'var(--danger)' }}>
-                        {up ? '+' : ''}{ch.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                      <span className="text-sm font-mono" style={{ color: up ? 'var(--success)' : 'var(--danger)' }}>
-                        ({up ? '+' : ''}{pct.toFixed(2)}%)
-                      </span>
-                    </>
-                  );
-                })()}
+            <div ref={chartRef} className="w-full flex-1 min-h-[360px]" style={{ height: 'min(65vh, 560px)' }} />
+          </div>
+        </div>
+
+        {/* Правая колонка: стакан, сделки, прогноз */}
+        <aside className="w-full xl:w-80 shrink-0 flex flex-col gap-4">
+          <div className="rounded-2xl p-4 flex flex-col" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Стакан</h3>
+              <div className="flex gap-1">
+                <button type="button" onClick={() => updateSettings({ display: { ...getSettings().display, orderbookStyle: 'default' } })} className="px-2 py-1 text-xs rounded-lg font-medium" style={orderbookView === 'list' ? { background: 'var(--accent)', color: '#000' } : { background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>Список</button>
+                <button type="button" onClick={() => updateSettings({ display: { ...getSettings().display, orderbookStyle: 'heatmap' } })} className="px-2 py-1 text-xs rounded-lg font-medium" style={orderbookView === 'depth' ? { background: 'var(--accent)', color: '#000' } : { background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>Depth</button>
               </div>
-            )}
-            <div
-              ref={chartRef}
-              className="w-full"
-              style={{ height: 'min(70vh, 620px)' }}
-            />
-        </div>
-      </div>
-
-      <div className="w-full lg:w-72 space-y-4 shrink-0 flex flex-col">
-        <div
-          className="rounded-lg p-4 shrink-0"
-          style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}
-        >
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Стакан ({platform})</h3>
-            <div className="flex gap-1">
-              <button
-                type="button"
-                onClick={() => updateSettings({ display: { ...getSettings().display, orderbookStyle: 'default' } })}
-                className="px-2 py-0.5 text-xs rounded-lg font-medium"
-                style={orderbookView === 'list' ? { background: 'var(--accent)', color: 'white' } : { background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
-              >
-                Список
-              </button>
-              <button
-                type="button"
-                onClick={() => updateSettings({ display: { ...getSettings().display, orderbookStyle: 'heatmap' } })}
-                className="px-2 py-0.5 text-xs rounded-lg font-medium"
-                style={orderbookView === 'depth' ? { background: 'var(--accent)', color: 'white' } : { background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
-              >
-                Depth
-              </button>
+            </div>
+            {currentPrice != null && <p className="text-sm font-mono mb-2" style={{ color: 'var(--accent)' }}>{currentPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>}
+            <div className="overflow-hidden shrink-0" style={{ minHeight: '260px' }}>
+              {orderbook ? (orderbookView === 'depth' ? <OrderbookDepthChart bids={orderbook.bids || []} asks={orderbook.asks || []} /> : <StableOrderbookList bids={orderbook.bids || []} asks={orderbook.asks || []} />) : <p className="text-sm py-3" style={{ color: 'var(--text-muted)' }}>Загрузка стакана...</p>}
             </div>
           </div>
-          {currentPrice != null && (
-            <p className="text-sm font-mono mb-3" style={{ color: 'var(--accent)' }}>
-              {currentPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </p>
+
+          <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Сделки</h3>
+            <div className="space-y-0 text-sm font-mono">
+              {trades.length ? trades.slice(0, 5).map((t, i) => (
+                <div key={i} className="flex justify-between items-center py-2 border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
+                  <span style={{ color: t.isBuy ? 'var(--success)' : 'var(--danger)' }}>{t.price.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{t.amount.toFixed(4)}</span>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{new Date(t.time).toLocaleTimeString('ru-RU', { hour12: false })}</span>
+                </div>
+              )) : <p className="text-sm py-3" style={{ color: 'var(--text-muted)' }}>Ожидание сделок...</p>}
+            </div>
+          </div>
+
+          {lastSignal && (
+            <div className="rounded-2xl p-4 border-l-4" style={{ borderLeftColor: lastSignal.direction === 'LONG' ? 'var(--success)' : 'var(--danger)', background: lastSignal.direction === 'LONG' ? 'var(--success-bg)' : 'var(--danger-bg)' }}>
+              <h3 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Прогноз</h3>
+              <div className="text-sm space-y-2">
+                <p className={lastSignal.direction === 'LONG' ? 'badge-long inline-block' : 'badge-short inline-block'}>{lastSignal.direction === 'LONG' ? 'ПОКУПАТЬ ↑' : 'ПРОДАВАТЬ ↓'}</p>
+                <p style={{ color: 'var(--text-muted)' }}>Вход: {lastSignal.entry_price?.toLocaleString('ru-RU')}</p>
+                <p style={{ color: 'var(--danger)' }}>SL: {lastSignal.stop_loss?.toLocaleString('ru-RU')}</p>
+                <p style={{ color: 'var(--success)' }}>TP: {lastSignal.take_profit?.map((t: number) => t.toLocaleString('ru-RU')).join(' / ')}</p>
+              </div>
+            </div>
           )}
-          <div className="overflow-hidden shrink-0" style={{ height: '300px', minHeight: '300px' }}>
-            {orderbook ? (
-              orderbookView === 'depth' ? (
-                <div className="mt-1"><OrderbookDepthChart bids={orderbook.bids || []} asks={orderbook.asks || []} /></div>
-              ) : (
-                <div className="mt-1">
-                  <StableOrderbookList bids={orderbook.bids || []} asks={orderbook.asks || []} />
-                </div>
-              )
-            ) : (
-              <p className="text-sm py-3" style={{ color: 'var(--text-muted)' }}>Загрузка стакана...</p>
-            )}
-          </div>
-        </div>
-
-        <div
-          className="rounded-lg p-4 shrink-0"
-          style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}
-        >
-          <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Сделки (Trades)</h3>
-          <div className="space-y-0 text-sm font-mono">
-            {trades.length ? (
-              trades.slice(0, 4).map((t, i) => (
-                <div key={i} className="flex justify-between items-center gap-3 py-2 border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
-                  <span className="min-w-0 flex-1" style={{ color: t.isBuy ? 'var(--success)' : 'var(--danger)' }}>
-                    {t.price.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}
-                  </span>
-                  <span className="text-right min-w-[3.5rem]" style={{ color: 'var(--text-muted)' }}>{t.amount.toFixed(4)}</span>
-                  <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>
-                    {new Date(t.time).toLocaleTimeString('ru-RU', { hour12: false })}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm py-3" style={{ color: 'var(--text-muted)' }}>Ожидание сделок...</p>
-            )}
-          </div>
-        </div>
-
-        {lastSignal && (
-          <div
-            className={`rounded-lg p-4 shrink-0 border-l-4 ${lastSignal.direction === 'LONG' ? 'border-l-[var(--success)]' : 'border-l-[var(--danger)]'}`}
-            style={lastSignal.direction === 'LONG' ? { background: 'var(--success-bg)' } : { background: 'var(--danger-bg)' }}
-          >
-            <h3 className="font-semibold mb-3">Прогноз</h3>
-            <div className="text-sm space-y-2">
-              <p className={lastSignal.direction === 'LONG' ? 'badge-long inline-block' : 'badge-short inline-block'}>
-                {lastSignal.direction === 'LONG' ? 'ПОКУПАТЬ ↑' : 'ПРОДАВАТЬ ↓'}
-              </p>
-              <p className="leading-relaxed" style={{ color: 'var(--text-muted)' }}>Вход: {lastSignal.entry_price?.toLocaleString('ru-RU')}</p>
-              <p style={{ color: 'var(--danger)' }}>SL: {lastSignal.stop_loss?.toLocaleString('ru-RU')}</p>
-              <p style={{ color: 'var(--success)' }}>
-                TP: {lastSignal.take_profit?.map((t: number) => t.toLocaleString('ru-RU')).join(' / ')}
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
+        </aside>
       </div>
     </div>
   );

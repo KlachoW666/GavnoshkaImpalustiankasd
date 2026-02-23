@@ -140,3 +140,75 @@ export async function getCryptoSnapshotTicker(ticker: string): Promise<{
   };
   return data?.ticker ?? null;
 }
+
+// --- Stocks (https://massive.com/stocks) ---
+
+/** Снапшот одного тикера акций — GET /v2/snapshot/locale/us/markets/stocks/tickers/{ticker} */
+export async function getStocksSnapshotTicker(ticker: string): Promise<{
+  ticker?: string;
+  day?: { o: number; h: number; l: number; c: number; v: number };
+  lastTrade?: { p: number };
+  min?: { c: number };
+  prevDay?: { c: number };
+} | null> {
+  const path = `/v2/snapshot/locale/us/markets/stocks/tickers/${encodeURIComponent(ticker)}`;
+  const data = await massiveFetch(path) as {
+    ticker?: { day?: { o: number; h: number; l: number; c: number; v: number }; lastTrade?: { p: number }; min?: { c: number }; prevDay?: { c: number } };
+  };
+  return data?.ticker ?? null;
+}
+
+/** Свечи для акций — тот же /v2/aggs, тикер без префикса (например AAPL). */
+export async function getStocksAggs(
+  ticker: string,
+  timeframe: string,
+  fromMs: number,
+  toMs: number,
+  limit = 5000
+): Promise<OHLCVCandle[]> {
+  return getAggs(ticker, timeframe, fromMs, toMs, limit);
+}
+
+// --- Options (https://massive.com/options) ---
+
+/** Снапшот опционной цепочки по базовому активу — GET /v3/snapshot/options/{underlyingAsset} */
+export async function getOptionChainSnapshot(underlyingTicker: string, params?: {
+  strike_price?: string;
+  expiration_date?: string;
+  contract_type?: 'call' | 'put';
+  limit?: number;
+}): Promise<{ results?: Array<Record<string, unknown>> }> {
+  const path = `/v3/snapshot/options/${encodeURIComponent(underlyingTicker)}`;
+  const searchParams: Record<string, string> = {};
+  if (params?.strike_price) searchParams.strike_price = params.strike_price;
+  if (params?.expiration_date) searchParams.expiration_date = params.expiration_date;
+  if (params?.contract_type) searchParams.contract_type = params.contract_type;
+  if (params?.limit != null) searchParams.limit = String(Math.min(250, params.limit));
+  const data = await massiveFetch(path, Object.keys(searchParams).length ? searchParams : undefined) as { results?: Array<Record<string, unknown>> };
+  return data ?? { results: [] };
+}
+
+/** Список контрактов опционов — GET /v3/reference/options/contracts */
+export async function getOptionsContracts(params: {
+  underlying_ticker?: string;
+  expiration_date?: string;
+  expiration_date_gte?: string;
+  expiration_date_lte?: string;
+  strike_price?: number;
+  contract_type?: 'call' | 'put';
+  expired?: boolean;
+  limit?: number;
+}): Promise<{ results?: Array<Record<string, unknown>>; next_url?: string }> {
+  const path = '/v3/reference/options/contracts';
+  const searchParams: Record<string, string> = {};
+  if (params.underlying_ticker) searchParams.underlying_ticker = params.underlying_ticker;
+  if (params.expiration_date) searchParams.expiration_date = params.expiration_date;
+  if (params.expiration_date_gte) searchParams['expiration_date.gte'] = params.expiration_date_gte;
+  if (params.expiration_date_lte) searchParams['expiration_date.lte'] = params.expiration_date_lte;
+  if (params.strike_price != null) searchParams.strike_price = String(params.strike_price);
+  if (params.contract_type) searchParams.contract_type = params.contract_type;
+  if (params.expired != null) searchParams.expired = String(params.expired);
+  if (params.limit != null) searchParams.limit = String(Math.min(1000, params.limit));
+  const data = await massiveFetch(path, searchParams) as { results?: Array<Record<string, unknown>>; next_url?: string };
+  return data ?? { results: [] };
+}

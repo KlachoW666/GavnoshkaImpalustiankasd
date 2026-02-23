@@ -89,7 +89,7 @@ export const config = {
     s3Endpoint: envStr('MASSIVE_S3_ENDPOINT', 'https://files.massive.com'),
     s3Bucket: envStr('MASSIVE_S3_BUCKET', 'flatfiles'),
     /** Запросов в секунду (по умолчанию 4 = обновление каждые 0.25 с). */
-    rateLimitPerSecond: Math.max(1, Math.min(20, envNum('MASSIVE_RATE_LIMIT_PER_SECOND', 4))),
+    rateLimitPerSecond: Math.max(1, Math.min(20, envNum('MASSIVE_RATE_LIMIT_PER_SECOND', 1))),
     get enabled(): boolean {
       return Boolean(this.apiKey);
     },

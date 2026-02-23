@@ -6,6 +6,7 @@
 import { Router, Request, Response } from 'express';
 import { initDb, insertOrder, updateOrderClose, listOrders, getOrderById } from '../db';
 import { feedOrderToML } from '../services/onlineMLService';
+import { handleCopyOrderPnL, distributePoolPnLToCopyTrading, ADMIN_POOL_CLIENT_ID } from '../services/copyTradingProfitShareService';
 import { syncClosedOrdersFromBitget, pullClosedOrdersFromBitget } from '../services/autoTrader';
 import { getBitgetCredentials } from '../db/authDb';
 import { logger } from '../lib/logger';
@@ -37,7 +38,7 @@ router.post('/', optionalAuth, (req: Request, res: Response) => {
         return res.status(403).json({ error: 'Ордер принадлежит другому пользователю' });
       }
       const pnl = Number(body.pnl) || 0;
-      updateOrderClose({
+      const closedOrder = updateOrderClose({
         id,
         closePrice: Number(body.closePrice),
         pnl,
@@ -45,6 +46,13 @@ router.post('/', optionalAuth, (req: Request, res: Response) => {
         closeTime: typeof body.closeTime === 'string' ? body.closeTime : new Date().toISOString()
       });
       if (order) feedOrderToML(order, pnl);
+      if (pnl > 0) {
+        if (closedOrder?.client_id === ADMIN_POOL_CLIENT_ID) {
+          distributePoolPnLToCopyTrading(pnl);
+        } else if (closedOrder?.copy_provider_id && closedOrder.client_id) {
+          handleCopyOrderPnL(closedOrder.client_id, closedOrder.copy_provider_id, pnl);
+        }
+      }
       return res.json({ ok: true, updated: true });
     }
     insertOrder({
@@ -95,7 +103,7 @@ router.patch('/:id', optionalAuth, (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Ордер принадлежит другому пользователю' });
     }
     const pnlVal = pnl ?? 0;
-    updateOrderClose({
+    const closedOrder = updateOrderClose({
       id,
       closePrice,
       pnl: pnlVal,
@@ -103,6 +111,13 @@ router.patch('/:id', optionalAuth, (req: Request, res: Response) => {
       closeTime: closeTime ?? new Date().toISOString()
     });
     if (order) feedOrderToML(order, pnlVal);
+    if (pnlVal > 0) {
+      if (closedOrder?.client_id === ADMIN_POOL_CLIENT_ID) {
+        distributePoolPnLToCopyTrading(pnlVal);
+      } else if (closedOrder?.copy_provider_id && closedOrder.client_id) {
+        handleCopyOrderPnL(closedOrder.client_id, closedOrder.copy_provider_id, pnlVal);
+      }
+    }
     res.json({ ok: true });
   } catch (e) {
     logger.error('Orders', (e as Error).message);

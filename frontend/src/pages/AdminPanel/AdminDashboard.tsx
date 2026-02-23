@@ -160,6 +160,22 @@ export default function AdminDashboard() {
         >
           📈 Управление торговлей
         </button>
+        <button
+          type="button"
+          onClick={() => (window as any).__adminSetTab?.('finance')}
+          className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-90"
+          style={{ background: 'var(--success)', color: 'white' }}
+        >
+          💰 Финансы
+        </button>
+        <button
+          type="button"
+          onClick={() => (window as any).__adminSetTab?.('transactions')}
+          className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-90"
+          style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}
+        >
+          💳 Транзакции
+        </button>
         {/* Техническое обслуживание */}
         <div className="flex items-center gap-3 px-4 py-2 rounded-lg border" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
           <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>

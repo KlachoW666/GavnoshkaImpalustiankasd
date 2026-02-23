@@ -5,6 +5,7 @@
 
 import { listUserIdsWithBitgetCredentials, getBitgetCredentials } from '../db/authDb';
 import { syncClosedOrdersFromBitget, pullClosedOrdersFromBitget, syncBitgetClosedOrdersForML } from './autoTrader';
+import { ADMIN_POOL_CLIENT_ID } from './copyTradingProfitShareService';
 import { config } from '../config';
 import { logger } from '../lib/logger';
 
@@ -52,12 +53,20 @@ async function runSync(): Promise<void> {
     }
   }
 
-  if (!hasUsers && config.bitget.hasCredentials) {
+  if (config.bitget.hasCredentials) {
     try {
-      const { fed } = await syncBitgetClosedOrdersForML(null, null);
-      if (fed > 0) logger.info('BitgetSyncCron', `ML: fed ${fed} Bitget closed orders (global keys)`);
+      const { synced } = await syncClosedOrdersFromBitget(false, null, ADMIN_POOL_CLIENT_ID);
+      if (synced > 0) logger.info('BitgetSyncCron', `Pool sync: ${synced} closed orders (admin_pool)`);
     } catch (e) {
-      logger.warn('BitgetSyncCron', 'ML sync (global) failed', { error: (e as Error).message });
+      logger.warn('BitgetSyncCron', 'Pool sync failed', { error: (e as Error).message });
+    }
+    if (!hasUsers) {
+      try {
+        const { fed } = await syncBitgetClosedOrdersForML(null, null);
+        if (fed > 0) logger.info('BitgetSyncCron', `ML: fed ${fed} Bitget closed orders (global keys)`);
+      } catch (e) {
+        logger.warn('BitgetSyncCron', 'ML sync (global) failed', { error: (e as Error).message });
+      }
     }
   }
 }

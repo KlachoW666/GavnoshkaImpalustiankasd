@@ -5,7 +5,9 @@ import { getSavedPage, savePage } from './store/appStore';
 import { useNotifications } from './contexts/NotificationContext';
 import { useAuth } from './contexts/AuthContext';
 import { getSettings } from './store/settingsStore';
+import { api } from './utils/api';
 import { NavigationProvider } from './contexts/NavigationContext';
+import { ThemeToggle } from './components/ui/ThemeToggle';
 
 const ChartView = lazy(() => import('./pages/ChartView'));
 const DemoPage = lazy(() => import('./pages/DemoPage'));
@@ -26,6 +28,7 @@ const MyAnalyticsPage = lazy(() => import('./pages/MyAnalyticsPage'));
 const CopyTradingPage = lazy(() => import('./pages/CopyTradingPage'));
 const SocialPage = lazy(() => import('./pages/SocialPage'));
 const TraderProfilePage = lazy(() => import('./pages/TraderProfilePage'));
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const WalletPage = lazy(() => import('./pages/WalletPage'));
 const TradePage = lazy(() => import('./pages/TradePage'));
 import { useOnlineStatus } from './hooks/useOnlineStatus';
@@ -166,7 +169,9 @@ function useSignalToasts() {
   const { token } = useAuth();
 
   useEffect(() => {
-    const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
+    const apiBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) as string | undefined;
+    const origin = apiBase ? new URL(apiBase).origin : (location.protocol + '//' + location.host);
+    const wsUrl = origin.replace(/^http/, 'ws') + '/ws';
     const ws = new WebSocket(wsUrl);
     ws.onopen = () => {
       if (token) ws.send(JSON.stringify({ type: 'auth', token }));
@@ -312,7 +317,7 @@ function NavDropdown({
    ══════════════════════════════════════════════════════════════════════ */
 export default function App() {
   const year = new Date().getFullYear();
-  const { user, loading, logout, maintenanceMode } = useAuth();
+  const { user, loading, logout, maintenanceMode, token } = useAuth();
   const allowedSet = useMemo(() => {
     const tabs = user?.allowedTabs ?? [];
     const set = new Set<Page>(tabs.length > 0 ? (tabs as Page[]) : FALLBACK_TABS);
@@ -320,15 +325,8 @@ export default function App() {
     set.add('terms' as Page);
     set.add('profile' as Page);
     set.add('help' as Page);
-    set.add('wallet' as Page);
-    if (set.has('autotrade') || set.has('chart')) {
-      set.add('trade');
-    }
     if (set.has('autotrade')) {
-      set.add('backtest');
       set.add('copy');
-      set.add('social');
-      set.add('analytics');
     }
     if (set.has('social') || set.has('copy')) set.add('trader');
     if (set.has('admin')) set.add('trader');
@@ -338,6 +336,10 @@ export default function App() {
   const PAGES = useMemo(() => {
     let list = ALL_PAGES.filter((p) => allowedSet.has(p.id));
     if (user?.activationActive) list = list.filter((p) => p.id !== 'activate');
+    // Авто-торговля только для админа (пул копитрейдинга) — раздел «Торговля» в админке
+    if (!allowedSet.has('admin')) list = list.filter((p) => p.id !== 'autotrade');
+    // Убрать analytics и wallet для обычных пользователей
+    if (!allowedSet.has('admin')) list = list.filter((p) => p.id !== 'analytics' && p.id !== 'wallet');
     return list.length > 0 ? list : ALL_PAGES.filter((p) => p.id !== 'admin');
   }, [allowedSet, user?.activationActive]);
 
@@ -352,9 +354,32 @@ export default function App() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [userMode, setUserMode] = useState<"auto_trading" | "copy_trading" | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const { toasts, clearAll } = useNotifications();
 
+  
+  // Load user mode on auth
+  useEffect(() => {
+    if (!user?.id || !token) return;
+    api.get<{ mode: 'auto_trading' | 'copy_trading' }>('/user/mode', { headers: { Authorization: 'Bearer ' + token } })
+      .then(r => {
+        if (r.mode) setUserMode(r.mode);
+        else setShowOnboarding(true);
+      })
+      .catch(() => setShowOnboarding(true));
+  }, [user?.id, token]);
+
   useSignalToasts();
+
+  const handleOnboardingComplete = (mode: 'auto_trading' | 'copy_trading') => {
+    setUserMode(mode);
+    setShowOnboarding(false);
+    if (mode === 'copy_trading') {
+      setPage('copy');
+    }
+  };
+
 
   useEffect(() => {
     if (user) {
@@ -459,6 +484,15 @@ export default function App() {
     return (
       <Suspense fallback={<LoadingSpinner />}>
         {maintenanceMode ? <MaintenancePage /> : <AuthPage />}
+      </Suspense>
+    );
+  }
+
+  // Show onboarding for new users
+  if (showOnboarding) {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <OnboardingPage onComplete={handleOnboardingComplete} />
       </Suspense>
     );
   }
@@ -578,6 +612,10 @@ export default function App() {
                     </button>
                   ))}
                   <div className="border-t my-1" style={{ borderColor: 'var(--border)' }} />
+                  <div className="px-4 py-2 flex items-center justify-between">
+                    <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Тема</span>
+                    <ThemeToggle />
+                  </div>
                   <button
                     type="button"
                     onClick={() => { setUserMenuOpen(false); logout(); }}

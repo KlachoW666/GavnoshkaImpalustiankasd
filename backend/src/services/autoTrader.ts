@@ -7,8 +7,9 @@ import ccxt, { Exchange } from 'ccxt';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { config } from '../config';
 import { getProxy } from '../db/proxies';
-import { listOrders, updateOrderClose, orderExistsWithBitgetOrdId, upsertOrderFromOkx } from '../db';
+import { listOrders, updateOrderClose, orderExistsWithBitgetOrdId, upsertOrderFromOkx, getOrderById } from '../db';
 import { feedOrderToML, feedOkxClosedOrderToML } from './onlineMLService';
+import { handleCopyOrderPnL, distributePoolPnLToCopyTrading, ADMIN_POOL_CLIENT_ID } from './copyTradingProfitShareService';
 import { toOkxCcxtSymbol } from '../lib/symbol';
 import { normalizeSymbol } from '../lib/symbol';
 import { MIN_TP_DISTANCE_PCT } from '../lib/tradingPrinciples';
@@ -587,7 +588,7 @@ export async function syncClosedOrdersFromBitget(
       const closeTime = (exOrder as any).datetime
         ? new Date((exOrder as any).datetime).toISOString()
         : (info.uTime ? new Date(Number(info.uTime)).toISOString() : new Date().toISOString());
-      updateOrderClose({
+      const closedOrder = updateOrderClose({
         id: row.id,
         closePrice,
         pnl,
@@ -595,6 +596,15 @@ export async function syncClosedOrdersFromBitget(
         closeTime
       });
       feedOrderToML(row, pnl);
+      
+      if (pnl > 0) {
+        if (closedOrder?.client_id === ADMIN_POOL_CLIENT_ID) {
+          distributePoolPnLToCopyTrading(pnl);
+        } else if (closedOrder?.copy_provider_id && closedOrder.client_id) {
+          handleCopyOrderPnL(closedOrder.client_id, closedOrder.copy_provider_id, pnl);
+        }
+      }
+      
       synced++;
       logger.info('AutoTrader', 'Synced closed order from Bitget', { id: row.id, pair: row.pair, pnl });
     } catch (e) {

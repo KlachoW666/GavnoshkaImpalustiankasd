@@ -34,9 +34,12 @@ import botRouter from './routes/bot';
 import copyTradingRouter from './routes/copyTrading';
 import socialRouter from './routes/social';
 import walletRouter from './routes/wallet';
+import userModeRouter from './routes/userMode';
+import copyTradingApiRouter from './routes/copyTradingApi';
 import { createWebSocketServer, getBroadcastBreakout } from './websocket';
 import { eventBus } from './lib/eventBus';
 import { startDepositScanner } from './services/depositScanner';
+import { startCopyTradingDepositScanner } from './services/depositService';
 import { initDb, getDb, isMemoryStore, getSetting, listOrders } from './db';
 import { cleanupExpiredSessions } from './db/authDb';
 import { preloadAdminTokens } from './services/adminService';
@@ -103,8 +106,11 @@ app.use('/api/bot', botRouter);
 app.use('/api/copy-trading', copyTradingRouter);
 app.use('/api/social', socialRouter);
 app.use('/api/wallet', walletRouter);
+app.use('/api/user/mode', userModeRouter);
+app.use('/api/copy-trading-api', copyTradingApiRouter);
 
 startDepositScanner();
+startCopyTradingDepositScanner();
 
 app.get('/api/health', (_req, res) => {
   try {

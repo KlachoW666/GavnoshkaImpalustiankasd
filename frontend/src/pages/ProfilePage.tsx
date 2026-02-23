@@ -2,6 +2,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 import { formatNum4, formatNum4Signed } from '../utils/formatNum';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 
 interface OkxBalanceState {
   real: number | null;
@@ -126,211 +129,175 @@ export default function ProfilePage() {
     }
   };
 
-  const cardStyle = {
-    background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
+  const cardStyle: React.CSSProperties = {
+    background: 'var(--bg-card-solid)',
     border: '1px solid var(--border)',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+    borderRadius: 'var(--radius-xl)',
+    boxShadow: 'var(--shadow-lg)'
   };
-  const miniCardStyle = { background: 'var(--bg-hover)' };
+  const miniCardStyle: React.CSSProperties = { background: 'var(--bg-hover)', borderRadius: 'var(--radius-lg)', padding: '12px' };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <span className="text-2xl">👤</span>
+    <div className="max-w-2xl mx-auto space-y-6 animate-page-in">
+      <div className="flex items-center gap-4">
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'var(--accent-gradient)', boxShadow: '0 8px 24px var(--accent-glow)' }}>
+          <span className="text-2xl">👤</span>
+        </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Профиль</h1>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Профиль</h1>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Аккаунт, подписка и статистика</p>
         </div>
       </div>
 
       {showWelcome && !active && (
-        <div className="rounded-lg p-6 shadow-lg border-l-4" style={{ ...cardStyle, borderLeftColor: 'var(--accent)' }}>
-          <p className="font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Добро пожаловать!</p>
-          <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
-            Для получения доступа к PREMIUM-версии необходимо приобрести ключ в нашем Telegram-боте.
-          </p>
-          <a
-            href="https://t.me/clabx_bot"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white"
-            style={{ background: 'var(--accent)' }}
-          >
-            @clabx_bot — приобрести ключ
+        <Card variant="premium" padding="normal">
+          <p className="font-semibold mb-2">Добро пожаловать!</p>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Для доступа к PREMIUM приобретите ключ в Telegram-боте.</p>
+          <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer">
+            <Button variant="primary">@clabx_bot — приобрести ключ</Button>
           </a>
-        </div>
+        </Card>
       )}
 
-      <div className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <Card variant="glass" padding="normal">
         <div className="flex items-center gap-3 mb-5">
           <span className="text-2xl">🪪</span>
           <div>
-            <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Аккаунт</h2>
+            <h2 className="text-lg font-bold">Аккаунт</h2>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Идентификация и группа</p>
           </div>
         </div>
-        <dl className="space-y-3 text-sm">
-          <div className="flex justify-between items-center gap-4 py-2 px-3 rounded-lg" style={miniCardStyle}>
-            <dt style={{ color: 'var(--text-muted)' }}>User ID</dt>
-            <dd className="font-mono text-xs truncate max-w-[60%]" style={{ color: 'var(--accent)' }} title={user?.id ?? ''}>{user?.id ?? '—'}</dd>
+        <div className="space-y-2">
+          <div className="flex justify-between items-center py-2.5 px-4 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
+            <span style={{ color: 'var(--text-muted)' }}>User ID</span>
+            <span className="font-mono text-sm" style={{ color: 'var(--accent)' }}>{user?.id ?? '—'}</span>
           </div>
-          <div className="flex justify-between items-center gap-4 py-2 px-3 rounded-lg" style={miniCardStyle}>
-            <dt style={{ color: 'var(--text-muted)' }}>Имя пользователя</dt>
-            <dd className="font-medium" style={{ color: 'var(--text-primary)' }}>{user?.username ?? '—'}</dd>
+          <div className="flex justify-between items-center py-2.5 px-4 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
+            <span style={{ color: 'var(--text-muted)' }}>Имя пользователя</span>
+            <span className="font-medium">{user?.username ?? '—'}</span>
           </div>
           {user?.groupName && (
-            <div className="flex justify-between items-center gap-4 py-2 px-3 rounded-lg" style={miniCardStyle}>
-              <dt style={{ color: 'var(--text-muted)' }}>Группа</dt>
-              <dd style={{ color: 'var(--text-primary)' }}>{user.groupName.toLowerCase() === 'pro' ? 'PREMIUM' : user.groupName}</dd>
+            <div className="flex justify-between items-center py-2.5 px-4 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Группа</span>
+              <span className="badge-premium">{user.groupName.toLowerCase() === 'pro' ? 'PREMIUM' : user.groupName}</span>
             </div>
           )}
-        </dl>
-      </div>
+        </div>
+      </Card>
 
-      <div className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid #2E7CF6' }}>
+      <Card variant="glass" padding="normal">
         <div className="flex items-center gap-3 mb-5">
           <span className="text-2xl">💵</span>
           <div>
-            <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Баланс Bitget</h2>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>USDT по ключам из настроек (реальный счёт и демо)</p>
+            <h2 className="text-lg font-bold">Баланс Bitget</h2>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>USDT по ключам из настроек</p>
           </div>
         </div>
         {!token ? (
-          <p className="text-sm py-4 rounded-lg text-center" style={{ ...miniCardStyle, color: 'var(--text-muted)' }}>Войдите в аккаунт.</p>
+          <p className="text-sm py-6 text-center rounded-xl" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>Войдите в аккаунт</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-            <div className="rounded-lg p-4" style={miniCardStyle}>
-              <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Реальный счёт</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-4 rounded-xl text-center" style={{ background: 'var(--bg-hover)' }}>
+              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Реальный счёт</p>
               {okxBalance.realError && okxBalance.real === null ? (
                 <p className="text-xs" style={{ color: 'var(--danger)' }}>{okxBalance.realError}</p>
               ) : okxBalance.real !== null ? (
-                <p className="text-xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{formatNum4(okxBalance.real)} USDT</p>
+                <p className="text-xl font-bold tabular-nums">{formatNum4(okxBalance.real)} USDT</p>
               ) : (
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Загрузка…</p>
+                <p style={{ color: 'var(--text-muted)' }}>Загрузка…</p>
               )}
-              <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Ключи API в Настройках</p>
             </div>
-            <div className="rounded-lg p-4" style={miniCardStyle}>
-              <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Демо (Testnet)</p>
+            <div className="p-4 rounded-xl text-center" style={{ background: 'var(--bg-hover)' }}>
+              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Демо (Testnet)</p>
               {okxBalance.demoError && okxBalance.demo === null ? (
                 <p className="text-xs" style={{ color: 'var(--danger)' }}>{okxBalance.demoError}</p>
               ) : okxBalance.demo !== null ? (
-                <p className="text-xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{formatNum4(okxBalance.demo)} USDT</p>
+                <p className="text-xl font-bold tabular-nums">{formatNum4(okxBalance.demo)} USDT</p>
               ) : (
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Загрузка…</p>
+                <p style={{ color: 'var(--text-muted)' }}>Загрузка…</p>
               )}
-              <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Тестовый счёт Bitget</p>
             </div>
           </div>
         )}
-      </div>
+      </Card>
 
-      <div className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--success)' }}>
+      <Card variant="success" padding="normal">
         <div className="flex items-center gap-3 mb-5">
           <span className="text-2xl">⭐</span>
           <div>
-            <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Подписка</h2>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Статус и продление ключом</p>
+            <h2 className="text-lg font-bold">Подписка</h2>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Статус и продление</p>
           </div>
         </div>
-        <div className="space-y-3 text-sm">
-          <div className="flex items-center gap-2 py-2 px-3 rounded-lg" style={miniCardStyle}>
-            <span
-              className={`w-2 h-2 rounded-full shrink-0 ${active ? 'bg-[var(--success)] animate-pulse' : 'bg-[var(--danger)]'}`}
-            />
-            <span style={{ color: active ? 'var(--success)' : 'var(--text-muted)' }}>
-              {active ? 'Подписка активна' : 'Требуется активация ключа'}
-            </span>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 py-3 px-4 rounded-xl" style={{ background: 'var(--bg-hover)' }}>
+            <span className={`w-3 h-3 rounded-full ${active ? 'animate-pulse' : ''}`} style={{ background: active ? 'var(--success)' : 'var(--danger)' }} />
+            <span style={{ color: active ? 'var(--success)' : 'var(--text-muted)' }}>{active ? 'Подписка активна' : 'Требуется активация'}</span>
           </div>
           {expiresAt && (
-            <div className="space-y-1 py-2 px-3 rounded-lg" style={miniCardStyle}>
-              <p style={{ color: 'var(--text-muted)' }}>
-                Действует до: <strong style={{ color: 'var(--text-primary)' }}>{formatDate(expiresAt)}</strong>
-              </p>
-              {days !== null && (
-                <p style={{ color: 'var(--accent)' }}>
-                  Осталось дней: <strong>{days}</strong>
-                </p>
-              )}
+            <div className="py-3 px-4 rounded-xl space-y-1" style={{ background: 'var(--bg-hover)' }}>
+              <p style={{ color: 'var(--text-muted)' }}>Действует до: <strong>{formatDate(expiresAt)}</strong></p>
+              {days !== null && <p style={{ color: 'var(--accent)' }}>Осталось дней: <strong>{days}</strong></p>}
             </div>
           )}
           {!expiresAt && (
-            <p className="py-2 px-3 rounded-lg text-sm" style={{ ...miniCardStyle, color: 'var(--text-muted)' }}>
-              Введите ключ ниже или приобретите у{' '}
-              <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
-                @clabx_bot
-              </a>
-              .
+            <p className="py-3 px-4 rounded-xl text-sm" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
+              Приобретите ключ у <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>@clabx_bot</a>
             </p>
           )}
-          <div className="pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
-            <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Добавить ключ (доступ плюсуется к текущему)</p>
-            <div className="flex flex-wrap gap-2 items-center">
+          <div className="pt-4 mt-4" style={{ borderTop: '1px solid var(--border)' }}>
+            <p className="text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>Добавить ключ</p>
+            <div className="flex gap-3">
               <input
                 value={activationKey}
                 onChange={(e) => { setActivationKey(e.target.value); setKeyError(''); setKeySuccess(''); }}
                 placeholder="Ключ активации"
-                className="input-field flex-1 min-w-[180px]"
-                autoComplete="off"
+                className="input-field flex-1"
                 disabled={keyLoading}
               />
-              <button
-                type="button"
-                onClick={onAddKey}
-                disabled={keyLoading || !token}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 shrink-0"
-                style={{ background: 'var(--accent)' }}
-              >
-                {keyLoading ? '…' : 'Добавить ключ'}
-              </button>
+              <Button variant="primary" onClick={onAddKey} loading={keyLoading} disabled={!token}>Добавить</Button>
             </div>
             {keyError && <p className="text-sm mt-2" style={{ color: 'var(--danger)' }}>{keyError}</p>}
             {keySuccess && <p className="text-sm mt-2" style={{ color: 'var(--success)' }}>{keySuccess}</p>}
           </div>
         </div>
-      </div>
+      </Card>
 
-      <div className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
+      <Card variant="accent" padding="normal">
         <div className="flex items-center gap-3 mb-5">
           <span className="text-2xl">📊</span>
           <div>
-            <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Статистика</h2>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Закрытые сделки в разделе «Авто»</p>
+            <h2 className="text-lg font-bold">Статистика</h2>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Закрытые сделки</p>
           </div>
         </div>
-        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-          Ордера, открытые ботом на Bitget, и закрытые в приложении или на бирже (данные обновляются автоматически).
-        </p>
         {!token ? (
-          <p className="text-sm py-4 rounded-lg text-center" style={{ ...miniCardStyle, color: 'var(--text-muted)' }}>Войдите в аккаунт для просмотра статистики.</p>
+          <p className="text-sm py-6 text-center rounded-xl" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>Войдите для просмотра</p>
         ) : stats ? (
-          <dl className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-lg p-3 text-center" style={miniCardStyle}>
-              <dt className="text-xs" style={{ color: 'var(--text-muted)' }}>Ордеров всего</dt>
-              <dd className="text-lg font-bold mt-0.5 tabular-nums" style={{ color: 'var(--text-primary)' }}>{Number(stats.orders?.total) || 0}</dd>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-4 rounded-xl text-center" style={{ background: 'var(--bg-hover)' }}>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Ордеров</p>
+              <p className="text-xl font-bold tabular-nums mt-1">{stats.orders?.total || 0}</p>
             </div>
-            <div className="rounded-lg p-3 text-center" style={miniCardStyle}>
-              <dt className="text-xs" style={{ color: 'var(--text-muted)' }}>Прибыльных / Убыточных</dt>
-              <dd className="text-lg font-bold mt-0.5 tabular-nums">
-                <span style={{ color: 'var(--success)' }}>{formatNum4Signed(Number(stats.orders?.wins) || 0)}</span>
+            <div className="p-4 rounded-xl text-center" style={{ background: 'var(--bg-hover)' }}>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>W / L</p>
+              <p className="text-xl font-bold tabular-nums mt-1">
+                <span style={{ color: 'var(--success)' }}>{stats.orders?.wins || 0}</span>
                 <span style={{ color: 'var(--text-muted)' }}> / </span>
-                <span style={{ color: 'var(--danger)' }}>-{formatNum4(Number(stats.orders?.losses) || 0)}</span>
-              </dd>
+                <span style={{ color: 'var(--danger)' }}>{stats.orders?.losses || 0}</span>
+              </p>
             </div>
-            <div className="rounded-lg p-3 text-center col-span-2" style={miniCardStyle}>
-              <dt className="text-xs" style={{ color: 'var(--text-muted)' }}>Объём (PnL)</dt>
-              <dd className={`text-xl font-bold mt-0.5 tabular-nums ${(Number(stats.volumeEarned) || 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+            <div className="p-4 rounded-xl text-center col-span-2" style={{ background: 'var(--bg-hover)' }}>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>PnL</p>
+              <p className={`text-2xl font-bold tabular-nums mt-1 ${Number(stats.volumeEarned) >= 0 ? 'text-gradient-success' : 'text-gradient-danger'}`}>
                 {formatNum4Signed(Number(stats.volumeEarned) || 0)} $
-              </dd>
+              </p>
             </div>
-            <p className="col-span-2 text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              Прибыльных, убыточных и объём — по закрытым сделкам. При 0 закрытых значения будут +0,0000 / -0,0000 и +0,0000 $.
-            </p>
-          </dl>
+          </div>
         ) : (
-          <p className="text-sm py-4 rounded-lg text-center" style={{ ...miniCardStyle, color: 'var(--text-muted)' }}>Загрузка…</p>
+          <p className="text-sm py-6 text-center rounded-xl" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>Загрузка…</p>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

@@ -39,6 +39,7 @@ interface MemoryOrderRow {
   auto_opened: number;
   confidence_at_open: number | null;
   created_at: string;
+  copy_provider_id: string | null;
 }
 
 function getSchemaPath(): string {
@@ -300,6 +301,156 @@ export function initDb(): any {
         CREATE INDEX IF NOT EXISTS idx_market_data_cache_updated ON market_data_cache(symbol, data_type, updated_at);
       `);
     } catch { /* migration: table may already exist */ }
+    
+    // User mode (auto_trading | copy_trading)
+    try {
+      db.prepare("ALTER TABLE users ADD COLUMN user_mode TEXT DEFAULT 'auto_trading'").run();
+    } catch { /* migration: column may already exist */ }
+    
+    // Orders: copy_provider_id for profit sharing
+    try {
+      db.prepare('ALTER TABLE orders ADD COLUMN copy_provider_id TEXT').run();
+    } catch { /* migration: column may already exist */ }
+    
+    // Copy subscriptions: profit_share_percent
+    try {
+      db.prepare('ALTER TABLE copy_subscriptions ADD COLUMN profit_share_percent REAL NOT NULL DEFAULT 10').run();
+    } catch { /* migration: column may already exist */ }
+    
+    // Copy subscription profit state table (high water mark)
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS copy_subscription_profit_state (
+          subscriber_id TEXT NOT NULL,
+          provider_id TEXT NOT NULL,
+          balance_after_last_distribution REAL NOT NULL DEFAULT 0,
+          last_distribution_at TEXT,
+          PRIMARY KEY (subscriber_id, provider_id)
+        );
+      `);
+    } catch { /* migration: table may already exist */ }
+    
+    // Copy trading balance (separate from main wallet)
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS copy_trading_balances (
+          user_id TEXT PRIMARY KEY,
+          balance_usdt REAL NOT NULL DEFAULT 0,
+          total_pnl REAL NOT NULL DEFAULT 0,
+          total_deposit REAL NOT NULL DEFAULT 0,
+          total_withdraw REAL NOT NULL DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
+    } catch { /* migration: table may already exist */ }
+    // Copy trading transactions (deposits, withdrawals, pnl)
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS copy_trading_transactions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT NOT NULL,
+          type TEXT NOT NULL CHECK(type IN ('deposit', 'withdraw', 'pnl_credit', 'pnl_debit', 'fee')),
+          amount_usdt REAL NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'processing', 'completed', 'rejected')),
+          tx_hash TEXT,
+          withdraw_address TEXT,
+          admin_note TEXT,
+          provider_id TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          processed_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_copy_trading_transactions_user ON copy_trading_transactions(user_id);
+        CREATE INDEX IF NOT EXISTS idx_copy_trading_transactions_status ON copy_trading_transactions(status);
+        CREATE INDEX IF NOT EXISTS idx_copy_trading_transactions_created ON copy_trading_transactions(created_at);
+      `);
+    } catch { /* migration: table may already exist */ }
+    try { db.exec(`ALTER TABLE copy_trading_transactions ADD COLUMN withdraw_address TEXT`); } catch { /* column exists */ }
+    // Copy trading providers (admin-managed)
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS copy_trading_providers (
+          user_id TEXT PRIMARY KEY,
+          display_name TEXT,
+          description TEXT,
+          enabled INTEGER NOT NULL DEFAULT 1,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          fake_pnl REAL DEFAULT 0,
+          fake_win_rate REAL DEFAULT 0,
+          fake_trades INTEGER DEFAULT 0,
+          fake_subscribers INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
+    } catch { /* migration: table may already exist */ }
+    // Migrations for existing tables - add fake stats columns
+    try { 
+      db.exec(`ALTER TABLE copy_trading_providers ADD COLUMN fake_pnl REAL DEFAULT 0`); 
+      logger.info('DB', 'Added fake_pnl column to copy_trading_providers');
+    } catch (e) { /* column exists */ }
+    try { 
+      db.exec(`ALTER TABLE copy_trading_providers ADD COLUMN fake_win_rate REAL DEFAULT 0`); 
+      logger.info('DB', 'Added fake_win_rate column to copy_trading_providers');
+    } catch (e) { /* column exists */ }
+    try { 
+      db.exec(`ALTER TABLE copy_trading_providers ADD COLUMN fake_trades INTEGER DEFAULT 0`); 
+      logger.info('DB', 'Added fake_trades column to copy_trading_providers');
+    } catch (e) { /* column exists */ }
+    try { 
+      db.exec(`ALTER TABLE copy_trading_providers ADD COLUMN fake_subscribers INTEGER DEFAULT 0`); 
+      logger.info('DB', 'Added fake_subscribers column to copy_trading_providers');
+    } catch (e) { /* column exists */ }
+    try {
+      db.exec(`ALTER TABLE copy_trading_providers ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))`);
+      logger.info('DB', 'Added updated_at column to copy_trading_providers');
+    } catch (e) { /* column exists */ }
+
+    // Log current table schema for debugging
+    try {
+      const cols = db.prepare("PRAGMA table_info(copy_trading_providers)").all();
+      logger.info('DB', 'copy_trading_providers columns', { columns: cols.map((c: any) => c.name) });
+    } catch (e) { /* ignore */ }
+    
+    // Deposit addresses for copy trading
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS deposit_addresses (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          network TEXT NOT NULL UNIQUE,
+          address TEXT NOT NULL,
+          min_deposit REAL NOT NULL DEFAULT 10,
+          confirmations INTEGER NOT NULL DEFAULT 12,
+          enabled INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
+      const count = db.prepare('SELECT COUNT(*) AS c FROM deposit_addresses').get() as { c: number };
+      if (count.c === 0) {
+        db.exec(`INSERT INTO deposit_addresses (network, address, min_deposit, confirmations) VALUES 
+          ('TRC20', 'TBWVx8a36ATZoH64TRiLLsLVMRXjtS7ZHX', 10, 20),
+          ('BEP20', '0x7f21fd37c99245b1c020d233530f49c9aee0af7f', 10, 12),
+          ('ERC20', '0x7f21fd37c99245b1c020d233530f49c9aee0af7f', 20, 12)`);
+        logger.info('DB', 'Inserted default deposit addresses');
+      }
+    } catch (e) { /* table exists */ }
+    
+    // News table for announcements
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS news (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          content TEXT NOT NULL,
+          author_id TEXT,
+          published INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
+    } catch (e) { /* table exists */ }
+    
     return db;
   } catch (err) {
     logger.error('DB', `SQLite init failed, falling back to in-memory store: ${(err as Error).message}`);
@@ -450,6 +601,7 @@ export interface OrderRow {
   auto_opened: number;
   confidence_at_open: number | null;
   created_at: string;
+  copy_provider_id: string | null;
 }
 
 export function insertOrder(order: {
@@ -466,6 +618,7 @@ export function insertOrder(order: {
   status?: 'open' | 'closed';
   autoOpened?: boolean;
   confidenceAtOpen?: number;
+  copyProviderId?: string;
 }): void {
   if (!initAttempted) initDb();
   if (useMemoryStore) {
@@ -487,7 +640,8 @@ export function insertOrder(order: {
       status: order.status ?? 'open',
       auto_opened: order.autoOpened ? 1 : 0,
       confidence_at_open: order.confidenceAtOpen ?? null,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      copy_provider_id: order.copyProviderId ?? null
     };
     const i = memoryOrders.findIndex((o) => o.id === order.id);
     if (i >= 0) memoryOrders[i] = row;
@@ -497,8 +651,8 @@ export function insertOrder(order: {
   const d = getDb();
   if (!d) return;
   const stmt = d.prepare(`
-    INSERT OR REPLACE INTO orders (id, client_id, pair, direction, size, leverage, open_price, close_price, stop_loss, take_profit, pnl, pnl_percent, open_time, close_time, status, auto_opened, confidence_at_open)
-    VALUES (@id, @clientId, @pair, @direction, @size, @leverage, @openPrice, @closePrice, @stopLoss, @takeProfit, @pnl, @pnlPercent, @openTime, @closeTime, @status, @autoOpened, @confidenceAtOpen)
+    INSERT OR REPLACE INTO orders (id, client_id, pair, direction, size, leverage, open_price, close_price, stop_loss, take_profit, pnl, pnl_percent, open_time, close_time, status, auto_opened, confidence_at_open, copy_provider_id)
+    VALUES (@id, @clientId, @pair, @direction, @size, @leverage, @openPrice, @closePrice, @stopLoss, @takeProfit, @pnl, @pnlPercent, @openTime, @closeTime, @status, @autoOpened, @confidenceAtOpen, @copyProviderId)
   `);
   stmt.run({
     id: order.id,
@@ -517,7 +671,8 @@ export function insertOrder(order: {
     closeTime: null,
     status: order.status ?? 'open',
     autoOpened: order.autoOpened ? 1 : 0,
-    confidenceAtOpen: order.confidenceAtOpen ?? null
+    confidenceAtOpen: order.confidenceAtOpen ?? null,
+    copyProviderId: order.copyProviderId ?? null
   });
 }
 
@@ -537,6 +692,7 @@ export function upsertOrderFromOkx(order: {
   closeTime?: string;
   status: 'open' | 'closed';
   autoOpened?: boolean;
+  copyProviderId?: string;
 }): void {
   if (!initAttempted) initDb();
   if (useMemoryStore) {
@@ -558,7 +714,8 @@ export function upsertOrderFromOkx(order: {
       status: order.status,
       auto_opened: order.autoOpened ? 1 : 0,
       confidence_at_open: null,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      copy_provider_id: order.copyProviderId ?? null
     };
     const i = memoryOrders.findIndex((o) => o.id === order.id);
     if (i >= 0) memoryOrders[i] = row;
@@ -568,8 +725,8 @@ export function upsertOrderFromOkx(order: {
   const d = getDb();
   if (!d) return;
   const stmt = d.prepare(`
-    INSERT OR REPLACE INTO orders (id, client_id, pair, direction, size, leverage, open_price, close_price, stop_loss, take_profit, pnl, pnl_percent, open_time, close_time, status, auto_opened, confidence_at_open)
-    VALUES (@id, @clientId, @pair, @direction, @size, @leverage, @openPrice, @closePrice, @stopLoss, @takeProfit, @pnl, @pnlPercent, @openTime, @closeTime, @status, @autoOpened, @confidenceAtOpen)
+    INSERT OR REPLACE INTO orders (id, client_id, pair, direction, size, leverage, open_price, close_price, stop_loss, take_profit, pnl, pnl_percent, open_time, close_time, status, auto_opened, confidence_at_open, copy_provider_id)
+    VALUES (@id, @clientId, @pair, @direction, @size, @leverage, @openPrice, @closePrice, @stopLoss, @takeProfit, @pnl, @pnlPercent, @openTime, @closeTime, @status, @autoOpened, @confidenceAtOpen, @copyProviderId)
   `);
   stmt.run({
     id: order.id,
@@ -588,7 +745,8 @@ export function upsertOrderFromOkx(order: {
     closeTime: order.closeTime ?? null,
     status: order.status,
     autoOpened: order.autoOpened ? 1 : 0,
-    confidenceAtOpen: null
+    confidenceAtOpen: null,
+    copyProviderId: order.copyProviderId ?? null
   });
 }
 
@@ -598,7 +756,7 @@ export function updateOrderClose(order: {
   pnl: number;
   pnlPercent: number;
   closeTime: string;
-}): void {
+}): OrderRow | null {
   if (!initAttempted) initDb();
   if (useMemoryStore) {
     const row = memoryOrders.find((o) => o.id === order.id);
@@ -608,11 +766,12 @@ export function updateOrderClose(order: {
       row.pnl_percent = order.pnlPercent;
       row.close_time = order.closeTime;
       row.status = 'closed';
+      return row as OrderRow;
     }
-    return;
+    return null;
   }
   const d = getDb();
-  if (!d) return;
+  if (!d) return null;
   const stmt = d.prepare(`
     UPDATE orders SET close_price = @closePrice, pnl = @pnl, pnl_percent = @pnlPercent, close_time = @closeTime, status = 'closed' WHERE id = @id
   `);
@@ -623,6 +782,8 @@ export function updateOrderClose(order: {
     pnlPercent: order.pnlPercent,
     closeTime: order.closeTime
   });
+  const updated = d.prepare('SELECT * FROM orders WHERE id = ?').get(order.id) as OrderRow | undefined;
+  return updated ?? null;
 }
 
 /** Проверка: есть ли уже ордер с данным exchange ordId (id форматов okx-{ordId}-... или bitget-{ordId}-...) */

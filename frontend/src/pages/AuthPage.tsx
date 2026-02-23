@@ -38,24 +38,14 @@ const TERMS_TEXT = `
 ПРАВИЛА ИСПОЛЬЗОВАНИЯ И ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ
 
 1. ОБЩИЕ ПОЛОЖЕНИЯ
-CLABX 🚀 Crypto Trading Soft — программный продукт для анализа рынков и информационной поддержки решений. Использование приложения означает принятие настоящих правил.
+CLABX — программный продукт для анализа рынков и информационной поддержки решений. Использование приложения означает принятие настоящих правил.
 
 2. ОТСУТСТВИЕ ОТВЕТСТВЕННОСТИ
-• Администрация и разработчики НЕ НЕСУТ ОТВЕТСТВЕННОСТИ за любые финансовые потери, убытки или упущенную выгоду пользователей.
-• Все торговые и инвестиционные решения пользователь принимает самостоятельно и на свой риск.
-• Результаты анализа, сигналы и рекомендации носят исключительно информационный характер и не являются финансовой консультацией или призывом к действию.
-• Пользователь самостоятельно отвечает за сохранность своих учётных данных, API-ключей и средств на биржевых счётах.
+• Администрация НЕ НЕСУТ ОТВЕТСТВЕННОСТИ за любые финансовые потери.
+• Все торговые решения пользователь принимает самостоятельно.
 
 3. РИСКИ
-• Торговля криптовалютами и использование автоматизированных решений сопряжены с высокими рисками. Возможна полная потеря вложенных средств.
-• Пользователь подтверждает, что осознаёт риски и использует приложение по собственной воле.
-
-4. КОНФИДЕНЦИАЛЬНОСТЬ
-• Мы храним только необходимые данные для работы сервиса (логин, хэш пароля, настройки доступа).
-• API-ключи и персональные данные бирж пользователь вводит на свой риск; рекомендуем не передавать ключи с правами вывода средств.
-
-5. ИЗМЕНЕНИЕ ПРАВИЛ
-Администрация вправе изменять правила. Продолжение использования приложения после изменений означает согласие с новой редакцией.
+• Торговля криптовалютами сопряжена с высокими рисками.
 `;
 
 export default function AuthPage() {
@@ -72,7 +62,6 @@ export default function AuthPage() {
   const [resetSuccess, setResetSuccess] = useState(false);
   const [displayStats, setDisplayStats] = useState<DisplayStats | null>(null);
 
-  // Демо-статистика с сервера (растёт автоматически от даты запуска, не зависит от визитов)
   useEffect(() => {
     api.get<{ displayEnabled?: boolean; display?: DisplayStats }>('/stats')
       .then((data) => {
@@ -96,386 +85,201 @@ export default function AuthPage() {
     e.preventDefault();
     setError('');
     if (urlMode.mode === 'register-telegram') {
-      if (!agreedToTerms) {
-        setError('Необходимо ознакомиться с правилами и поставить галочку согласия');
-        return;
-      }
-      if (password !== confirmPassword) {
-        setError('Пароли не совпадают');
-        return;
-      }
-      if (password.length < 4) {
-        setError('Пароль от 4 символов');
-        return;
-      }
-      if (username.trim().length < 2) {
-        setError('Логин от 2 символов');
-        return;
-      }
-      if (!urlMode.registerToken) {
-        setError('Ссылка недействительна. Получите новую в боте @clabx_bot.');
-        return;
-      }
+      if (!agreedToTerms) { setError('Необходимо согласиться с правилами'); return; }
+      if (password !== confirmPassword) { setError('Пароли не совпадают'); return; }
+      if (password.length < 4) { setError('Пароль от 4 символов'); return; }
+      if (username.trim().length < 2) { setError('Логин от 2 символов'); return; }
+      if (!urlMode.registerToken) { setError('Ссылка недействительна'); return; }
       setLoading(true);
       try {
         const result = await registerByTelegram(urlMode.registerToken, username.trim(), password);
         if (result.ok) {
-          try {
-            localStorage.setItem(USERNAME_KEY, username.trim());
-            window.history.replaceState({}, '', '/');
-          } catch {}
-        } else {
-          setError(result.error || 'Ошибка');
-        }
-      } finally {
-        setLoading(false);
-      }
+          try { localStorage.setItem(USERNAME_KEY, username.trim()); window.history.replaceState({}, '', '/'); } catch {}
+        } else { setError(result.error || 'Ошибка'); }
+      } finally { setLoading(false); }
       return;
     }
     if (urlMode.mode === 'reset-password') {
-      if (password.length < 4) {
-        setError('Пароль от 4 символов');
-        return;
-      }
-      if (password !== confirmPassword) {
-        setError('Пароли не совпадают');
-        return;
-      }
-      if (!urlMode.resetToken) {
-        setError('Ссылка недействительна. Получите новую в боте @clabx_bot.');
-        return;
-      }
+      if (password.length < 4) { setError('Пароль от 4 символов'); return; }
+      if (password !== confirmPassword) { setError('Пароли не совпадают'); return; }
+      if (!urlMode.resetToken) { setError('Ссылка недействительна'); return; }
       setLoading(true);
       try {
         const result = await resetPassword(urlMode.resetToken, password);
-        if (result.ok) {
-          setResetSuccess(true);
-          setPassword('');
-          setConfirmPassword('');
-          window.history.replaceState({}, '', '/');
-        } else {
-          setError(result.error || 'Ошибка');
-        }
-      } finally {
-        setLoading(false);
-      }
+        if (result.ok) { setResetSuccess(true); setPassword(''); setConfirmPassword(''); window.history.replaceState({}, '', '/'); }
+        else { setError(result.error || 'Ошибка'); }
+      } finally { setLoading(false); }
       return;
     }
     if (tab === 'register') {
-      if (!agreedToTerms) {
-        setError('Необходимо ознакомиться с правилами и поставить галочку согласия');
-        return;
-      }
-      if (password !== confirmPassword) {
-        setError('Пароли не совпадают');
-        return;
-      }
-      if (password.length < 4) {
-        setError('Пароль от 4 символов');
-        return;
-      }
-      if (username.trim().length < 2) {
-        setError('Логин от 2 символов');
-        return;
-      }
+      if (!agreedToTerms) { setError('Необходимо согласиться с правилами'); return; }
+      if (password !== confirmPassword) { setError('Пароли не совпадают'); return; }
+      if (password.length < 4) { setError('Пароль от 4 символов'); return; }
+      if (username.trim().length < 2) { setError('Логин от 2 символов'); return; }
     }
     setLoading(true);
     try {
-      const result = tab === 'login'
-        ? await login(username, password)
-        : await register(username, password);
-      if (result.ok) {
-        try {
-          localStorage.setItem(USERNAME_KEY, username.trim());
-        } catch {}
-      } else {
-        setError(result.error || 'Ошибка');
-      }
-    } finally {
-      setLoading(false);
-    }
+      const result = tab === 'login' ? await login(username, password) : await register(username, password);
+      if (result.ok) { try { localStorage.setItem(USERNAME_KEY, username.trim()); } catch {} }
+      else { setError(result.error || 'Ошибка'); }
+    } finally { setLoading(false); }
   };
 
-  // Регистрация по ссылке из Telegram-бота
-  if (urlMode.mode === 'register-telegram') {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--bg-base)' }}>
-        <div className="w-full max-w-sm rounded-lg border p-8" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Регистрация через Telegram</h2>
-          <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Аккаунт будет привязан к вашему Telegram. Синхронизация с покупкой ключей.</p>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Логин</label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Логин (от 2 символов)"
-                className="input-field w-full"
-                autoComplete="username"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Пароль</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Пароль (от 4 символов)"
-                className="input-field w-full"
-                autoComplete="new-password"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Повторите пароль</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Повторите пароль"
-                className="input-field w-full"
-                autoComplete="new-password"
-              />
-            </div>
-            <div className="flex items-start gap-2">
-              <input
-                type="checkbox"
-                id="terms-tg"
-                checked={agreedToTerms}
-                onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="rounded mt-1 accent-[var(--accent)]"
-              />
-              <label htmlFor="terms-tg" className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                Я ознакомлен(а) с{' '}
-                <button type="button" onClick={() => setShowTerms(true)} className="underline hover:no-underline" style={{ color: 'var(--accent)' }}>
-                  правилами и политикой конфиденциальности
-                </button>
-                , соглашаюсь с условиями.
-              </label>
-            </div>
-            {error && <p className="text-sm" style={{ color: 'var(--danger)' }}>{error}</p>}
-            <button
-              type="submit"
-              disabled={loading || !agreedToTerms}
-              className="w-full py-2.5 rounded-lg font-medium text-white disabled:opacity-50"
-              style={{ background: 'var(--accent)' }}
-            >
-              {loading ? '…' : 'Зарегистрироваться'}
-            </button>
-          </form>
-          <p className="text-xs mt-4 text-center" style={{ color: 'var(--text-muted)' }}>
-            Ссылку выдал бот <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>@clabx_bot</a>
-          </p>
+  const containerStyle: React.CSSProperties = {
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '24px',
+    background: 'var(--bg-base)',
+    position: 'relative',
+    overflow: 'hidden',
+  };
+
+  const gradientOrbStyle = (delay: number): React.CSSProperties => ({
+    position: 'absolute',
+    width: '500px',
+    height: '500px',
+    borderRadius: '50%',
+    filter: 'blur(100px)',
+    opacity: 0.3,
+    animation: `float ${6 + delay}s ease-in-out infinite`,
+    animationDelay: `${delay}s`,
+  });
+
+  const glassCardStyle: React.CSSProperties = {
+    background: 'rgba(18, 18, 28, 0.7)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-2xl)',
+    boxShadow: 'var(--shadow-xl)',
+  };
+
+  const authCard = (title: string, subtitle: string, children: React.ReactNode) => (
+    <div style={containerStyle}>
+      <div style={{ ...gradientOrbStyle(0), background: 'var(--accent)', top: '-200px', left: '-200px' }} />
+      <div style={{ ...gradientOrbStyle(2), background: 'var(--success)', bottom: '-200px', right: '-200px' }} />
+      <div style={{ ...gradientOrbStyle(4), background: 'var(--info)', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '300px', height: '300px' }} />
+      
+      <div className="animate-fade-in-up" style={{ ...glassCardStyle, padding: '32px', width: '100%', maxWidth: '400px', position: 'relative', zIndex: 1 }}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '8px' }}>
+            <img src="/logo.svg" alt="CLABX" style={{ width: '40px', height: '40px' }} />
+            <span className="text-gradient" style={{ fontSize: '24px', fontWeight: 700 }}>CLABX</span>
+          </div>
+          <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>{title}</h2>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{subtitle}</p>
         </div>
-        {showTerms && (
-          <>
-            <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setShowTerms(false)} />
-            <div className="fixed inset-4 md:inset-10 z-50 rounded-lg border overflow-hidden flex flex-col" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-              <div className="p-4 border-b flex justify-between items-center shrink-0" style={{ borderColor: 'var(--border)' }}>
-                <h3 className="text-lg font-semibold">Правила и конфиденциальность</h3>
-                <button type="button" onClick={() => setShowTerms(false)} className="px-3 py-1.5 rounded-lg text-sm" style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}>Закрыть</button>
-              </div>
-              <div className="flex-1 overflow-auto p-6 text-sm whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>{TERMS_TEXT}</div>
-            </div>
-          </>
-        )}
+        {children}
       </div>
+    </div>
+  );
+
+  if (urlMode.mode === 'register-telegram') {
+    return authCard('Регистрация', 'Аккаунт будет привязан к Telegram',
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input label="Логин" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="От 2 символов" autoComplete="username" />
+        <Input label="Пароль" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="От 4 символов" autoComplete="new-password" />
+        <Input label="Повторите пароль" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Повторите пароль" autoComplete="new-password" />
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+          <input type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} style={{ marginTop: '3px', accentColor: 'var(--accent)' }} />
+          <span>Я согласен с <button type="button" onClick={() => setShowTerms(true)} style={{ color: 'var(--accent)' }}>правилами</button></span>
+        </label>
+        {error && <p style={{ color: 'var(--danger)', fontSize: '13px' }}>{error}</p>}
+        <Button type="submit" variant="primary" fullWidth loading={loading}>Зарегистрироваться</Button>
+      </form>
     );
   }
 
-  // Сброс пароля по ссылке из бота
   if (urlMode.mode === 'reset-password') {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--bg-base)' }}>
-        <div className="w-full max-w-sm rounded-lg border p-8" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}>
-          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Новый пароль</h2>
-          <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Задайте новый пароль для входа на clabx.ru</p>
-          {resetSuccess ? (
-            <p className="text-sm mb-4" style={{ color: 'var(--success)' }}>Пароль изменён. Войдите с новым паролем.</p>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Новый пароль</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Пароль (от 4 символов)"
-                  className="input-field w-full"
-                  autoComplete="new-password"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Повторите пароль</label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Повторите пароль"
-                  className="input-field w-full"
-                  autoComplete="new-password"
-                />
-              </div>
-              {error && <p className="text-sm" style={{ color: 'var(--danger)' }}>{error}</p>}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 rounded-lg font-medium text-white disabled:opacity-50"
-                style={{ background: 'var(--accent)' }}
-              >
-                {loading ? '…' : 'Сохранить пароль'}
-              </button>
-            </form>
-          )}
-          <p className="text-xs mt-4 text-center" style={{ color: 'var(--text-muted)' }}>
-            <a href="/" style={{ color: 'var(--accent)' }}>Войти</a> · Ссылку выдал <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>@clabx_bot</a>
-          </p>
-        </div>
-      </div>
+    return authCard('Новый пароль', resetSuccess ? 'Пароль изменён' : 'Задайте новый пароль',
+      resetSuccess ? (
+        <Button variant="primary" fullWidth onClick={() => window.location.reload()}>Войти</Button>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input label="Новый пароль" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="От 4 символов" autoComplete="new-password" />
+          <Input label="Повторите пароль" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Повторите пароль" autoComplete="new-password" />
+          {error && <p style={{ color: 'var(--danger)', fontSize: '13px' }}>{error}</p>}
+          <Button type="submit" variant="primary" fullWidth loading={loading}>Сохранить</Button>
+        </form>
+      )
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--bg-base)' }}>
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <img src="/logo.svg" alt="CLABX" className="h-10 w-10 mb-3" />
-          <h1 className="text-xl font-bold tracking-tight">CLABX</h1>
-          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Crypto Trading Platform</p>
+    <div style={containerStyle}>
+      <div style={{ ...gradientOrbStyle(0), background: 'var(--accent)', top: '-200px', left: '-200px' }} />
+      <div style={{ ...gradientOrbStyle(2), background: 'var(--success)', bottom: '-200px', right: '-200px' }} />
+      
+      <div className="animate-fade-in-up" style={{ width: '100%', maxWidth: '420px', position: 'relative', zIndex: 1 }}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '8px' }}>
+            <img src="/logo.svg" alt="CLABX" style={{ width: '48px', height: '48px' }} />
+            <span className="text-gradient" style={{ fontSize: '28px', fontWeight: 700 }}>CLABX</span>
+          </div>
+          <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Crypto Trading Platform</p>
         </div>
 
-      <Card variant="glass" padding="normal" className="animate-slide-up">
-        <div className="mb-6">
-          <Tabs
-            tabs={[
-              { id: 'login', label: 'Вход' },
-              { id: 'register', label: 'Регистрация' },
-            ]}
-            active={tab}
-            onChange={(id) => { setTab(id as Tab); setError(''); }}
-            size="sm"
-          />
-        </div>
-        {/* Статистика платформы для новых пользователей (с сервера, растёт автоматически) */}
         {displayStats && (
-          <div className="mb-6 rounded-lg p-4 border" style={{ background: 'var(--bg-hover)', borderColor: 'var(--border)' }}>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>Платформа в цифрах</p>
-            <div className="grid grid-cols-2 gap-3 text-sm">
+          <div style={{ ...glassCardStyle, padding: '16px', marginBottom: '20px' }}>
+            <div className="grid grid-cols-4 gap-3 text-center">
               <div>
-                <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Заработано (все)</p>
-                <p className="font-bold tabular-nums" style={{ color: 'var(--success)' }}>{formatNum4Signed(displayStats.volumeEarned)} $</p>
+                <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '2px' }}>PnL</p>
+                <p className="text-gradient-success" style={{ fontSize: '14px', fontWeight: 700 }}>{formatNum4Signed(displayStats.volumeEarned)}$</p>
               </div>
               <div>
-                <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Ордеров</p>
-                <p className="font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{displayStats.ordersTotal}</p>
+                <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '2px' }}>Win</p>
+                <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--accent)' }}>{formatNum4(displayStats.ordersWinRate)}%</p>
               </div>
               <div>
-                <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Win rate</p>
-                <p className="font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{formatNum4(displayStats.ordersWinRate)}%</p>
+                <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '2px' }}>Ордера</p>
+                <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>{displayStats.ordersTotal}</p>
               </div>
               <div>
-                <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Пользователей</p>
-                <p className="font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{displayStats.usersCount} <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>· онлайн {displayStats.onlineUsersCount}</span></p>
+                <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '2px' }}>Юзеров</p>
+                <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>{displayStats.usersCount}</p>
               </div>
             </div>
           </div>
         )}
-        {tab === 'login' ? (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Логин</label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Логин"
-                className="input-field w-full"
-                autoComplete="username"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Пароль</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Пароль"
-                className="input-field w-full"
-                autoComplete="current-password"
-              />
-              <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
-                <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" className="underline hover:no-underline" style={{ color: 'var(--accent)' }}>
-                  Забыли пароль?
-                </a>{' '}
-                Восстановление через Telegram-бот @clabx_bot.
-              </p>
-            </div>
-            {error && (
-              <p className="text-sm" style={{ color: 'var(--danger)' }}>{error}</p>
-            )}
-            <Button type="submit" variant="primary" fullWidth loading={loading}>
-              Войти
-            </Button>
-          </form>
-        ) : (
-          <div className="space-y-4">
-            <div className="rounded-lg p-5 border" style={{ background: 'var(--bg-hover)', borderColor: 'var(--border)' }}>
-              <p className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                Регистрация только через Telegram-бота
-              </p>
-              <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-                Чтобы создать аккаунт на clabx.ru, откройте бота @clabx_bot в Telegram. В боте нажмите «Зарегистрироваться на сайте», введите желаемый логин — бот пришлёт ссылку. По ссылке задайте пароль и примите правила. Аккаунт будет привязан к вашему Telegram (синхронизация с покупкой ключей).
-              </p>
-              <a
-                href="https://t.me/clabx_bot"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 w-full py-3 rounded-lg font-medium text-white"
-                style={{ background: 'var(--accent)' }}
-              >
-                Перейти в бот @clabx_bot
+
+        <div style={{ ...glassCardStyle, padding: '24px' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <Tabs tabs={[{ id: 'login', label: 'Вход' }, { id: 'register', label: 'Регистрация' }]} active={tab} onChange={(id) => { setTab(id as Tab); setError(''); }} size="sm" />
+          </div>
+
+          {tab === 'login' ? (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <Input label="Логин" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Введите логин" autoComplete="username" />
+              <Input label="Пароль" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Введите пароль" autoComplete="current-password" />
+              <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: 'var(--accent)' }}>Забыли пароль? Восстановить через бота</a>
+              {error && <p style={{ color: 'var(--danger)', fontSize: '13px' }}>{error}</p>}
+              <Button type="submit" variant="primary" fullWidth loading={loading} size="lg">Войти</Button>
+            </form>
+          ) : (
+            <div style={{ background: 'var(--bg-hover)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
+              <p style={{ fontSize: '15px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-primary)' }}>Регистрация через Telegram</p>
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>Откройте бота @clabx_bot и нажмите «Зарегистрироваться»</p>
+              <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" style={{ display: 'block' }}>
+                <Button variant="primary" fullWidth size="lg">Открыть бота @clabx_bot</Button>
               </a>
             </div>
-            <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
-              Восстановление пароля — тоже через бота @clabx_bot.
-            </p>
-          </div>
-        )}
-        {tab === 'login' && (
-          <p className="text-xs mt-4 text-center" style={{ color: 'var(--text-muted)' }}>
-            Данные для входа сохраняются (логин).
-          </p>
-        )}
-      </Card>
+          )}
+        </div>
       </div>
 
       {showTerms && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-black/60"
-            onClick={() => setShowTerms(false)}
-          />
-          <div
-            className="fixed inset-4 md:inset-10 z-50 rounded-lg border overflow-hidden flex flex-col"
-            style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}
-          >
-            <div className="p-4 border-b flex justify-between items-center shrink-0" style={{ borderColor: 'var(--border)' }}>
-              <h3 className="text-lg font-semibold">Правила и конфиденциальность</h3>
-              <button
-                type="button"
-                onClick={() => setShowTerms(false)}
-                className="px-3 py-1.5 rounded-lg text-sm"
-                style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
-              >
-                Закрыть
-              </button>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }} onClick={() => setShowTerms(false)} />
+          <div style={{ ...glassCardStyle, maxWidth: '600px', width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1 }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 600 }}>Правила и конфиденциальность</h3>
+              <button onClick={() => setShowTerms(false)} style={{ padding: '8px', color: 'var(--text-muted)' }}>✕</button>
             </div>
-            <div className="flex-1 overflow-auto p-6 text-sm whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
-              {TERMS_TEXT}
-            </div>
+            <div style={{ padding: '20px', overflow: 'auto', whiteSpace: 'pre-wrap', fontSize: '13px', color: 'var(--text-secondary)' }}>{TERMS_TEXT}</div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

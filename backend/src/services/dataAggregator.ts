@@ -67,6 +67,12 @@ export class DataAggregator {
     return /timed out|timeout|ETIMEDOUT/i.test(msg);
   }
 
+  /** 403 NOT_AUTHORIZED (plan) или 429 rate limit — fallback на Bitget */
+  private isMassivePlanLimitOrRateLimit(err: unknown): boolean {
+    const msg = err instanceof Error ? err.message : String(err);
+    return /Massive API (403|429)|NOT_AUTHORIZED|exceeded the maximum requests/i.test(msg);
+  }
+
   getExchangeIds(): string[] {
     return ['bitget'];
   }
@@ -111,52 +117,63 @@ export class DataAggregator {
     if (promise) return promise;
 
     promise = (async (): Promise<OHLCVCandle[]> => {
+      let useBitget = !config.useMassiveForMarketData;
       if (config.useMassiveForMarketData) {
-        const ticker = toMassiveTicker(symbol);
-        const toMs = Date.now();
-        const tfMs = this.timeframeToMs(timeframe);
-        const fromMs = toMs - limit * tfMs;
-        const data = await getAggs(ticker, timeframe, fromMs, toMs, limit);
-        if (data?.length) {
-          const candles = data.slice(-limit);
-          this.ohlcvCache.set(cacheKey, candles);
-          setMarketDataCache(symbol, dataType, candles);
-          return candles;
-        }
-        return this.getMockCandles(symbol, timeframe, limit);
-      }
-      const ccxtSymbol = this.toCcxtSymbol(symbol);
-      for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          await bitgetRateLimitAcquire();
-          const data = await this.exchange.fetchOHLCV(ccxtSymbol, timeframe, undefined, limit);
+          const ticker = toMassiveTicker(symbol);
+          const toMs = Date.now();
+          const tfMs = this.timeframeToMs(timeframe);
+          const fromMs = toMs - limit * tfMs;
+          const data = await getAggs(ticker, timeframe, fromMs, toMs, limit);
           if (data?.length) {
-            const candles = data.map((row) => ({
-              timestamp: Number(row[0]),
-              open: Number(row[1]),
-              high: Number(row[2]),
-              low: Number(row[3]),
-              close: Number(row[4]),
-              volume: Number(row[5] ?? 0)
-            }));
+            const candles = data.slice(-limit);
             this.ohlcvCache.set(cacheKey, candles);
             setMarketDataCache(symbol, dataType, candles);
             return candles;
           }
         } catch (e) {
-          const msg = (e as Error).message;
-          if (!msg?.includes('does not have market symbol')) {
-            logger.warn('DataAggregator', 'OHLCV fetch failed', { symbol, attempt: attempt + 1, error: msg });
+          if (this.isMassivePlanLimitOrRateLimit(e)) {
+            useBitget = true;
           } else {
-            logger.debug('DataAggregator', 'Symbol not on Bitget', { symbol });
-          }
-          if (this.isTimeout(e) && attempt === 0) {
-            this.exchange = this.createExchange();
-            await new Promise((r) => setTimeout(r, 1500));
-            continue;
+            return this.getMockCandles(symbol, timeframe, limit);
           }
         }
-        break;
+      }
+      if (useBitget) {
+        const ccxtSymbol = this.toCcxtSymbol(symbol);
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            await bitgetRateLimitAcquire();
+            const data = await this.exchange.fetchOHLCV(ccxtSymbol, timeframe, undefined, limit);
+            if (data?.length) {
+              const candles = data.map((row) => ({
+                timestamp: Number(row[0]),
+                open: Number(row[1]),
+                high: Number(row[2]),
+                low: Number(row[3]),
+                close: Number(row[4]),
+                volume: Number(row[5] ?? 0)
+              }));
+              this.ohlcvCache.set(cacheKey, candles);
+              setMarketDataCache(symbol, dataType, candles);
+              return candles;
+            }
+          } catch (e) {
+            const msg = (e as Error).message;
+            if (!msg?.includes('does not have market symbol')) {
+              logger.warn('DataAggregator', 'OHLCV fetch failed', { symbol, attempt: attempt + 1, error: msg });
+            } else {
+              logger.debug('DataAggregator', 'Symbol not on Bitget', { symbol });
+            }
+            if (this.isTimeout(e) && attempt === 0) {
+              this.exchange = this.createExchange();
+              await new Promise((r) => setTimeout(r, 1500));
+              continue;
+            }
+          }
+          break;
+        }
+        return this.getMockCandles(symbol, timeframe, limit);
       }
       return this.getMockCandles(symbol, timeframe, limit);
     })();
@@ -213,33 +230,12 @@ export class DataAggregator {
     if (promise) return promise;
 
     promise = (async (): Promise<{ bids: [number, number][]; asks: [number, number][] }> => {
+      let useBitgetOb = !config.useMassiveForMarketData;
       if (config.useMassiveForMarketData) {
-        const ticker = toMassiveTicker(symbol);
-        const ob = await getOrderBookFromSnapshot(ticker);
-        const bookLimit = Math.min(limit, config.limits.orderBook);
-        const bids = (ob.bids || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
-        const asks = (ob.asks || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
-        const result = { bids, asks };
-        this.obCache.set(obCacheKey, result);
-        setMarketDataCache(symbol, dataType, result);
         try {
-          const density = computeDensity(result);
-          setMarketDataCache(symbol, 'density', {
-            spreadPct: density.spreadPct,
-            midPrice: density.midPrice,
-            depthBidUsd: density.depthBidUsd,
-            depthAskUsd: density.depthAskUsd,
-            imbalance: density.imbalance
-          });
-        } catch (_) { /* ignore */ }
-        return result;
-      }
-      const ccxtSymbol = this.toCcxtSymbol(symbol);
-      const bookLimit = Math.min(limit, config.limits.orderBook);
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          await bitgetRateLimitAcquire();
-          const ob = await this.exchange.fetchOrderBook(ccxtSymbol, bookLimit);
+          const ticker = toMassiveTicker(symbol);
+          const ob = await getOrderBookFromSnapshot(ticker);
+          const bookLimit = Math.min(limit, config.limits.orderBook);
           const bids = (ob.bids || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
           const asks = (ob.asks || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
           const result = { bids, asks };
@@ -254,17 +250,47 @@ export class DataAggregator {
               depthAskUsd: density.depthAskUsd,
               imbalance: density.imbalance
             });
-          } catch (_) { /* ignore density save errors */ }
+          } catch (_) { /* ignore */ }
           return result;
         } catch (e) {
-          logger.warn('DataAggregator', 'OrderBook fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
-          if (this.isTimeout(e) && attempt === 0) {
-            this.exchange = this.createExchange();
-            await new Promise((r) => setTimeout(r, 1500));
-            continue;
-          }
-          return this.getMockOrderBook(symbol, limit);
+          if (this.isMassivePlanLimitOrRateLimit(e)) useBitgetOb = true;
+          else return this.getMockOrderBook(symbol, limit);
         }
+      }
+      if (useBitgetOb) {
+        const ccxtSymbol = this.toCcxtSymbol(symbol);
+        const bookLimit = Math.min(limit, config.limits.orderBook);
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            await bitgetRateLimitAcquire();
+            const ob = await this.exchange.fetchOrderBook(ccxtSymbol, bookLimit);
+            const bids = (ob.bids || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
+            const asks = (ob.asks || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
+            const result = { bids, asks };
+            this.obCache.set(obCacheKey, result);
+            setMarketDataCache(symbol, dataType, result);
+            try {
+              const density = computeDensity(result);
+              setMarketDataCache(symbol, 'density', {
+                spreadPct: density.spreadPct,
+                midPrice: density.midPrice,
+                depthBidUsd: density.depthBidUsd,
+                depthAskUsd: density.depthAskUsd,
+                imbalance: density.imbalance
+              });
+            } catch (_) { /* ignore density save errors */ }
+            return result;
+          } catch (e) {
+            logger.warn('DataAggregator', 'OrderBook fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
+            if (this.isTimeout(e) && attempt === 0) {
+              this.exchange = this.createExchange();
+              await new Promise((r) => setTimeout(r, 1500));
+              continue;
+            }
+            return this.getMockOrderBook(symbol, limit);
+          }
+        }
+        return this.getMockOrderBook(symbol, limit);
       }
       return this.getMockOrderBook(symbol, limit);
     })();
@@ -281,13 +307,20 @@ export class DataAggregator {
     if (cachedPrice) return cachedPrice;
 
     if (config.useMassiveForMarketData) {
-      const snap = await getCryptoSnapshotTicker(toMassiveTicker(symbol));
-      const p = snap?.lastTrade?.p ?? snap?.min?.c;
-      if (typeof p === 'number' && p > 0) {
-        this.priceCache.set(symbol, p);
-        return p;
+      try {
+        const snap = await getCryptoSnapshotTicker(toMassiveTicker(symbol));
+        const p = snap?.lastTrade?.p ?? snap?.min?.c;
+        if (typeof p === 'number' && p > 0) {
+          this.priceCache.set(symbol, p);
+          return p;
+        }
+        return this.getSymbolBasePrice(symbol);
+      } catch (e) {
+        if (!this.isMassivePlanLimitOrRateLimit(e)) {
+          return this.getSymbolBasePrice(symbol);
+        }
+        // fall through to Bitget path below
       }
-      return this.getSymbolBasePrice(symbol);
     }
 
     const fromTicker = getTickerFromStream(symbol, 5_000);

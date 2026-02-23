@@ -46,9 +46,10 @@ router.post('/subscribe', (req: Request, res: Response) => {
     return;
   }
   const sizePercent = Math.max(5, Math.min(100, Number(req.body?.sizePercent ?? req.body?.size_percent) || 25));
+  const profitSharePercent = Math.max(0, Math.min(100, Number(req.body?.profitSharePercent ?? req.body?.profit_share_percent) || 10));
   try {
-    addSubscription(providerId.trim(), subscriberId, sizePercent);
-    res.json({ ok: true, providerId: providerId.trim(), sizePercent });
+    addSubscription(providerId.trim(), subscriberId, sizePercent, profitSharePercent);
+    res.json({ ok: true, providerId: providerId.trim(), sizePercent, profitSharePercent });
   } catch (e) {
     logger.error('CopyTrading', 'subscribe error', { error: (e as Error).message });
     res.status(500).json({ error: (e as Error).message });
@@ -90,6 +91,7 @@ router.get('/subscriptions', (req: Request, res: Response) => {
         providerId: s.provider_id,
         username: p?.username ?? s.provider_id,
         sizePercent: s.size_percent,
+        profitSharePercent: s.profit_share_percent ?? 10,
         createdAt: s.created_at
       };
     });

@@ -7,3 +7,4 @@ backend/.env
 release/
 data/
 .claude/
+nul

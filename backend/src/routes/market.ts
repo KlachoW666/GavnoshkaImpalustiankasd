@@ -21,7 +21,8 @@ import {
   detectConsolidation
 } from '../services/marketAnalysis';
 import { config } from '../config';
-import { normalizeSymbol } from '../lib/symbol';
+import { normalizeSymbol, toMassiveStocksTicker } from '../lib/symbol';
+import { getStocksSnapshotTicker, getStocksAggs, getOptionChainSnapshot, getOptionsContracts } from '../services/massiveClient';
 import { logger } from '../lib/logger';
 import { VOLUME_BREAKOUT_MULTIPLIER, volatilitySizeMultiplier, isPotentialFalseBreakout } from '../lib/tradingPrinciples';
 import { buildVolumeProfile } from '../services/clusterAnalyzer';
@@ -33,6 +34,7 @@ import { getExternalAiConfig, hasAnyApiKey as externalAiHasKey, evaluateSignal a
 import { FundingRateMonitor } from '../services/fundingRateMonitor';
 import { calcLiquidationPrice, calcLiquidationPriceSimple } from '../lib/liquidationPrice';
 import { executeSignal, type DensityOptions } from '../services/autoTrader';
+import { ADMIN_POOL_CLIENT_ID } from '../services/copyTradingProfitShareService';
 import { subscribeSymbols } from '../services/bitgetOrderBookStream';
 import { subscribeMarketSymbols } from '../services/bitgetMarketStream';
 import { initDb, insertOrder, getSetting, setSetting } from '../db';
@@ -126,6 +128,96 @@ router.get('/candles/:symbol', async (req, res) => {
 
 router.get('/exchanges', (_req, res) => {
   res.json(aggregator.getExchangeIds());
+});
+
+/** Источник рыночных данных для графика: Massive.com или Bitget (fallback) */
+router.get('/data-source', (_req, res) => {
+  res.json({ source: config.useMassiveForMarketData ? 'massive' : 'bitget' });
+});
+
+// --- Massive Stocks (https://massive.com/stocks) ---
+
+/** GET /api/market/stocks/snapshot/:ticker — снапшот одного тикера акций (Massive) */
+router.get('/stocks/snapshot/:ticker', async (req, res) => {
+  try {
+    const ticker = toMassiveStocksTicker(decodeURIComponent(req.params.ticker || 'AAPL')) || 'AAPL';
+    if (!config.massive.apiKey) {
+      return res.status(503).json({ error: 'Massive API key not configured. Set MASSIVE_API_KEY in .env.' });
+    }
+    const snapshot = await getStocksSnapshotTicker(ticker);
+    res.json(snapshot ?? {});
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** GET /api/market/stocks/candles/:ticker — свечи по тикеру акций (Massive aggs) */
+router.get('/stocks/candles/:ticker', async (req, res) => {
+  try {
+    const ticker = toMassiveStocksTicker(decodeURIComponent(req.params.ticker || 'AAPL')) || 'AAPL';
+    const timeframe = (req.query.timeframe as string) || '1d';
+    const limit = Math.min(parseInt(req.query.limit as string) || 100, 5000);
+    if (!config.massive.apiKey) {
+      return res.status(503).json({ error: 'Massive API key not configured. Set MASSIVE_API_KEY in .env.' });
+    }
+    const toMs = Date.now();
+    // Достаточное окно для любого таймфрейма (2 года)
+    const fromMs = toMs - 2 * 365 * 24 * 60 * 60 * 1000;
+    const candles = await getStocksAggs(ticker, timeframe, fromMs, toMs, limit);
+    res.json(candles);
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// --- Massive Options (https://massive.com/options) ---
+
+/** GET /api/market/options/chain/:underlying — снапшот опционной цепочки по базовому активу */
+router.get('/options/chain/:underlying', async (req, res) => {
+  try {
+    const underlying = toMassiveStocksTicker(decodeURIComponent(req.params.underlying || 'AAPL')) || 'AAPL';
+    const strike_price = req.query.strike_price as string | undefined;
+    const expiration_date = req.query.expiration_date as string | undefined;
+    const contract_type = req.query.contract_type as 'call' | 'put' | undefined;
+    const limit = req.query.limit != null ? Math.min(parseInt(String(req.query.limit)), 250) : undefined;
+    if (!config.massive.apiKey) {
+      return res.status(503).json({ error: 'Massive API key not configured. Set MASSIVE_API_KEY in .env.' });
+    }
+    const data = await getOptionChainSnapshot(underlying, { strike_price, expiration_date, contract_type, limit });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** GET /api/market/options/contracts — список контрактов опционов (фильтры в query) */
+router.get('/options/contracts', async (req, res) => {
+  try {
+    const underlying_ticker = req.query.underlying_ticker as string | undefined;
+    const expiration_date = req.query.expiration_date as string | undefined;
+    const expiration_date_gte = req.query.expiration_date_gte as string | undefined;
+    const expiration_date_lte = req.query.expiration_date_lte as string | undefined;
+    const strike_price = req.query.strike_price != null ? Number(req.query.strike_price) : undefined;
+    const contract_type = req.query.contract_type as 'call' | 'put' | undefined;
+    const expired = req.query.expired === 'true' || req.query.expired === '1';
+    const limit = req.query.limit != null ? Math.min(parseInt(String(req.query.limit)), 1000) : 100;
+    if (!config.massive.apiKey) {
+      return res.status(503).json({ error: 'Massive API key not configured. Set MASSIVE_API_KEY in .env.' });
+    }
+    const data = await getOptionsContracts({
+      underlying_ticker: underlying_ticker ? toMassiveStocksTicker(underlying_ticker) : undefined,
+      expiration_date,
+      expiration_date_gte,
+      expiration_date_lte,
+      strike_price,
+      contract_type,
+      expired,
+      limit
+    });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
 });
 
 router.get('/ticker/:symbol', async (req, res) => {
@@ -1216,9 +1308,11 @@ async function runAutoTradingBestCycleInner(
         } catch (e) {
           logger.warn('runAutoTradingBestCycle', 'insertOrder failed', { error: (e as Error).message });
         }
-        import('../services/copyTradingService').then(({ copyOrderToSubscribers }) => {
-          copyOrderToSubscribers(userId, best.signal, { sizePercent, leverage, maxPositions, useTestnet, tpMultiplier });
-        }).catch((e) => logger.warn('runAutoTradingBestCycle', 'copyOrderToSubscribers failed', { error: (e as Error).message }));
+        if (userId !== ADMIN_POOL_CLIENT_ID) {
+          import('../services/copyTradingService').then(({ copyOrderToSubscribers }) => {
+            copyOrderToSubscribers(userId, best.signal, { sizePercent, leverage, maxPositions, useTestnet, tpMultiplier });
+          }).catch((e) => logger.warn('runAutoTradingBestCycle', 'copyOrderToSubscribers failed', { error: (e as Error).message }));
+        }
       }
     } else {
       const err = result.error ?? 'Unknown error';
@@ -1551,6 +1645,22 @@ export function getAutoAnalyzeStatus(userId?: string): { running: boolean; lastC
     return { running: false };
   }
   return { running: autoAnalyzeByUser.size > 0 };
+}
+
+export function getLastExecution(userId: string): Record<string, unknown> {
+  const last = lastExecutionByUser.get(userId);
+  if (!last) return {};
+  return {
+    lastError: last.lastError,
+    lastSkipReason: last.lastSkipReason,
+    lastOrderId: last.lastOrderId,
+    useTestnet: last.useTestnet,
+    at: last.at,
+    lastAiProb: last.lastAiProb,
+    lastEffectiveAiProb: last.lastEffectiveAiProb,
+    lastExternalAiScore: last.lastExternalAiScore,
+    lastExternalAiUsed: last.lastExternalAiUsed
+  };
 }
 
 router.get('/auto-analyze/status', requireAuth, (req, res) => {

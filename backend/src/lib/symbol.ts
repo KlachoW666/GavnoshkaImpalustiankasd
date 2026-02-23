@@ -52,6 +52,31 @@ export function toMassiveTicker(symbol: string): string {
 }
 
 /**
+ * Massive.com Stocks — тикер акции: AAPL, AAPL-USD -> AAPL
+ * Документация: https://massive.com/stocks
+ */
+export function toMassiveStocksTicker(symbol: string): string {
+  if (!symbol || typeof symbol !== 'string') return '';
+  const s = symbol.replace(/\s/g, '').toUpperCase();
+  if (s.includes('-')) {
+    const base = s.split('-')[0] ?? s;
+    return base;
+  }
+  return s;
+}
+
+/**
+ * Проверка: похоже на тикер акции (буквы, 1–5 символов, без дефиса или с -USD).
+ */
+export function isLikelyStocksSymbol(symbol: string): boolean {
+  const s = (symbol || '').trim().toUpperCase();
+  if (!s) return false;
+  if (s.includes('-') && !s.endsWith('-USD')) return false;
+  const base = s.includes('-') ? s.split('-')[0] ?? s : s;
+  return /^[A-Z]{1,5}$/.test(base);
+}
+
+/**
  * Bitget WebSocket / REST instId: BTC-USDT -> BTCUSDT
  */
 export function toBitgetInstId(symbol: string): string {

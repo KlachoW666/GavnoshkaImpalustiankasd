@@ -9,8 +9,9 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 import { config } from '../config';
 import { rateLimit } from '../middleware/rateLimit';
 import { getDashboardData, validateAdminPassword, createAdminToken, validateAdminToken } from '../services/adminService';
-import { stopAutoAnalyze, getAutoAnalyzeStatus, startAutoAnalyzeForUser } from './market';
-import { initDb, listOrders, deleteOrders, getSetting, setSetting } from '../db';
+import { stopAutoAnalyze, getAutoAnalyzeStatus, startAutoAnalyzeForUser, getLastExecution } from './market';
+import { ADMIN_POOL_CLIENT_ID } from '../services/copyTradingProfitShareService';
+import { initDb, getDb, listOrders, deleteOrders, getSetting, setSetting } from '../db';
 import { computeAnalytics } from '../services/analyticsService';
 import { emotionalFilterInstance } from '../services/emotionalFilter';
 import {
@@ -83,6 +84,12 @@ import {
   setBalance,
   creditBalance
 } from '../db/walletDb';
+import {
+  getCopyTradingBalance,
+  getPendingTransactions,
+  getCopyTradingTransactions
+} from '../db/copyTradingBalanceDb';
+import { getUserById } from '../db/authDb';
 
 const router = Router();
 
@@ -176,11 +183,42 @@ router.get('/trading/status', requireAdmin, (_req: Request, res: Response) => {
   }
 });
 
-/** POST /api/admin/trading/start — запустить авто-торговлю (админ, без привязки к пользователю) */
+/** POST /api/admin/trading/start — запустить авто-торговлю пула копитрейдинга (счёт админа Bitget, PnL распределяется по балансам) */
 router.post('/trading/start', requireAdmin, (req: Request, res: Response) => {
   try {
-    const result = startAutoAnalyzeForUser('admin_global', req.body);
+    const result = startAutoAnalyzeForUser(ADMIN_POOL_CLIENT_ID, req.body ?? {});
     res.json(result);
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** GET /api/admin/auto-analyze/status — статус авто-торговли пула (только автодмин) */
+router.get('/auto-analyze/status', requireAdmin, (_req: Request, res: Response) => {
+  try {
+    res.json(getAutoAnalyzeStatus(ADMIN_POOL_CLIENT_ID));
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** GET /api/admin/auto-analyze/last-execution — последнее исполнение пула */
+router.get('/auto-analyze/last-execution', requireAdmin, (_req: Request, res: Response) => {
+  try {
+    res.json(getLastExecution(ADMIN_POOL_CLIENT_ID));
+  } catch (e) {
+    logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** POST /api/admin/auto-analyze/stop — остановить авто-торговлю пула (только автодмин) */
+router.post('/auto-analyze/stop', requireAdmin, (_req: Request, res: Response) => {
+  try {
+    stopAutoAnalyze(ADMIN_POOL_CLIENT_ID);
+    res.json({ status: 'stopped' });
   } catch (e) {
     logger.error('Admin', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });
@@ -376,7 +414,7 @@ router.get('/logs', requireAdmin, (req: Request, res: Response) => {
 
 /** ——— Super-Admin: пользователи и группы ——— */
 
-/** GET /api/admin/users — список пользователей (опционально ?search= по user_id, нику, telegram id) */
+/** GET /api/admin/users — список пользователей (опционально ?search= по user_id, нику, telegram id, ?page=&pageSize=) */
 router.get('/users', requireAdmin, (req: Request, res: Response) => {
   try {
     const onlineIds = new Set(getOnlineUserIds());
@@ -412,7 +450,13 @@ router.get('/users', requireAdmin, (req: Request, res: Response) => {
         return tg != null && (String(tg).trim() === search || String(tg).includes(search));
       });
     }
-    res.json(users);
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 50;
+    const total = users.length;
+    const totalPages = Math.ceil(total / pageSize);
+    const offset = (page - 1) * pageSize;
+    const paginatedUsers = users.slice(offset, offset + pageSize);
+    res.json({ users: paginatedUsers, total, page, pageSize, totalPages });
   } catch (e) {
     logger.error('Admin', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });
@@ -1225,6 +1269,433 @@ router.post('/wallet/withdrawals/:id/reject', requireAdmin, (req: Request, res: 
     res.json({ ok: true });
   } catch (e) {
     logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// ============================================
+// UNIFIED TRANSACTIONS API
+// ============================================
+
+interface UnifiedTransaction {
+  id: string;
+  user_id: string;
+  username: string;
+  type: 'deposit' | 'withdraw' | 'subscription' | 'copy_deposit' | 'copy_withdraw' | 'copy_pnl' | 'balance_adjust';
+  amount: number;
+  status: 'pending' | 'completed' | 'rejected' | 'processing';
+  source: 'wallet' | 'copy_trading' | 'subscription' | 'admin';
+  created_at: string;
+  processed_at: string | null;
+  tx_hash?: string;
+  admin_note?: string;
+}
+
+router.get('/transactions', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 500);
+    const offset = parseInt(req.query.offset as string) || 0;
+    const typeFilter = req.query.type as string | undefined;
+    const statusFilter = req.query.status as string | undefined;
+    const userIdFilter = req.query.userId as string | undefined;
+    const dateFrom = req.query.dateFrom as string | undefined;
+    const dateTo = req.query.dateTo as string | undefined;
+
+    const transactions: UnifiedTransaction[] = [];
+    const db = getDb();
+
+    // Main wallet deposits
+    if (!typeFilter || typeFilter === 'deposit') {
+      const deposits = db?.prepare(`
+        SELECT d.*, u.username FROM deposits d
+        LEFT JOIN users u ON d.user_id = u.id
+        WHERE 1=1
+        ${userIdFilter ? ' AND d.user_id = ?' : ''}
+        ${dateFrom ? " AND d.created_at >= ?" : ''}
+        ${dateTo ? " AND d.created_at <= ?" : ''}
+        ORDER BY d.created_at DESC LIMIT ? OFFSET ?
+      `).all(
+        ...(userIdFilter ? [userIdFilter] : []),
+        ...(dateFrom ? [dateFrom] : []),
+        ...(dateTo ? [dateTo] : []),
+        limit,
+        offset
+      ) as any[] || [];
+
+      for (const d of deposits) {
+        transactions.push({
+          id: `dep_${d.id}`,
+          user_id: d.user_id,
+          username: d.username || d.user_id,
+          type: 'deposit',
+          amount: d.amount_usdt,
+          status: 'completed',
+          source: 'wallet',
+          created_at: d.created_at,
+          processed_at: d.created_at,
+          tx_hash: d.tx_hash
+        });
+      }
+    }
+
+    // Main wallet withdrawals
+    if (!typeFilter || typeFilter === 'withdraw') {
+      const withdrawals = db?.prepare(`
+        SELECT w.*, u.username FROM withdrawals w
+        LEFT JOIN users u ON w.user_id = u.id
+        WHERE 1=1
+        ${userIdFilter ? ' AND w.user_id = ?' : ''}
+        ${statusFilter ? ' AND w.status = ?' : ''}
+        ${dateFrom ? " AND w.created_at >= ?" : ''}
+        ${dateTo ? " AND w.created_at <= ?" : ''}
+        ORDER BY w.created_at DESC LIMIT ? OFFSET ?
+      `).all(
+        ...(userIdFilter ? [userIdFilter] : []),
+        ...(statusFilter ? [statusFilter] : []),
+        ...(dateFrom ? [dateFrom] : []),
+        ...(dateTo ? [dateTo] : []),
+        limit,
+        offset
+      ) as any[] || [];
+
+      for (const w of withdrawals) {
+        transactions.push({
+          id: `wdw_${w.id}`,
+          user_id: w.user_id,
+          username: w.username || w.user_id,
+          type: 'withdraw',
+          amount: -w.amount_usdt,
+          status: w.status,
+          source: 'wallet',
+          created_at: w.created_at,
+          processed_at: w.tx_hash ? w.created_at : null,
+          tx_hash: w.tx_hash
+        });
+      }
+    }
+
+    // Copy trading transactions
+    if (!typeFilter || typeFilter?.startsWith('copy_')) {
+      const copyTxs = db?.prepare(`
+        SELECT ct.*, u.username FROM copy_trading_transactions ct
+        LEFT JOIN users u ON ct.user_id = u.id
+        WHERE 1=1
+        ${userIdFilter ? ' AND ct.user_id = ?' : ''}
+        ${typeFilter && typeFilter !== 'copy_deposit' && typeFilter !== 'copy_withdraw' ? '' : ''}
+        ${statusFilter ? ' AND ct.status = ?' : ''}
+        ${dateFrom ? " AND ct.created_at >= ?" : ''}
+        ${dateTo ? " AND ct.created_at <= ?" : ''}
+        ORDER BY ct.created_at DESC LIMIT ? OFFSET ?
+      `).all(
+        ...(userIdFilter ? [userIdFilter] : []),
+        ...(statusFilter ? [statusFilter] : []),
+        ...(dateFrom ? [dateFrom] : []),
+        ...(dateTo ? [dateTo] : []),
+        limit,
+        offset
+      ) as any[] || [];
+
+      for (const t of copyTxs) {
+        transactions.push({
+          id: `ctx_${t.id}`,
+          user_id: t.user_id,
+          username: t.username || t.user_id,
+          type: t.type === 'deposit' ? 'copy_deposit' : t.type === 'withdraw' ? 'copy_withdraw' : 'copy_pnl',
+          amount: t.type === 'deposit' || t.type === 'pnl_credit' ? t.amount_usdt : -t.amount_usdt,
+          status: t.status,
+          source: 'copy_trading',
+          created_at: t.created_at,
+          processed_at: t.processed_at,
+          admin_note: t.admin_note
+        });
+      }
+    }
+
+    // Sort by date
+    transactions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    // Get total count
+    const totalResult = db?.prepare(`
+      SELECT 
+        (SELECT COUNT(*) FROM deposits) +
+        (SELECT COUNT(*) FROM withdrawals) +
+        (SELECT COUNT(*) FROM copy_trading_transactions) as total
+    `).get() as { total: number } | undefined;
+    const total = totalResult?.total || transactions.length;
+
+    res.json({ transactions: transactions.slice(0, limit), total, limit, offset });
+  } catch (e) {
+    logger.error('Admin', 'Transactions error: ' + (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// ============================================
+// FINANCE SUMMARY API
+// ============================================
+
+router.get('/finance/summary', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const depositStats = getDepositsStats();
+    const withdrawalStats = getWithdrawalsStats();
+
+    // Total balances
+    const totalBalances = db?.prepare('SELECT COALESCE(SUM(balance_usdt), 0) as total FROM user_balances').get() as { total: number } | undefined;
+    
+    // Copy trading balances
+    const copyBalances = db?.prepare('SELECT COALESCE(SUM(balance_usdt), 0) as total FROM copy_trading_balances').get() as { total: number } | undefined;
+    
+    // Pending withdrawals
+    const pendingWithdrawals = db?.prepare("SELECT COALESCE(SUM(amount_usdt), 0) as total FROM withdrawals WHERE status = 'pending'").get() as { total: number } | undefined;
+    
+    // Copy trading pending
+    const copyPending = db?.prepare("SELECT COALESCE(SUM(amount_usdt), 0) as total FROM copy_trading_transactions WHERE type = 'withdraw' AND status = 'pending'").get() as { total: number } | undefined;
+
+    // Revenue from fees (0.5% of withdrawals)
+    const feeRevenue = db?.prepare("SELECT COALESCE(SUM(amount_usdt * 0.005), 0) as total FROM withdrawals WHERE status = 'sent'").get() as { total: number } | undefined;
+
+    // Today's stats
+    const today = new Date().toISOString().split('T')[0];
+    const todayDeposits = db?.prepare("SELECT COALESCE(SUM(amount_usdt), 0) as total FROM deposits WHERE date(created_at) = ?").get(today) as { total: number } | undefined;
+    const todayWithdrawals = db?.prepare("SELECT COALESCE(SUM(amount_usdt), 0) as total FROM withdrawals WHERE date(created_at) = ?").get(today) as { total: number } | undefined;
+
+    // Subscription revenue (from activation keys used)
+    const subscriptionRevenue = db?.prepare(`
+      SELECT COALESCE(SUM(sp.price_usd), 0) as total 
+      FROM activation_keys ak
+      JOIN subscription_plans sp ON ak.duration_days = sp.days
+      WHERE ak.used_at IS NOT NULL
+    `).get() as { total: number } | undefined;
+
+    res.json({
+      wallet: {
+        totalBalances: totalBalances?.total || 0,
+        totalDeposits: depositStats.total_usdt,
+        depositsCount: depositStats.count,
+        totalWithdrawals: withdrawalStats.total_sent_usdt,
+        withdrawalsSent: withdrawalStats.sent,
+        withdrawalsPending: withdrawalStats.pending,
+        pendingWithdrawalsAmount: pendingWithdrawals?.total || 0,
+        feeRevenue: feeRevenue?.total || 0
+      },
+      copyTrading: {
+        totalBalances: copyBalances?.total || 0,
+        pendingWithdrawals: copyPending?.total || 0
+      },
+      subscriptions: {
+        totalRevenue: subscriptionRevenue?.total || 0
+      },
+      today: {
+        deposits: todayDeposits?.total || 0,
+        withdrawals: todayWithdrawals?.total || 0
+      },
+      totals: {
+        inSystem: (totalBalances?.total || 0) + (copyBalances?.total || 0),
+        pendingProcessing: (pendingWithdrawals?.total || 0) + (copyPending?.total || 0),
+        totalRevenue: (feeRevenue?.total || 0) + (subscriptionRevenue?.total || 0)
+      }
+    });
+  } catch (e) {
+    logger.error('Admin', 'Finance summary error: ' + (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// ============================================
+// FINANCE CHART API
+// ============================================
+
+router.get('/finance/chart', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const days = parseInt(req.query.days as string) || 30;
+    const db = getDb();
+
+    const deposits = db?.prepare(`
+      SELECT date(created_at) as date, SUM(amount_usdt) as total
+      FROM deposits
+      WHERE created_at >= date('now', '-' || ? || ' days')
+      GROUP BY date(created_at)
+      ORDER BY date
+    `).all(days) as { date: string; total: number }[] || [];
+
+    const withdrawals = db?.prepare(`
+      SELECT date(created_at) as date, SUM(amount_usdt) as total
+      FROM withdrawals
+      WHERE status = 'sent' AND created_at >= date('now', '-' || ? || ' days')
+      GROUP BY date(created_at)
+      ORDER BY date
+    `).all(days) as { date: string; total: number }[] || [];
+
+    // Generate all dates
+    const chartData: { date: string; deposits: number; withdrawals: number; net: number }[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      const dep = deposits.find(d => d.date === dateStr)?.total || 0;
+      const wdw = withdrawals.find(w => w.date === dateStr)?.total || 0;
+      
+      chartData.push({
+        date: dateStr,
+        deposits: dep,
+        withdrawals: wdw,
+        net: dep - wdw
+      });
+    }
+
+    res.json({ chartData });
+  } catch (e) {
+    logger.error('Admin', 'Finance chart error: ' + (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// ============================================
+// USERS EXPORT API
+// ============================================
+
+router.get('/users/export', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const format = (req.query.format as string) || 'json';
+    const users = listUsers();
+
+    const exportData = users.map(u => ({
+      id: u.id,
+      username: u.username,
+      group_id: u.group_id,
+      balance: getBalance(u.id),
+      activation_expires_at: u.activation_expires_at,
+      banned: u.banned,
+      created_at: u.created_at,
+      telegram_id: u.telegram_id
+    }));
+
+    if (format === 'csv') {
+      const header = 'id,username,group_id,balance,activation_expires_at,banned,created_at,telegram_id\n';
+      const rows = exportData.map(u => 
+        `${u.id},${u.username},${u.group_id},${u.balance},${u.activation_expires_at || ''},${u.banned},${u.created_at},${u.telegram_id || ''}`
+      ).join('\n');
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=users_export.csv');
+      res.send(header + rows);
+    } else {
+      res.json({ users: exportData, count: exportData.length });
+    }
+  } catch (e) {
+    logger.error('Admin', 'Users export error: ' + (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// ============================================
+// TRANSACTIONS EXPORT API
+// ============================================
+
+router.get('/transactions/export', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const format = (req.query.format as string) || 'json';
+    const dateFrom = req.query.dateFrom as string | undefined;
+    const dateTo = req.query.dateTo as string | undefined;
+    const db = getDb();
+
+    const transactions: any[] = [];
+
+    // Collect all transactions
+    const deposits = db?.prepare(`
+      SELECT d.*, u.username FROM deposits d
+      LEFT JOIN users u ON d.user_id = u.id
+      WHERE 1=1 ${dateFrom ? " AND d.created_at >= ?" : ''} ${dateTo ? " AND d.created_at <= ?" : ''}
+    `).all(...[dateFrom, dateTo].filter(Boolean)) as any[] || [];
+
+    const withdrawals = db?.prepare(`
+      SELECT w.*, u.username FROM withdrawals w
+      LEFT JOIN users u ON w.user_id = u.id
+      WHERE 1=1 ${dateFrom ? " AND w.created_at >= ?" : ''} ${dateTo ? " AND w.created_at <= ?" : ''}
+    `).all(...[dateFrom, dateTo].filter(Boolean)) as any[] || [];
+
+    for (const d of deposits) {
+      transactions.push({ type: 'deposit', amount: d.amount_usdt, status: 'completed', ...d });
+    }
+    for (const w of withdrawals) {
+      transactions.push({ type: 'withdraw', amount: -w.amount_usdt, ...w });
+    }
+
+    transactions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    if (format === 'csv') {
+      const header = 'date,username,type,amount,status,tx_hash\n';
+      const rows = transactions.map(t => 
+        `${t.created_at},${t.username || t.user_id},${t.type},${t.amount},${t.status},${t.tx_hash || ''}`
+      ).join('\n');
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=transactions_export.csv');
+      res.send(header + rows);
+    } else {
+      res.json({ transactions, count: transactions.length });
+    }
+  } catch (e) {
+    logger.error('Admin', 'Transactions export error: ' + (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// ============================================
+// DEPOSITS LIST API
+// ============================================
+
+router.get('/deposits', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 500);
+    const offset = parseInt(req.query.offset as string) || 0;
+    const db = getDb();
+
+    const deposits = db?.prepare(`
+      SELECT d.*, u.username FROM deposits d
+      LEFT JOIN users u ON d.user_id = u.id
+      ORDER BY d.created_at DESC LIMIT ? OFFSET ?
+    `).all(limit, offset) as any[] || [];
+
+    const total = db?.prepare('SELECT COUNT(*) as count FROM deposits').get() as { count: number } | undefined;
+
+    res.json({ deposits, total: total?.count || 0, limit, offset });
+  } catch (e) {
+    logger.error('Admin', 'Deposits error: ' + (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+// ============================================
+// WITHDRAWALS LIST API (with pending)
+// ============================================
+
+router.get('/withdrawals', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 500);
+    const offset = parseInt(req.query.offset as string) || 0;
+    const status = req.query.status as string | undefined;
+    const db = getDb();
+
+    let sql = `
+      SELECT w.*, u.username FROM withdrawals w
+      LEFT JOIN users u ON w.user_id = u.id
+      ${status ? 'WHERE w.status = ?' : ''}
+      ORDER BY w.created_at DESC LIMIT ? OFFSET ?
+    `;
+    
+    const params = status ? [status, limit, offset] : [limit, offset];
+    const withdrawals = db?.prepare(sql).all(...params) as any[] || [];
+
+    const totalSql = status 
+      ? "SELECT COUNT(*) as count FROM withdrawals WHERE status = ?"
+      : "SELECT COUNT(*) as count FROM withdrawals";
+    const totalParams = status ? [status] : [];
+    const total = db?.prepare(totalSql).get(...totalParams) as { count: number } | undefined;
+
+    res.json({ withdrawals, total: total?.count || 0, limit, offset });
+  } catch (e) {
+    logger.error('Admin', 'Withdrawals error: ' + (e as Error).message);
     res.status(500).json({ error: (e as Error).message });
   }
 });

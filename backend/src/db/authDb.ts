@@ -56,10 +56,9 @@ export type MassiveCredentialsRow = {
 };
 const memoryMassiveApi: Map<string, MassiveCredentialsRow> = new Map();
 const memoryGroups: GroupRow[] = [
-  { id: 1, name: 'user', allowed_tabs: '["dashboard","settings","activate"]' },
-  { id: 2, name: 'viewer', allowed_tabs: '["dashboard","signals","chart"]' },
-  { id: 3, name: 'admin', allowed_tabs: '["dashboard","signals","chart","demo","autotrade","scanner","pnl","settings","admin"]' },
-  { id: 4, name: 'PREMIUM', allowed_tabs: '["dashboard","signals","chart","demo","autotrade","scanner","pnl","settings","activate"]' }
+  { id: 1, name: 'user', allowed_tabs: '["dashboard","settings","activate","copy"]' },
+  { id: 3, name: 'admin', allowed_tabs: '["dashboard","chart","demo","autotrade","copy","pnl","settings","admin"]' },
+  { id: 4, name: 'PREMIUM', allowed_tabs: '["dashboard","chart","demo","autotrade","copy","pnl","settings","activate"]' }
 ];
 const memorySessions: Map<string, string> = new Map(); // token -> userId
 const memoryActivationKeys: ActivationKeyRow[] = [];

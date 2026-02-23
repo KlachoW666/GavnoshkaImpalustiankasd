@@ -15,6 +15,14 @@ interface UserRow {
   online?: boolean;
 }
 
+interface UsersResponse {
+  users: UserRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 interface GroupRow {
   id: number;
   name: string;
@@ -53,6 +61,10 @@ interface UserDetail {
 
 export default function AdminUsers() {
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [pageSize] = useState(20);
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -81,12 +93,17 @@ export default function AdminUsers() {
     setLoading(true);
     setError('');
     try {
-      const searchParam = debouncedSearch ? `?search=${encodeURIComponent(debouncedSearch)}` : '';
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('pageSize', String(pageSize));
+      if (debouncedSearch) params.set('search', debouncedSearch);
       const [u, g] = await Promise.all([
-        adminApi.get<UserRow[]>(`/admin/users${searchParam}`),
+        adminApi.get<UsersResponse>(`/admin/users?${params}`),
         adminApi.get<GroupRow[]>('/admin/groups')
       ]);
-      setUsers(u);
+      setUsers(u.users);
+      setTotal(u.total);
+      setTotalPages(u.totalPages);
       setGroups(g);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Ошибка загрузки';
@@ -95,7 +112,7 @@ export default function AdminUsers() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, page, pageSize]);
 
   const fetchUserDetail = useCallback(async (userId: string) => {
     setDetailLoading(true);
@@ -133,6 +150,10 @@ export default function AdminUsers() {
     const tid = setInterval(fetchData, 15000);
     return () => clearInterval(tid);
   }, [fetchData]);
+
+  useEffect(() => {
+    if (page !== 1) setPage(1);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     if (selectedUserId) {
@@ -540,11 +561,29 @@ export default function AdminUsers() {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <div className="flex items-center gap-3">
-        <span className="text-2xl">👥</span>
-        <div>
-          <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Пользователи и группы</h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Поиск, карточки, подписки и ордера</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">👥</span>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Пользователи и группы</h2>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Поиск, карточки, подписки и ордера</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => window.open('/api/admin/users/export?format=csv', '_blank')}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+            style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
+          >
+            Экспорт CSV
+          </button>
+          <button
+            onClick={() => window.open('/api/admin/users/export?format=json', '_blank')}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+            style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
+          >
+            Экспорт JSON
+          </button>
         </div>
       </div>
 
@@ -656,6 +695,58 @@ export default function AdminUsers() {
         )}
       </div>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Показано {((page - 1) * pageSize) + 1}-{Math.min(page * pageSize, total)} из {total}
+          </p>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
+              style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
+            >
+              Назад
+            </button>
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (page <= 3) {
+                pageNum = i + 1;
+              } else if (page >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = page - 2 + i;
+              }
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setPage(pageNum)}
+                  className="w-8 h-8 rounded-lg text-sm font-medium"
+                  style={{
+                    background: page === pageNum ? 'var(--accent)' : 'var(--bg-hover)',
+                    color: page === pageNum ? '#fff' : 'var(--text-secondary)'
+                  }}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
+              style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
+            >
+              Далее
+            </button>
+          </div>
+        </div>
+      )}
+
       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Нажмите на логин, чтобы открыть профиль и редактировать пользователя.</p>
     </div>
   );

@@ -13,8 +13,13 @@ import AdminTrading from './AdminTrading';
 import AdminStatsDisplay from './AdminStatsDisplay';
 import AdminExternalAi from './AdminExternalAi';
 import AdminWallet from './AdminWallet';
+import AdminCopyTrading from './AdminCopyTrading';
+import AdminSignalProviders from './AdminSignalProviders';
+import AdminDepositAddresses from './AdminDepositAddresses';
+import AdminTransactions from './AdminTransactions';
+import AdminFinance from './AdminFinance';
 
-type AdminTab = 'dashboard' | 'trading' | 'analytics' | 'logs' | 'users' | 'groups' | 'keys' | 'plans' | 'proxies' | 'stats' | 'external-ai' | 'wallet';
+type AdminTab = 'dashboard' | 'trading' | 'analytics' | 'logs' | 'users' | 'groups' | 'keys' | 'plans' | 'proxies' | 'stats' | 'external-ai' | 'wallet' | 'copy-trading' | 'signal-providers' | 'deposit-addresses' | 'transactions' | 'finance';
 
 interface TabItem {
   id: AdminTab;
@@ -25,14 +30,19 @@ interface TabItem {
 
 const TABS: TabItem[] = [
   { id: 'dashboard', label: 'Главная', icon: '📋', group: 'main' },
-  { id: 'wallet', label: 'Кошелёк', icon: '💳', group: 'finance' },
+  { id: 'finance', label: 'Финансы', icon: '💰', group: 'finance' },
+  { id: 'transactions', label: 'Транзакции', icon: '💳', group: 'finance' },
+  { id: 'wallet', label: 'Кошелёк', icon: '👛', group: 'finance' },
+  { id: 'copy-trading', label: 'Копитрейдинг', icon: '👥', group: 'finance' },
+  { id: 'signal-providers', label: 'Провайдеры', icon: '🤖', group: 'finance' },
+  { id: 'deposit-addresses', label: 'Адреса депозитов', icon: '🏦', group: 'finance' },
   { id: 'trading', label: 'Торговля', icon: '📈', group: 'finance' },
-  { id: 'users', label: 'Пользователи', icon: '👥', group: 'users' },
+  { id: 'users', label: 'Пользователи', icon: '👤', group: 'users' },
   { id: 'groups', label: 'Группы', icon: '🔐', group: 'users' },
   { id: 'keys', label: 'Ключи активации', icon: '🔑', group: 'users' },
   { id: 'plans', label: 'Тарифы', icon: '📦', group: 'users' },
   { id: 'analytics', label: 'Аналитика', icon: '📊', group: 'system' },
-  { id: 'logs', label: 'Логи', icon: '🖥️', group: 'system' },
+  { id: 'logs', label: 'Логи', icon: '🖥', group: 'system' },
   { id: 'external-ai', label: 'Внешний ИИ', icon: '🤖', group: 'system' },
   { id: 'proxies', label: 'Прокси', icon: '🌐', group: 'system' },
   { id: 'stats', label: 'Демо-статистики', icon: '📊', group: 'system' }
@@ -194,7 +204,12 @@ export default function AdminPanel() {
         <main className="flex-1 py-6 px-4 lg:px-6 overflow-auto">
           <div className="max-w-6xl mx-auto">
             {tab === 'dashboard' && <AdminDashboard />}
+            {tab === 'finance' && <AdminFinance />}
+            {tab === 'transactions' && <AdminTransactions />}
             {tab === 'wallet' && <AdminWallet />}
+            {tab === 'copy-trading' && <AdminCopyTrading />}
+            {tab === 'signal-providers' && <AdminSignalProviders />}
+            {tab === 'deposit-addresses' && <AdminDepositAddresses />}
             {tab === 'trading' && <AdminTrading />}
             {tab === 'external-ai' && <AdminExternalAi />}
             {tab === 'analytics' && <AdminAnalytics />}

@@ -88,9 +88,9 @@ CREATE TABLE IF NOT EXISTS groups (
     allowed_tabs TEXT NOT NULL DEFAULT '[]'
 );
 INSERT OR IGNORE INTO groups (id, name, allowed_tabs) VALUES
-(1, 'user', '["dashboard","settings","activate"]'),
-(2, 'viewer', '["dashboard","signals","chart"]'),
-(3, 'admin', '["dashboard","signals","chart","demo","autotrade","scanner","pnl","settings","admin"]');
+(1, 'user', '["dashboard","settings","activate","copy"]'),
+(3, 'admin', '["dashboard","chart","demo","autotrade","copy","pnl","settings","admin"]'),
+(4, 'PREMIUM', '["dashboard","chart","demo","autotrade","copy","pnl","settings","activate"]');
 
 -- Пользователи (регистрация без подтверждения почты)
 CREATE TABLE IF NOT EXISTS users (

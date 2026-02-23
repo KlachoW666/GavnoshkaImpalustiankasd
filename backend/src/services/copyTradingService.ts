@@ -5,6 +5,7 @@
 import { executeSignal } from './autoTrader';
 import { getSubscribers } from '../db/copyTradingDb';
 import { getBitgetCredentials } from '../db/authDb';
+import { insertOrder, listOrders } from '../db/index';
 import type { TradingSignal } from '../types/signal';
 import type { ExecuteOptions } from './autoTrader';
 import { logger } from '../lib/logger';
@@ -16,10 +17,6 @@ export interface CopyResult {
   error?: string;
 }
 
-/**
- * Скопировать сделку провайдера на всех подписчиков (в фоне).
- * Используется тот же сигнал; размер у подписчика = size_percent от его баланса.
- */
 export function copyOrderToSubscribers(
   providerId: string,
   signal: TradingSignal,
@@ -45,6 +42,22 @@ export function copyOrderToSubscribers(
       .then((result) => {
         if (result.ok) {
           logger.info('CopyTrading', `Copied to subscriber ${sub.subscriber_id}`, { orderId: result.orderId });
+          
+          const orderId = `bitget-${result.orderId}-${sub.subscriber_id}-${Date.now()}`;
+          insertOrder({
+            id: orderId,
+            clientId: sub.subscriber_id,
+            pair: signal.symbol,
+            direction: signal.direction,
+            size: 0,
+            leverage: 1,
+            openPrice: signal.entry_price ?? 0,
+            openTime: new Date().toISOString(),
+            status: 'open',
+            autoOpened: true,
+            confidenceAtOpen: signal.confidence,
+            copyProviderId: providerId
+          });
         } else {
           logger.warn('CopyTrading', `Copy failed for ${sub.subscriber_id}: ${result.error}`);
         }

@@ -4,7 +4,7 @@ import { setApiUnauthorizedCallback } from '../utils/api';
 const API = '/api';
 const TOKEN_KEY = 'cryptosignal-auth-token';
 
-const DEFAULT_ALLOWED_TABS = ['dashboard', 'settings', 'activate'];
+const DEFAULT_ALLOWED_TABS = ['dashboard', 'settings', 'activate', 'copy'];
 
 export interface AuthUser {
   id: string;

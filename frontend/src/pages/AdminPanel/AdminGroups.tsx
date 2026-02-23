@@ -1,20 +1,26 @@
 import { useState, useEffect } from 'react';
 import { adminApi, clearAdminToken } from '../../utils/adminApi';
 
-const TAB_IDS = ['dashboard', 'signals', 'chart', 'demo', 'autotrade', 'scanner', 'pnl', 'backtest', 'copy', 'social', 'settings', 'activate', 'admin'] as const;
+const TAB_IDS = ['dashboard', 'signals', 'chart', 'trade', 'demo', 'autotrade', 'scanner', 'pnl', 'analytics', 'backtest', 'copy', 'social', 'trader', 'wallet', 'settings', 'activate', 'profile', 'help', 'admin'] as const;
 const TAB_LABELS: Record<string, string> = {
   dashboard: 'Главная',
   signals: 'Сигналы',
   chart: 'График',
+  trade: 'Торговля',
   demo: 'Демо',
   autotrade: 'Авто',
   scanner: 'Скринер',
   pnl: 'PNL',
+  analytics: 'Аналитика',
   backtest: 'Бэктест',
   copy: 'Копитрейдинг',
   social: 'Соц. торговля',
+  trader: 'Трейдер',
+  wallet: 'Кошелёк',
   settings: 'Настройки',
   activate: 'Активировать',
+  profile: 'Профиль',
+  help: 'Помощь',
   admin: 'Админ'
 };
 
