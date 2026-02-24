@@ -139,7 +139,17 @@ sudo nginx -t && sudo systemctl reload nginx
 
 Замените в конфиге **server_name** на ваш домен (clabx.ru и т.д.).
 
-### 3. Почему 502
+### 3. n8n по адресу clabx.ru/n8n
+
+В **nginx-pm2.conf** настроен прокси для n8n: запросы к **clabx.ru/n8n/** уходят на 127.0.0.1:5678. В **ecosystem.config.js** для приложения n8n заданы:
+
+- **N8N_PATH=/n8n** — n8n отдаёт интерфейс по пути /n8n
+- **N8N_EDITOR_BASE_URL=https://clabx.ru/n8n** — ссылки и редиректы ведут на clabx.ru/n8n
+- **WEBHOOK_URL=https://clabx.ru/n8n/** — webhook для бота: **https://clabx.ru/n8n/webhook/analysis**
+
+После обновления конфига и `reload nginx` перезапустите n8n: `pm2 restart n8n`.
+
+### 4. Почему 502
 
 Если видите **502 Bad Gateway** при работе через PM2:
 
