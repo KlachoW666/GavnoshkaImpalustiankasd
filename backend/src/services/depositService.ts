@@ -4,7 +4,7 @@
 
 import ccxt from 'ccxt';
 import { HttpsProxyAgent } from 'https-proxy-agent';
-import TronWeb from 'tronweb';
+import TronWebModule from 'tronweb';
 import { config } from '../config';
 import { getProxy } from '../db/proxies';
 import { logger } from '../lib/logger';
@@ -17,6 +17,16 @@ import { getDb, initDb, isMemoryStore } from '../db/index';
 
 /** USDT TRC20 contract (Tron) */
 const TRC20_USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
+
+interface TronTxInfo {
+  result?: string;
+  log?: TronLogEntry[];
+}
+interface TronLogEntry {
+  address?: string;
+  topics?: string[];
+  data?: string | Buffer;
+}
 
 export interface DepositAddress {
   id?: number;
@@ -398,7 +408,8 @@ export async function verifyDepositOnBlockchain(
   }
 
   try {
-    const tronWeb = new TronWeb({ fullHost: 'https://api.trongrid.io' });
+    const TronWebClass = (TronWebModule as { default?: unknown }).default ?? TronWebModule;
+    const tronWeb = new (TronWebClass as new (opts: { fullHost: string }) => { trx: { getTransactionInfo: (id: string) => Promise<TronTxInfo> }; address: { toHex: (addr: string) => string } })({ fullHost: 'https://api.trongrid.io' });
     const info = await tronWeb.trx.getTransactionInfo(hash);
     if (!info) {
       return { verified: false, error: 'Транзакция не найдена' };
@@ -411,7 +422,7 @@ export async function verifyDepositOnBlockchain(
     const ourHex20 = ourHex.length >= 40 ? ourHex.slice(-40) : ourHex.padStart(40, '0').slice(-40);
 
     const usdtContractHex = tronWeb.address.toHex(TRC20_USDT_CONTRACT).toLowerCase().replace('0x', '').replace(/^41/, '').slice(-40);
-    const log = (info.log || []).find((l: any) => {
+    const log = (info.log || []).find((l: TronLogEntry) => {
       const addr = String(l.address || '').toLowerCase().replace('0x', '').slice(-40);
       return addr === usdtContractHex;
     });

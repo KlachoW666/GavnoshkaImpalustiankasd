@@ -1137,7 +1137,7 @@ router.get('/news', requireAdmin, (_req: Request, res: Response) => {
     const items = listAllNews();
     res.json({ news: items });
   } catch (e) {
-    logger.error('Admin', 'News list error', (e as Error).message);
+    logger.error('Admin', 'News list error', { error: (e as Error).message });
     res.status(500).json({ error: (e as Error).message });
   }
 });
@@ -1170,7 +1170,7 @@ router.post('/news', requireAdmin, (req: Request, res: Response) => {
     });
     res.status(201).json(item);
   } catch (e) {
-    logger.error('Admin', 'News create error', (e as Error).message);
+    logger.error('Admin', 'News create error', { error: (e as Error).message });
     res.status(500).json({ error: (e as Error).message });
   }
 });
@@ -1198,7 +1198,7 @@ router.put('/news/:id', requireAdmin, (req: Request, res: Response) => {
     }
     res.json(updated);
   } catch (e) {
-    logger.error('Admin', 'News update error', (e as Error).message);
+    logger.error('Admin', 'News update error', { error: (e as Error).message });
     res.status(500).json({ error: (e as Error).message });
   }
 });
@@ -1218,7 +1218,7 @@ router.delete('/news/:id', requireAdmin, (req: Request, res: Response) => {
     }
     res.status(204).send();
   } catch (e) {
-    logger.error('Admin', 'News delete error', (e as Error).message);
+    logger.error('Admin', 'News delete error', { error: (e as Error).message });
     res.status(500).json({ error: (e as Error).message });
   }
 });
