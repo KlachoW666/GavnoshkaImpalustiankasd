@@ -83,6 +83,7 @@ function buildBitgetExchange(creds: { apiKey: string; secret: string; passphrase
     enableRateLimit: true,
     options: {
       defaultType: 'swap',
+      /** Только фьючерсы: не загружать spot (избегаем GET /api/v2/spot/public/coins). */
       fetchMarkets: ['swap']
     },
     timeout: config.bitget.timeout
@@ -92,7 +93,10 @@ function buildBitgetExchange(creds: { apiKey: string; secret: string; passphrase
   if (proxyUrl) (opts as any).httpsProxy = proxyUrl;
   const agent = exchangeProxyAgent();
   if (agent) (opts as any).agent = agent;
-  return new ccxt.bitget(opts);
+  const exchange = new ccxt.bitget(opts);
+  /** Bitget только для фьючерсов: отключаем fetchCurrencies (spot API /v2/spot/public/coins). */
+  (exchange as any).fetchCurrencies = async () => ({});
+  return exchange;
 }
 
 function buildExchange(useTestnet: boolean): Exchange {
@@ -117,9 +121,9 @@ export async function getTradingBalance(useTestnet: boolean): Promise<number> {
   try {
     const balance = await exchange.fetchBalance();
     const usdt = (balance as any).USDT ?? balance?.usdt;
-    const total = usdt?.total ?? 0;
-    const free = usdt?.free ?? total;
-    return typeof free === 'number' ? free : 0;
+    const totalNum = Number(usdt?.total);
+    const freeNum = Number(usdt?.free ?? usdt?.total);
+    return (!Number.isNaN(freeNum) ? freeNum : 0);
   } catch (e) {
     logger.warn('AutoTrader', 'fetchBalance failed', { error: (e as Error).message });
     return 0;
@@ -768,21 +772,24 @@ export async function fetchPositionsForApi(useTestnet: boolean): Promise<Array<{
   }
 }
 
-async function fetchBalanceAndPositions(exchange: Exchange): Promise<{ balance: number; positions: any[] }> {
+async function fetchBalanceAndPositions(exchange: Exchange): Promise<{ balance: number; positions: any[]; balanceError?: string }> {
   const [balanceSettled, positionsSettled] = await Promise.allSettled([
     exchange.fetchBalance(),
     exchange.fetchPositions()
   ]);
   const balanceRes = balanceSettled.status === 'fulfilled' ? balanceSettled.value : {};
   const positionsRes: any[] = positionsSettled.status === 'fulfilled' ? (positionsSettled.value || []) : [];
+  let balanceError: string | undefined;
   if (balanceSettled.status === 'rejected') {
-    logger.debug('AutoTrader', 'fetchBalance failed (positions may be ok)', { error: (balanceSettled.reason as Error)?.message });
+    const errMsg = (balanceSettled.reason as Error)?.message || String(balanceSettled.reason);
+    balanceError = errMsg;
+    logger.debug('AutoTrader', 'fetchBalance failed (positions may be ok)', { error: errMsg });
   }
   const usdt = (balanceRes as any)?.USDT ?? (balanceRes as any)?.usdt;
-  const total = usdt?.total ?? 0;
-  const free = usdt?.free ?? total;
-  /** total = equity (вся стоимость), free = доступно. Показываем total — пользователь ожидает полный баланс. */
-  const balance = typeof total === 'number' && total > 0 ? total : (typeof free === 'number' ? free : 0);
+  /** ccxt возвращает total/free как строки; приводим к числу для отображения. */
+  const totalNum = Number(usdt?.total);
+  const freeNum = Number(usdt?.free ?? usdt?.total);
+  const balance = (totalNum > 0 && !Number.isNaN(totalNum)) ? totalNum : ((!Number.isNaN(freeNum) ? freeNum : 0));
   const positions = positionsRes
     .filter((p: any) => {
       const sz = Number(p.contracts ?? p.info?.pos ?? 0);
@@ -805,7 +812,7 @@ async function fetchBalanceAndPositions(exchange: Exchange): Promise<{ balance: 
         takeProfit: info?.tpTriggerPx != null ? Number(info.tpTriggerPx) : undefined
       };
     });
-  return { balance, positions };
+  return { balance, positions, balanceError };
 }
 
 const BITGET_TIMESTAMP_EXPIRED = /50102|Timestamp request expired/i;
@@ -835,8 +842,8 @@ export async function getPositionsAndBalanceForApi(
         if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
         exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
       }
-      const { balance, positions } = await fetchBalanceAndPositions(exchange);
-      return { positions, balance, openCount: positions.length };
+      const { balance, positions, balanceError: fetchErr } = await fetchBalanceAndPositions(exchange);
+      return { positions, balance, openCount: positions.length, balanceError: fetchErr ?? undefined };
     } catch (e) {
       const msg = (e as Error).message || String(e);
       lastError = msg;

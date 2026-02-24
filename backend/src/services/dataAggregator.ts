@@ -3,7 +3,7 @@ import { OHLCVCandle } from '../types/candle';
 import { config } from '../config';
 import { getProxy } from '../db/proxies';
 import { getMarketDataCache, setMarketDataCache } from '../db';
-import { toOkxCcxtSymbol, toMassiveTicker } from '../lib/symbol';
+import { toOkxCcxtSymbol, toBinanceCcxtSymbol, toMassiveTicker } from '../lib/symbol';
 import { computeDensity } from './marketDensity';
 import { getAggs, getOrderBookFromSnapshot, getCryptoSnapshotTicker } from './massiveClient';
 import { getOrderBookFromStream } from './bitgetOrderBookStream';
@@ -13,15 +13,20 @@ import { TtlCache } from '../lib/ttlCache';
 import { acquire as bitgetRateLimitAcquire, setMaxPerSecond as setBitgetRateLimit } from '../lib/bitgetRateLimiter';
 
 /**
- * Data Aggregator — Bitget REST API (свечи, стакан, тикеры для анализа и автоторговли)
- * При таймауте — retry с другим прокси (до 2 попыток).
- * TTL кэша из config.marketDataCacheTtl (по умолчанию 0.25 с для стакана/плотности при Massive).
+ * Data Aggregator — источник рыночных данных для анализа.
+ * При useBinanceForMarketData: только Binance REST (свечи, стакан, тикер).
+ * Иначе: Massive (если включён) с fallback на Bitget.
+ * TTL кэша из config.marketDataCacheTtl.
  */
 const ohlcvInFlight = new Map<string, Promise<OHLCVCandle[]>>();
 const obInFlight = new Map<string, Promise<{ bids: [number, number][]; asks: [number, number][] }>>();
 /** После 403/429 от Massive не обращаться к нему до этой метки (мс), использовать только Bitget */
 let massiveBackoffUntil = 0;
 const MASSIVE_BACKOFF_MS = 10 * 60 * 1000; // 10 мин
+/** Троттлинг логов при недоступности Bitget (сеть/блокировка): не чаще раза в минуту */
+let lastBitgetNetworkErrorLogAt = 0;
+let bitgetNetworkErrorCount = 0;
+const BITGET_NETWORK_ERROR_LOG_INTERVAL_MS = 60 * 1000;
 
 export class DataAggregator {
   private exchange: Exchange;
@@ -53,21 +58,61 @@ export class DataAggregator {
     return new ccxt.bitget(opts);
   }
 
+  private createBinanceExchange(proxyUrl?: string): Exchange {
+    const { binance } = config;
+    const url = proxyUrl ?? getProxy(config.proxyList) ?? config.proxy ?? '';
+    const opts: Record<string, unknown> = {
+      apiKey: binance.hasCredentials ? binance.apiKey : undefined,
+      secret: binance.hasCredentials ? binance.secret : undefined,
+      enableRateLimit: true,
+      options: {
+        defaultType: 'future',
+        fetchMarkets: ['future'],
+        fetchCurrencies: false
+      },
+      timeout: binance.timeout
+    };
+    if (url) opts.httpsProxy = url;
+    return new ccxt.binance(opts);
+  }
+
   constructor() {
-    this.exchange = this.createExchange();
-    setBitgetRateLimit(config.bitget.rateLimitPerSecond);
-    const proxyUrl = getProxy(config.proxyList) || config.proxy || '';
-    if (config.useMassiveForMarketData) {
-      const base = (config.massive.baseUrl || 'https://api.massive.com').replace(/\/$/, '');
-      logger.info('DataAggregator', `Market data: Massive.com base=${base} apiKey=${config.massive.apiKey ? 'set' : 'MISSING'} (${config.massive.rateLimitPerSecond}/s); fallback Bitget rate=${config.bitget.rateLimitPerSecond}/s`);
+    if (config.useBinanceForMarketData) {
+      this.exchange = this.createBinanceExchange();
+      const proxyUrl = getProxy(config.proxyList) || config.proxy || '';
+      logger.info('DataAggregator', `Market data: Binance only${config.binance.hasCredentials ? ' (keys set)' : ' (public)'}${proxyUrl ? ' [proxy]' : ''}`);
     } else {
-      logger.info('DataAggregator', `Bitget: public${config.bitget.hasCredentials ? ' + trading' : ''}${proxyUrl ? ' [proxy]' : ''} rate=${config.bitget.rateLimitPerSecond}/s`);
+      this.exchange = this.createExchange();
+      setBitgetRateLimit(config.bitget.rateLimitPerSecond);
+      const proxyUrl = getProxy(config.proxyList) || config.proxy || '';
+      if (config.useMassiveForMarketData) {
+        const base = (config.massive.baseUrl || 'https://api.massive.com').replace(/\/$/, '');
+        logger.info('DataAggregator', `Market data: Massive.com base=${base} apiKey=${config.massive.apiKey ? 'set' : 'MISSING'} (${config.massive.rateLimitPerSecond}/s); fallback Bitget rate=${config.bitget.rateLimitPerSecond}/s`);
+      } else {
+        logger.info('DataAggregator', `Bitget: public${config.bitget.hasCredentials ? ' + trading' : ''}${proxyUrl ? ' [proxy]' : ''} rate=${config.bitget.rateLimitPerSecond}/s`);
+      }
     }
   }
 
   private isTimeout(err: unknown): boolean {
     const msg = err instanceof Error ? err.message : String(err);
     return /timed out|timeout|ETIMEDOUT/i.test(msg);
+  }
+
+  /** Сетевая ошибка Bitget (api.bitget.com недоступен — блокировка или нет сети). Нужен PROXY_LIST. */
+  private isBitgetNetworkError(err: unknown): boolean {
+    const msg = err instanceof Error ? err.message : String(err);
+    return /fetch failed|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|ECONNRESET|network/i.test(msg);
+  }
+
+  private logBitgetNetworkErrorOnce(context: string): void {
+    bitgetNetworkErrorCount++;
+    const now = Date.now();
+    if (now - lastBitgetNetworkErrorLogAt >= BITGET_NETWORK_ERROR_LOG_INTERVAL_MS) {
+      logger.warn('DataAggregator', `Bitget unreachable (${bitgetNetworkErrorCount} errors). Set PROXY_LIST in .env if api.bitget.com is blocked.`, { context });
+      lastBitgetNetworkErrorLogAt = now;
+      bitgetNetworkErrorCount = 0;
+    }
   }
 
   /** 401 Unknown API Key, 403 NOT_AUTHORIZED (plan) или 429 rate limit — fallback на Bitget */
@@ -77,11 +122,11 @@ export class DataAggregator {
   }
 
   getExchangeIds(): string[] {
-    return ['bitget'];
+    return config.useBinanceForMarketData ? ['binance'] : ['bitget'];
   }
 
   private toCcxtSymbol(symbol: string): string {
-    const s = toOkxCcxtSymbol(symbol);
+    const s = config.useBinanceForMarketData ? toBinanceCcxtSymbol(symbol) : toOkxCcxtSymbol(symbol);
     return s || 'BTC/USDT:USDT';
   }
 
@@ -98,13 +143,15 @@ export class DataAggregator {
     const ttlKey = `candles_${timeframe}` as keyof typeof config.marketDataCacheTtl;
     const ttlMs = (config.marketDataCacheTtl && ttlKey in config.marketDataCacheTtl ? config.marketDataCacheTtl[ttlKey] : 60_000) as number;
 
-    const fromStream = getCandlesFromStream(symbol, timeframe, ttlMs);
-    const minCandlesFromStream = 50;
-    if (fromStream && fromStream.length >= Math.min(limit, minCandlesFromStream)) {
-      const candles = fromStream.slice(-limit);
-      this.ohlcvCache.set(cacheKey, candles);
-      setMarketDataCache(symbol, dataType, candles);
-      return candles;
+    if (!config.useBinanceForMarketData) {
+      const fromStream = getCandlesFromStream(symbol, timeframe, ttlMs);
+      const minCandlesFromStream = 50;
+      if (fromStream && fromStream.length >= Math.min(limit, minCandlesFromStream)) {
+        const candles = fromStream.slice(-limit);
+        this.ohlcvCache.set(cacheKey, candles);
+        setMarketDataCache(symbol, dataType, candles);
+        return candles;
+      }
     }
 
     const fromDb = getMarketDataCache(symbol, dataType, ttlMs);
@@ -120,6 +167,39 @@ export class DataAggregator {
     if (promise) return promise;
 
     promise = (async (): Promise<OHLCVCandle[]> => {
+      if (config.useBinanceForMarketData) {
+        const ccxtSymbol = this.toCcxtSymbol(symbol);
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const data = await this.exchange.fetchOHLCV(ccxtSymbol, timeframe, undefined, limit);
+            if (data?.length) {
+              const candles = data.map((row) => ({
+                timestamp: Number(row[0]),
+                open: Number(row[1]),
+                high: Number(row[2]),
+                low: Number(row[3]),
+                close: Number(row[4]),
+                volume: Number(row[5] ?? 0)
+              }));
+              this.ohlcvCache.set(cacheKey, candles);
+              setMarketDataCache(symbol, dataType, candles);
+              return candles;
+            }
+          } catch (e) {
+            const msg = (e as Error).message;
+            logger.warn('DataAggregator', 'Binance OHLCV fetch failed', { symbol, attempt: attempt + 1, error: msg });
+            if (this.isTimeout(e) && attempt === 0) {
+              this.exchange = this.createBinanceExchange();
+              await new Promise((r) => setTimeout(r, 1500));
+              continue;
+            }
+            return this.getMockCandles(symbol, timeframe, limit);
+          }
+          break;
+        }
+        return this.getMockCandles(symbol, timeframe, limit);
+      }
+
       let useBitget = !config.useMassiveForMarketData || Date.now() < massiveBackoffUntil;
       if (config.useMassiveForMarketData && !useBitget) {
         try {
@@ -164,12 +244,14 @@ export class DataAggregator {
             }
           } catch (e) {
             const msg = (e as Error).message;
-            if (!msg?.includes('does not have market symbol')) {
+            if (this.isBitgetNetworkError(e)) {
+              this.logBitgetNetworkErrorOnce('OHLCV');
+            } else if (!msg?.includes('does not have market symbol')) {
               logger.warn('DataAggregator', 'OHLCV fetch failed', { symbol, attempt: attempt + 1, error: msg });
             } else {
               logger.debug('DataAggregator', 'Symbol not on Bitget', { symbol });
             }
-            if (this.isTimeout(e) && attempt === 0) {
+            if ((this.isTimeout(e) || this.isBitgetNetworkError(e)) && attempt === 0) {
               this.exchange = this.createExchange();
               await new Promise((r) => setTimeout(r, 1500));
               continue;
@@ -198,28 +280,30 @@ export class DataAggregator {
     const cachedOb = this.obCache.get(obCacheKey);
     if (cachedOb) return cachedOb;
 
-    const streamTtlMs = config.marketDataCacheTtl?.orderbook ?? 2_000;
-    const fromStream = getOrderBookFromStream(symbol);
-    if (fromStream && (fromStream.bids.length > 0 || fromStream.asks.length > 0) && (Date.now() - fromStream.ts) < streamTtlMs) {
-      const result = { bids: fromStream.bids, asks: fromStream.asks };
-      this.obCache.set(obCacheKey, result);
-      const dataType = `orderbook_${limit}`;
-      setMarketDataCache(symbol, dataType, result);
-      try {
-        const density = computeDensity(result);
-        setMarketDataCache(symbol, 'density', {
-          spreadPct: density.spreadPct,
-          midPrice: density.midPrice,
-          depthBidUsd: density.depthBidUsd,
-          depthAskUsd: density.depthAskUsd,
-          imbalance: density.imbalance
-        });
-      } catch (_) { /* ignore */ }
-      return result;
-    }
-
     const dataType = `orderbook_${limit}`;
     const ttlMs = config.marketDataCacheTtl?.orderbook ?? 2_000;
+
+    if (!config.useBinanceForMarketData) {
+      const streamTtlMs = config.marketDataCacheTtl?.orderbook ?? 2_000;
+      const fromStream = getOrderBookFromStream(symbol);
+      if (fromStream && (fromStream.bids.length > 0 || fromStream.asks.length > 0) && (Date.now() - fromStream.ts) < streamTtlMs) {
+        const result = { bids: fromStream.bids, asks: fromStream.asks };
+        this.obCache.set(obCacheKey, result);
+        setMarketDataCache(symbol, dataType, result);
+        try {
+          const density = computeDensity(result);
+          setMarketDataCache(symbol, 'density', {
+            spreadPct: density.spreadPct,
+            midPrice: density.midPrice,
+            depthBidUsd: density.depthBidUsd,
+            depthAskUsd: density.depthAskUsd,
+            imbalance: density.imbalance
+          });
+        } catch (_) { /* ignore */ }
+        return result;
+      }
+    }
+
     const fromDb = getMarketDataCache(symbol, dataType, ttlMs);
     if (fromDb?.data && typeof fromDb.data === 'object' && 'bids' in fromDb.data && 'asks' in fromDb.data) {
       const result = {
@@ -234,6 +318,41 @@ export class DataAggregator {
     if (promise) return promise;
 
     promise = (async (): Promise<{ bids: [number, number][]; asks: [number, number][] }> => {
+      if (config.useBinanceForMarketData) {
+        const ccxtSymbol = this.toCcxtSymbol(symbol);
+        const bookLimit = Math.min(limit, config.limits.orderBook);
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const ob = await this.exchange.fetchOrderBook(ccxtSymbol, bookLimit);
+            const bids = (ob.bids || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
+            const asks = (ob.asks || []).slice(0, bookLimit).map(([p, a]) => [Number(p), Number(a)] as [number, number]);
+            const result = { bids, asks };
+            this.obCache.set(obCacheKey, result);
+            setMarketDataCache(symbol, dataType, result);
+            try {
+              const density = computeDensity(result);
+              setMarketDataCache(symbol, 'density', {
+                spreadPct: density.spreadPct,
+                midPrice: density.midPrice,
+                depthBidUsd: density.depthBidUsd,
+                depthAskUsd: density.depthAskUsd,
+                imbalance: density.imbalance
+              });
+            } catch (_) { /* ignore */ }
+            return result;
+          } catch (e) {
+            logger.warn('DataAggregator', 'Binance OrderBook fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
+            if (this.isTimeout(e) && attempt === 0) {
+              this.exchange = this.createBinanceExchange();
+              await new Promise((r) => setTimeout(r, 1500));
+              continue;
+            }
+            return this.getMockOrderBook(symbol, limit);
+          }
+        }
+        return this.getMockOrderBook(symbol, limit);
+      }
+
       let useBitgetOb = !config.useMassiveForMarketData || Date.now() < massiveBackoffUntil;
       if (config.useMassiveForMarketData && !useBitgetOb) {
         try {
@@ -287,8 +406,9 @@ export class DataAggregator {
             } catch (_) { /* ignore density save errors */ }
             return result;
           } catch (e) {
-            logger.warn('DataAggregator', 'OrderBook fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
-            if (this.isTimeout(e) && attempt === 0) {
+            if (this.isBitgetNetworkError(e)) this.logBitgetNetworkErrorOnce('OrderBook');
+            else logger.warn('DataAggregator', 'OrderBook fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
+            if ((this.isTimeout(e) || this.isBitgetNetworkError(e)) && attempt === 0) {
               this.exchange = this.createExchange();
               await new Promise((r) => setTimeout(r, 1500));
               continue;
@@ -312,6 +432,33 @@ export class DataAggregator {
     const cachedPrice = this.priceCache.get(symbol);
     if (cachedPrice) return cachedPrice;
 
+    if (config.useBinanceForMarketData) {
+      const ccxtSymbol = this.toCcxtSymbol(symbol);
+      try {
+        const ticker = await this.exchange.fetchTicker(ccxtSymbol);
+        const last = ticker?.last ?? ticker?.close;
+        if (typeof last === 'number' && last > 0) {
+          this.priceCache.set(symbol, last);
+          return last;
+        }
+      } catch (err) {
+        logger.warn('DataAggregator', 'Binance getCurrentPrice failed', { symbol, error: (err as Error).message });
+      }
+      try {
+        const ob = await this.getOrderBookByExchange(symbol, 5);
+        const bestBid = ob.bids?.[0]?.[0];
+        const bestAsk = ob.asks?.[0]?.[0];
+        if (bestBid != null && bestAsk != null && bestBid > 0 && bestAsk > 0) {
+          const mid = (bestBid + bestAsk) / 2;
+          this.priceCache.set(symbol, mid);
+          return mid;
+        }
+      } catch (err) {
+        logger.warn('DataAggregator', 'Binance getCurrentPrice(ob) failed', { symbol, error: (err as Error).message });
+      }
+      return this.getSymbolBasePrice(symbol);
+    }
+
     if (config.useMassiveForMarketData && Date.now() >= massiveBackoffUntil) {
       try {
         const snap = await getCryptoSnapshotTicker(toMassiveTicker(symbol));
@@ -327,7 +474,6 @@ export class DataAggregator {
         } else {
           return this.getSymbolBasePrice(symbol);
         }
-        // fall through to Bitget path below
       }
     }
 
@@ -346,7 +492,10 @@ export class DataAggregator {
         this.priceCache.set(symbol, last);
         return last;
       }
-    } catch (err) { logger.warn('DataAggregator', (err as Error).message); }
+    } catch (err) {
+      if (this.isBitgetNetworkError(err)) this.logBitgetNetworkErrorOnce('getCurrentPrice');
+      else logger.warn('DataAggregator', (err as Error).message);
+    }
     try {
       const ob = await this.getOrderBookByExchange(symbol, 5);
       const bestBid = ob.bids?.[0]?.[0];
@@ -354,7 +503,10 @@ export class DataAggregator {
       if (bestBid != null && bestAsk != null && bestBid > 0 && bestAsk > 0) {
         return (bestBid + bestAsk) / 2;
       }
-    } catch (err) { logger.warn('DataAggregator', (err as Error).message); }
+    } catch (err) {
+      if (this.isBitgetNetworkError(err)) this.logBitgetNetworkErrorOnce('getCurrentPrice(ob)');
+      else logger.warn('DataAggregator', (err as Error).message);
+    }
     return this.getSymbolBasePrice(symbol);
   }
 
@@ -365,19 +517,21 @@ export class DataAggregator {
     const results = await Promise.all(
       list.map(async (symbol) => {
         try {
-          const t = getTickerFromStream(symbol, 5_000);
-          if (t && t.last > 0) {
-            const candles1d = getCandlesFromStream(symbol, '1d', ttl1d);
-            const open24h = candles1d?.length ? candles1d[0].open : t.last;
-            const change24h = open24h > 0 ? ((t.last - open24h) / open24h) * 100 : 0;
-            return {
-              symbol,
-              last: t.last,
-              change24h,
-              volume24h: t.volume24h ?? 0,
-              high24h: t.high24h,
-              low24h: t.low24h
-            };
+          if (!config.useBinanceForMarketData) {
+            const t = getTickerFromStream(symbol, 5_000);
+            if (t && t.last > 0) {
+              const candles1d = getCandlesFromStream(symbol, '1d', ttl1d);
+              const open24h = candles1d?.length ? candles1d[0].open : t.last;
+              const change24h = open24h > 0 ? ((t.last - open24h) / open24h) * 100 : 0;
+              return {
+                symbol,
+                last: t.last,
+                change24h,
+                volume24h: t.volume24h ?? 0,
+                high24h: t.high24h,
+                low24h: t.low24h
+              };
+            }
           }
           const [last, candles] = await Promise.all([
             this.getCurrentPrice(symbol),
@@ -412,7 +566,7 @@ export class DataAggregator {
     const tradesLimit = Math.min(limit, config.limits.trades);
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        await bitgetRateLimitAcquire();
+        if (!config.useBinanceForMarketData) await bitgetRateLimitAcquire();
         const rows = await this.exchange.fetchTrades(ccxtSymbol, undefined, tradesLimit);
         const trades = rows.map((t: any) => {
           const price = Number(t.price ?? (t.cost && t.amount ? t.cost / t.amount : 0));
@@ -429,11 +583,21 @@ export class DataAggregator {
         this.tradesCache.set(tradesCacheKey, trades);
         return trades;
       } catch (e) {
-        logger.warn('DataAggregator', 'Trades fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
-        if (this.isTimeout(e) && attempt === 0) {
-          this.exchange = this.createExchange();
-          await new Promise((r) => setTimeout(r, 1500));
-          continue;
+        if (config.useBinanceForMarketData) {
+          logger.warn('DataAggregator', 'Binance Trades fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
+          if (this.isTimeout(e) && attempt === 0) {
+            this.exchange = this.createBinanceExchange();
+            await new Promise((r) => setTimeout(r, 1500));
+            continue;
+          }
+        } else {
+          if (this.isBitgetNetworkError(e)) this.logBitgetNetworkErrorOnce('Trades');
+          else logger.warn('DataAggregator', 'Trades fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
+          if ((this.isTimeout(e) || this.isBitgetNetworkError(e)) && attempt === 0) {
+            this.exchange = this.createExchange();
+            await new Promise((r) => setTimeout(r, 1500));
+            continue;
+          }
         }
         return this.getMockTrades(symbol, limit);
       }

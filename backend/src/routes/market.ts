@@ -874,11 +874,8 @@ router.post('/analyze/:symbol', async (req, res) => {
   }
 });
 
-const MAX_SYMBOLS = 6; // Меньше символов — быстрее цикл, меньше 429/таймаутов (Massive/Bitget)
-/** Сигналы 65%+ — порог для авто-цикла (снижен для стабильного потока сделок) */
-const AUTO_MIN_CONFIDENCE = 0.65;
-/** Минимальный risk/reward для открытия ордера в полном автомате */
-const AUTO_MIN_RISK_REWARD = 1.1;
+const MAX_SYMBOLS = 6; // Меньше символов — быстрее цикл, меньше 429/таймаутов
+/** Пороги авто-цикла берутся из config (MIN_CONFIDENCE, MIN_RR_RATIO в .env) */
 const AUTO_SCORE_WEIGHTS = { confidence: 0.4, riskReward: 0.35, confluence: 0.1, aiProb: 0.15 }; // выше вес R:R — предпочитаем сделки с большим потенциалом
 
 /** Преобразовать символ из скринера (BTC/USDT:USDT) в формат runAnalysis (BTC-USDT) */
@@ -1086,7 +1083,7 @@ async function runAutoTradingBestCycleInner(
         const minVolOk = atrPct == null || atrPct >= 0.001; // мин. волатильность 0.1% ATR
         const techOverride = conf >= 0.80 && rr >= 2.0;
         const aiGateOk = minAiProb <= 0 || mlSamples < MIN_SAMPLES_FOR_AI_GATE || effectiveAiProb >= minAiProb || techOverride;
-        if (conf >= AUTO_MIN_CONFIDENCE && rr >= AUTO_MIN_RISK_REWARD && minVolOk && aiGateOk) {
+        if (conf >= config.minConfidence && rr >= config.minRiskReward && minVolOk && aiGateOk) {
           const score =
             conf * AUTO_SCORE_WEIGHTS.confidence +
             Math.min(rr / 2.5, 1) * AUTO_SCORE_WEIGHTS.riskReward +
@@ -1105,13 +1102,13 @@ async function runAutoTradingBestCycleInner(
   if (results.length === 0) {
     const top = rejected.sort((a, b) => b.conf - a.conf).slice(0, 5);
     const aiHint = minAiProb > 0 && mlSamples >= MIN_SAMPLES_FOR_AI_GATE ? `, aiProb>=${(minAiProb * 100).toFixed(0)}%` : '';
-    logger.info('runAutoTradingBestCycle', `No signals passed filter (conf>=${AUTO_MIN_CONFIDENCE * 100}%, rr>=${AUTO_MIN_RISK_REWARD}${aiHint}). Top rejected: ${top.map((t) => `${t.sym} conf=${(t.conf * 100).toFixed(0)}% rr=${t.rr.toFixed(2)}${t.effectiveAiProb != null ? ` ai=${(t.effectiveAiProb * 100).toFixed(1)}%` : ''}`).join('; ')}`, { analyzed: syms.length });
+    logger.info('runAutoTradingBestCycle', `No signals passed filter (conf>=${config.minConfidence * 100}%, rr>=${config.minRiskReward}${aiHint}). Top rejected: ${top.map((t) => `${t.sym} conf=${(t.conf * 100).toFixed(0)}% rr=${t.rr.toFixed(2)}${t.effectiveAiProb != null ? ` ai=${(t.effectiveAiProb * 100).toFixed(1)}%` : ''}`).join('; ')}`, { analyzed: syms.length });
     return;
   }
   results.sort((a, b) => b.score - a.score);
   const best = results[0];
   addSignal(best.signal);
-  (best.breakdown as any).autoSettings = { leverage, sizePercent, minConfidence: Math.round(AUTO_MIN_CONFIDENCE * 100), minRiskReward: AUTO_MIN_RISK_REWARD };
+  (best.breakdown as any).autoSettings = { leverage, sizePercent, minConfidence: Math.round(config.minConfidence * 100), minRiskReward: config.minRiskReward };
   getBroadcastSignal()?.(best.signal, best.breakdown, userId);
   logger.info('runAutoTradingBestCycle', `Best: ${best.signal.symbol} ${best.signal.direction} conf=${((best.signal.confidence ?? 0) * 100).toFixed(0)}% score=${best.score.toFixed(3)}`);
 
@@ -1182,8 +1179,8 @@ async function runAutoTradingBestCycleInner(
   let externalAiScore: number | null = null;
   let externalAiUsed = false;
 
-  if (rr < AUTO_MIN_RISK_REWARD) {
-    const skipReason = `R:R ${rr.toFixed(2)} ниже минимума ${AUTO_MIN_RISK_REWARD}. Ордер не открыт.`;
+  if (rr < config.minRiskReward) {
+    const skipReason = `R:R ${rr.toFixed(2)} ниже минимума ${config.minRiskReward}. Ордер не открыт.`;
     logger.info('runAutoTradingBestCycle', skipReason, { symbol: best.signal.symbol, rr });
     setLastExecution(undefined, undefined, skipReason, aiInfoForExecution(undefined, false));
     return;

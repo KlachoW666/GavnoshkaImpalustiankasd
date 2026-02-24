@@ -38,7 +38,32 @@ export const config = {
     }
   },
 
-  /** Bitget — биржа для автоторговли (ключи пользователя или из .env). */
+  /** Binance — источник рыночных данных (свечи, стакан, тикер). Ключи из .env сайта; для публичных данных можно пустые. */
+  binance: {
+    apiKey: envStr('BINANCE_API_KEY'),
+    secret: envStr('BINANCE_API_SECRET'),
+    timeout: Math.max(15000, envNum('BINANCE_TIMEOUT', 30000)),
+    get hasCredentials(): boolean {
+      return Boolean(this.apiKey && this.secret);
+    },
+    get sandbox(): boolean {
+      return envBool('BINANCE_TESTNET', false);
+    }
+  },
+
+  /** Использовать Binance для рыночных данных (OHLCV, стакан, цена). Когда 1 — только Binance. */
+  get useBinanceForMarketData(): boolean {
+    return envBool('USE_BINANCE_FOR_MARKET_DATA', true);
+  },
+
+  /** Параметры сигналов и анализа из .env */
+  minConfidence: Math.max(0.01, Math.min(1, envNum('MIN_CONFIDENCE', 0.65))),
+  minRiskReward: Math.max(0.5, Math.min(10, envNum('MIN_RR_RATIO', 1.1))),
+  maxSignalsPerHour: Math.max(1, Math.min(100, envNum('MAX_SIGNALS_PER_HOUR', 10))),
+  analysisInterval: Math.max(1, envNum('ANALYSIS_INTERVAL', 10)),
+  aiCooldown: Math.max(0, envNum('AI_COOLDOWN', 30)),
+
+  /** Bitget — биржа для торговли (ключи пользователя в настройках или из .env как fallback). */
   bitget: {
     apiKey: envStr('BITGET_API_KEY'),
     secret: envStr('BITGET_SECRET'),

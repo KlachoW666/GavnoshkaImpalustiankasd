@@ -31,6 +31,17 @@ export function toOkxCcxtSymbol(symbol: string): string {
 }
 
 /**
+ * Convert to Binance ccxt format (futures): BTC-USDT -> BTC/USDT:USDT
+ */
+export function toBinanceCcxtSymbol(symbol: string): string {
+  const s = normalizeSymbol(symbol);
+  if (!s || !s.includes('-')) return '';
+  let [base, quote] = s.split('-');
+  base = OKX_SYMBOL_MAP[base] ?? base;
+  return `${base}/${quote}:USDT`;
+}
+
+/**
  * Convert to OKX WebSocket instId: BTC-USDT-SWAP
  */
 export function toOkxInstId(symbol: string): string {
