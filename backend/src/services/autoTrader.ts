@@ -447,7 +447,7 @@ export async function executeSignal(
   try {
     let order: unknown;
     try {
-      order = await tryPlaceOrder('cross');
+      order = await tryPlaceOrder('isolated');
     } catch (e: any) {
       const errMsg = e?.message ?? String(e);
       const isAccountModeError = /51010|account mode|cannot complete.*account mode/i.test(errMsg);
@@ -471,12 +471,12 @@ export async function executeSignal(
         posSide = 'net';
         logger.info('AutoTrader', 'Retrying with posSide=net (account in net/one-way mode)', { symbol: signal.symbol });
         try {
-          order = await tryPlaceOrder('cross');
+          order = await tryPlaceOrder('isolated');
         } catch (e2: any) {
           const errMsg2 = e2?.message ?? String(e2);
           if (/51010|account mode/i.test(errMsg2)) {
-            logger.info('AutoTrader', 'Retrying with posSide=net + tdMode=isolated', { symbol: signal.symbol });
-            order = await tryPlaceOrder('isolated');
+            logger.info('AutoTrader', 'Retrying with posSide=net + tdMode=cross', { symbol: signal.symbol });
+            order = await tryPlaceOrder('cross');
           } else if (/40774|unilateral|side mismatch/i.test(errMsg2)) {
             logger.info('AutoTrader', 'Retrying with Bitget one-way mode (side buy/sell)', { symbol: signal.symbol });
             order = await tryPlaceOrder('isolated', true);
@@ -485,15 +485,15 @@ export async function executeSignal(
           }
         }
       } else if (isAccountModeError) {
-        logger.info('AutoTrader', 'Retrying with tdMode=isolated (account mode 51010)', { symbol: signal.symbol });
+        logger.info('AutoTrader', 'Retrying with tdMode=cross (account mode 51010)', { symbol: signal.symbol });
         try {
-          order = await tryPlaceOrder('isolated');
+          order = await tryPlaceOrder('cross');
         } catch (e2: any) {
           const errMsg2 = e2?.message ?? String(e2);
           if (/51000.*posSide|Parameter posSide/i.test(errMsg2)) {
             posSide = 'net';
-            logger.info('AutoTrader', 'Retrying with posSide=net + tdMode=isolated', { symbol: signal.symbol });
-            order = await tryPlaceOrder('isolated');
+            logger.info('AutoTrader', 'Retrying with posSide=net + tdMode=cross', { symbol: signal.symbol });
+            order = await tryPlaceOrder('cross');
           } else {
             throw e2;
           }
@@ -501,7 +501,7 @@ export async function executeSignal(
       } else if (isTimestampExpired) {
         logger.info('AutoTrader', '50102 Timestamp expired, retrying createOrder after 2s (sync server clock: timedatectl set-ntp true)', { symbol: signal.symbol });
         await sleep(2000);
-        order = await tryPlaceOrder('cross');
+        order = await tryPlaceOrder('isolated');
       } else {
         throw e;
       }
