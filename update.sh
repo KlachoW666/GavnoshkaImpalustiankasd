@@ -1,5 +1,6 @@
 #!/bin/bash
 # CLABX — скрипт автоматического обновления на VPS
+# Домен: clabx.ru, VPS: 91.219.151.7. Сайт + бот. n8n — на отдельном VPS. При запуске от root применяет Nginx-конфиг.
 #
 # Запуск на VPS (обязательно bash и из корня проекта):
 #   bash update.sh                    # Обновление с main и перезапуск PM2
@@ -51,7 +52,6 @@ NO_RESTART=false
 FORCE_UPDATE=false
 PM2_APP_NAME="cryptosignal"
 PM2_BOT_NAME="telegram-bot"
-PM2_N8N_NAME="n8n"
 PM2_ECOSYSTEM="ecosystem.config.js"
 REPO_URL="https://github.com/KlachoW666/GavnoshkaImpalustiankasd.git"
 BRANCH=""
@@ -138,15 +138,14 @@ if [ -n "$(git status --porcelain)" ]; then
   fi
 fi
 
-# Останавливаем приложение (PM2 или systemd): сайт, бот, n8n
+# Останавливаем приложение (PM2 или systemd): сайт, бот
 if [ "$NO_RESTART" = false ]; then
   if command -v pm2 &>/dev/null; then
-    if pm2 describe "$PM2_APP_NAME" &>/dev/null || pm2 describe "$PM2_BOT_NAME" &>/dev/null || pm2 describe "$PM2_N8N_NAME" &>/dev/null; then
-      log "Останавливаем PM2: ${PM2_APP_NAME}, ${PM2_BOT_NAME}, ${PM2_N8N_NAME}..."
+    if pm2 describe "$PM2_APP_NAME" &>/dev/null || pm2 describe "$PM2_BOT_NAME" &>/dev/null; then
+      log "Останавливаем PM2: ${PM2_APP_NAME}, ${PM2_BOT_NAME}..."
       pm2 stop "$PM2_APP_NAME" 2>/dev/null || true
       pm2 stop "$PM2_BOT_NAME" 2>/dev/null || true
-      pm2 stop "$PM2_N8N_NAME" 2>/dev/null || true
-      success "Сайт, бот и n8n остановлены"
+      success "Сайт и бот остановлены"
     fi
   elif command -v systemctl &>/dev/null && systemctl is-active --quiet clabx 2>/dev/null; then
     log "Останавливаем systemd сервис clabx..."
@@ -208,17 +207,38 @@ if [ "$CURRENT_COMMIT" = "$NEW_COMMIT" ]; then
   (cd backend && npm run build 2>/dev/null) || warn "Backend build пропущен или не удался"
   (cd frontend && npm run build 2>/dev/null) || warn "Frontend build пропущен или не удался"
   if [ "$NO_RESTART" = false ]; then
-    if command -v pm2 &>/dev/null; then
-      if [ -f "$PM2_ECOSYSTEM" ]; then
-        pm2 reload "$PM2_ECOSYSTEM" 2>/dev/null || pm2 start "$PM2_ECOSYSTEM" 2>/dev/null || true
-        success "PM2 (сайт + бот + n8n) запущены"
-      elif pm2 describe "$PM2_APP_NAME" &>/dev/null; then
-        pm2 start "$PM2_APP_NAME" || true
-        success "PM2 приложение запущено"
+    if command -v pm2 &>/dev/null && [ -f "$PM2_ECOSYSTEM" ]; then
+      pm2 start "$PM2_ECOSYSTEM" --only "$PM2_APP_NAME" 2>/dev/null || pm2 restart "$PM2_APP_NAME" 2>/dev/null || true
+      for _ in 1 2 3 4 5 6 7 8 9 10; do
+        curl -sf -o /dev/null --max-time 3 http://127.0.0.1:3000/api/health 2>/dev/null && break
+        sleep 2
+      done
+      if ! curl -sf -o /dev/null --max-time 2 http://127.0.0.1:3000/api/health 2>/dev/null; then
+        warn "Бэкенд не отвечает — проверьте: pm2 logs ${PM2_APP_NAME} --lines 80"
+      else
+        sleep 3
+        if curl -sf -o /dev/null --max-time 3 http://127.0.0.1:3000/api/health 2>/dev/null; then
+          success "✅ Сайт (${PM2_APP_NAME}) запущен"
+        else
+          warn "Бэкенд перестал отвечать через 3 сек — возможно падает: pm2 logs ${PM2_APP_NAME}"
+        fi
       fi
+      pm2 start "$PM2_ECOSYSTEM" --only "$PM2_BOT_NAME" 2>/dev/null || pm2 restart "$PM2_BOT_NAME" 2>/dev/null || true
+      pm2 save 2>/dev/null || true
+    elif command -v pm2 &>/dev/null; then
+      pm2 start "$PM2_APP_NAME" 2>/dev/null || pm2 restart "$PM2_APP_NAME" 2>/dev/null || true
+      success "PM2 приложение запущено"
     elif command -v systemctl &>/dev/null; then
       systemctl start clabx 2>/dev/null || sudo systemctl start clabx 2>/dev/null || true
       success "Сервис запущен"
+    fi
+    # Nginx для clabx.ru (и при «Already up to date»)
+    if [ -f "nginx/nginx-pm2.conf" ] && command -v nginx &>/dev/null && [ "$(id -u)" = "0" ]; then
+      PROJECT_ROOT="$(pwd)"
+      sed "s|/root/opt/cryptosignal|$PROJECT_ROOT|g" nginx/nginx-pm2.conf > /etc/nginx/sites-available/clabx 2>/dev/null && \
+      ln -sf /etc/nginx/sites-available/clabx /etc/nginx/sites-enabled/clabx && \
+      rm -f /etc/nginx/sites-enabled/clabx_ru_ /etc/nginx/sites-enabled/default 2>/dev/null
+      nginx -t 2>/dev/null && ( nginx -s reload 2>/dev/null || systemctl reload nginx 2>/dev/null ) && success "Nginx перезагружен (clabx.ru)"
     fi
   fi
   exit 0
@@ -270,14 +290,6 @@ export npm_config_fetch_retries=5
 log "Устанавливаем зависимости (корень)..."
 npm_install_retry --no-fund --no-audit
 
-# n8n для PM2 (ecosystem): чтобы npx n8n работал с первого раза
-if [ -f "$PM2_ECOSYSTEM" ] && grep -q "n8n" "$PM2_ECOSYSTEM" 2>/dev/null; then
-  if ! npm list n8n &>/dev/null; then
-    log "Устанавливаем n8n для запуска вместе с сайтом и ботом..."
-    npm_install_retry n8n --no-fund --no-audit
-  fi
-fi
-
 log "Backend: зависимости и сборка..."
 cd backend
 npm_install_retry --include=dev --no-fund --no-audit
@@ -310,27 +322,41 @@ fi
 # Удаляем trap
 trap - ERR
 
-# Запускаем приложение (сайт + бот через ecosystem или только сайт)
+# Запускаем приложение по очереди: сначала бэкенд (сайт), проверка health, потом бот
 if [ "$NO_RESTART" = false ]; then
   if command -v pm2 &>/dev/null; then
     if [ -f "$PM2_ECOSYSTEM" ]; then
-      log "Запускаем PM2 из ${PM2_ECOSYSTEM} (сайт + Telegram-бот + n8n)..."
-      pm2 reload "$PM2_ECOSYSTEM" 2>/dev/null || pm2 start "$PM2_ECOSYSTEM"
-      pm2 save 2>/dev/null || true
-      sleep 3
-      if pm2 describe "$PM2_APP_NAME" &>/dev/null; then
-        success "✅ Сайт (${PM2_APP_NAME}) запущен"
+      # 1. Запуск бэкенда (cryptosignal) — без него сайт не работает
+      log "Запускаем бэкенд (${PM2_APP_NAME})..."
+      pm2 start "$PM2_ECOSYSTEM" --only "$PM2_APP_NAME" 2>/dev/null || pm2 restart "$PM2_APP_NAME" 2>/dev/null || true
+      log "Ждём готовности бэкенда (проверка /api/health)..."
+      for _ in 1 2 3 4 5 6 7 8 9 10; do
+        if curl -sf -o /dev/null --max-time 3 http://127.0.0.1:3000/api/health 2>/dev/null; then
+          break
+        fi
+        sleep 2
+      done
+      if ! curl -sf -o /dev/null --max-time 2 http://127.0.0.1:3000/api/health 2>/dev/null; then
+        err "Бэкенд (${PM2_APP_NAME}) не отвечает на порту 3000. Проверьте логи: pm2 logs ${PM2_APP_NAME} --lines 80"
+        pm2 logs "$PM2_APP_NAME" --lines 40 --nostream 2>/dev/null || true
+        exit 1
       fi
+      sleep 3
+      if curl -sf -o /dev/null --max-time 3 http://127.0.0.1:3000/api/health 2>/dev/null; then
+        success "✅ Сайт (${PM2_APP_NAME}) запущен и отвечает"
+      else
+        warn "Бэкенд перестал отвечать через 3 сек — возможно падает: pm2 logs ${PM2_APP_NAME}"
+      fi
+      # 2. Бот
+      log "Запускаем Telegram-бот (${PM2_BOT_NAME})..."
+      pm2 start "$PM2_ECOSYSTEM" --only "$PM2_BOT_NAME" 2>/dev/null || pm2 restart "$PM2_BOT_NAME" 2>/dev/null || true
+      sleep 2
       if pm2 describe "$PM2_BOT_NAME" &>/dev/null; then
         success "✅ Telegram-бот (${PM2_BOT_NAME}) запущен"
       else
-        warn "Бот не в PM2 — проверьте ecosystem.config.js и pm2 status"
+        warn "Проверьте бота: pm2 logs ${PM2_BOT_NAME}"
       fi
-      if pm2 describe "$PM2_N8N_NAME" &>/dev/null; then
-        success "✅ n8n (${PM2_N8N_NAME}) запущен — http://localhost:5678"
-      else
-        warn "n8n не в PM2 — проверьте ecosystem.config.js и pm2 status"
-      fi
+      pm2 save 2>/dev/null || true
     else
       log "Запускаем PM2 приложение ${PM2_APP_NAME}..."
       pm2 start "$PM2_APP_NAME" 2>/dev/null || pm2 restart "$PM2_APP_NAME"
@@ -355,6 +381,22 @@ if [ "$NO_RESTART" = false ]; then
   fi
 fi
 
+# Nginx: применить конфиг для clabx.ru (VPS, только при запуске от root)
+# Домен clabx.ru, VPS 91.219.151.7 — сайт через nginx-pm2.conf
+if [ "$NO_RESTART" = false ] && [ -f "nginx/nginx-pm2.conf" ] && command -v nginx &>/dev/null && [ "$(id -u)" = "0" ]; then
+  log "Применяем Nginx-конфиг для clabx.ru..."
+  PROJECT_ROOT="$(pwd)"
+  sed "s|/root/opt/cryptosignal|$PROJECT_ROOT|g" nginx/nginx-pm2.conf > /etc/nginx/sites-available/clabx 2>/dev/null && \
+  ln -sf /etc/nginx/sites-available/clabx /etc/nginx/sites-enabled/clabx && \
+  rm -f /etc/nginx/sites-enabled/clabx_ru_ /etc/nginx/sites-enabled/default 2>/dev/null; \
+  if nginx -t 2>/dev/null; then
+    nginx -s reload 2>/dev/null || systemctl reload nginx 2>/dev/null || true
+    success "Nginx перезагружен (clabx.ru → 127.0.0.1:3000)"
+  else
+    warn "nginx -t не прошёл — проверьте конфиг вручную"
+  fi
+fi
+
 # Очистка старых backups (оставляем только последние 5)
 if [ -d "backups" ]; then
   log "Очистка старых backups..."
@@ -370,12 +412,14 @@ echo "  От:  ${CURRENT_COMMIT:0:8}"
 echo "  До:  ${NEW_COMMIT:0:8}"
 echo ""
 echo "Полезные команды:"
-echo "  pm2 status                                # Статус сайта, бота и n8n (PM2)"
+echo "  pm2 status                                # Статус сайта и бота (PM2)"
 echo "  pm2 logs ${PM2_APP_NAME}                  # Логи сайта"
 echo "  pm2 logs ${PM2_BOT_NAME}                  # Логи Telegram-бота"
-echo "  pm2 logs ${PM2_N8N_NAME}                  # Логи n8n (http://localhost:5678)"
+echo "  curl -s http://127.0.0.1:3000/api/health  # Проверка бэкенда (должен вернуть 200)"
 echo "  systemctl status clabx                    # Если через systemd"
 echo "  git log --oneline -5                     # Последние коммиты"
+echo ""
+echo "Если сайт clabx.ru не открывается: pm2 status (cryptosignal = online), curl выше, rm -f /etc/nginx/sites-enabled/clabx_ru_ && nginx -s reload"
 echo ""
 if [ "${STASH_USED:-false}" = true ]; then
   warn "Локальные изменения сохранены в stash. Список: git stash list"
