@@ -149,10 +149,41 @@ sudo nginx -t && sudo systemctl reload nginx
 
 После обновления конфига и `reload nginx` перезапустите n8n: `pm2 restart n8n`.
 
-### 4. Почему 502
+### 4. 502 Bad Gateway — что проверить на сервере
 
-Если видите **502 Bad Gateway** при работе через PM2:
+Если на **clabx.ru** открывается **502 Bad Gateway**, выполните на VPS по шагам:
 
-- В конфиге Nginx не должно быть **upstream backend { server backend:3000; }** — это для Docker.
-- Должно быть **server 127.0.0.1:3000** (как в **nginx/nginx-pm2.conf**).
-- Убедитесь, что бэкенд слушает порт 3000: `pm2 status` → cryptosignal в статусе **online**, `curl -s http://127.0.0.1:3000/api/health` должен вернуть OK.
+**Шаг 1 — бэкенд и порт 3000**
+
+```bash
+pm2 status
+curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/api/health
+```
+
+- Если `pm2 status` показывает **cryptosignal** в статусе **stopped** или **errored** — перезапустите: `pm2 restart cryptosignal` и смотрите логи: `pm2 logs cryptosignal --lines 30`.
+- Если `curl` возвращает не **200** — бэкенд не отвечает на 3000; проверьте `pm2 logs cryptosignal` и наличие `backend/.env`.
+
+**Шаг 2 — какой конфиг использует Nginx**
+
+```bash
+ls -la /etc/nginx/sites-enabled/
+grep -r "upstream\|proxy_pass" /etc/nginx/sites-enabled/ 2>/dev/null | head -20
+```
+
+- Если в конфиге для clabx.ru указано **backend:3000** или **server backend** — это конфиг для Docker; при PM2 Nginx должен проксировать на **127.0.0.1:3000**.
+
+**Шаг 3 — применить конфиг для PM2**
+
+```bash
+cd /root/opt/cryptosignal   # или ваш путь к проекту
+git pull origin main
+PROJECT=$(pwd)
+sed "s|/root/opt/cryptosignal|$PROJECT|g" nginx/nginx-pm2.conf | sudo tee /etc/nginx/sites-available/clabx
+sudo ln -sf /etc/nginx/sites-available/clabx /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default   # если default перехватывает clabx.ru
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+После этого снова откройте clabx.ru. Если 502 остаётся — пришлите вывод команд из шага 1 и 2.
+
+**Кратко:** при работе через PM2 в Nginx должен быть **upstream** на **127.0.0.1:3000** (как в **nginx/nginx-pm2.conf**), а не на `backend:3000`.
