@@ -2,6 +2,7 @@
  * Admin Service — агрегация данных для админ-панели.
  */
 
+import bcrypt from 'bcrypt';
 import { getAutoAnalyzeStatus } from '../routes/market';
 import { initDb, getDb, listOrders, isMemoryStore } from '../db';
 import { listActivationKeys, listUsers, getOnlineUserIds } from '../db/authDb';
@@ -11,11 +12,16 @@ import { logger } from '../lib/logger';
 
 const emotionalFilter = emotionalFilterInstance;
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Qqwdsaqe2123!fade!CryptoSignalPro228';
+const ADMIN_PASSWORD_ENV = process.env.ADMIN_PASSWORD || '';
 const inMemoryTokens = new Set<string>();
 
+/** ADMIN_PASSWORD в .env: bcrypt-хеш (рекомендуется) или plain (устаревший вариант). */
 export function validateAdminPassword(password: string): boolean {
-  return password === ADMIN_PASSWORD;
+  if (!ADMIN_PASSWORD_ENV) return false;
+  if (ADMIN_PASSWORD_ENV.startsWith('$2') && ADMIN_PASSWORD_ENV.length > 20) {
+    return bcrypt.compareSync(password, ADMIN_PASSWORD_ENV);
+  }
+  return password === ADMIN_PASSWORD_ENV;
 }
 
 export function createAdminToken(): string {

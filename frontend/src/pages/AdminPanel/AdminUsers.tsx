@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { adminApi, clearAdminToken } from '../../utils/adminApi';
 import { formatNum4, formatNum4Signed } from '../../utils/formatNum';
 import { useTableSort } from '../../utils/useTableSort';
-import { SortableTh } from '../../components/SortableTh';
 
 interface UserRow {
   id: string;
@@ -325,6 +325,16 @@ export default function AdminUsers() {
     setExtendDuration('');
   };
 
+  const tableBodyRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: sortedUsers.length,
+    getScrollElement: () => tableBodyRef.current,
+    estimateSize: () => 56,
+    overscan: 5,
+  });
+
+  const gridCols = 'minmax(100px, 1fr) 120px 110px 140px 200px';
+
   // Режим просмотра профиля: при выборе пользователя показываем только страницу профиля
   if (selectedUserId) {
     return (
@@ -610,89 +620,139 @@ export default function AdminUsers() {
 
       <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
       <div className="rounded-lg overflow-hidden shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
-              <SortableTh label="Логин" sortKey="username" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="p-4" />
-              <SortableTh label="Группа" sortKey="groupId" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="p-4" />
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Статус</th>
-              <SortableTh label="Дата" sortKey="createdAt" currentKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="p-4" />
-              <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedUsers.map((u) => (
-              <tr key={u.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
-                <td className="p-4">
-                  <button
-                    type="button"
-                    onClick={() => openProfile(u.id)}
-                    className="text-left font-medium cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-inset rounded px-1 -ml-1"
-                    style={{ color: 'var(--accent)' }}
+        {/* Table header — fixed grid (div-based for virtualized body) */}
+        <div
+          className="w-full text-sm grid items-center shrink-0"
+          style={{ gridTemplateColumns: gridCols, borderColor: 'var(--border)', background: 'var(--bg-hover)' }}
+        >
+          <div
+            role="columnheader"
+            className="p-4 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:opacity-90"
+            style={{ color: 'var(--text-muted)' }}
+            onClick={() => toggleSort('username')}
+          >
+            Логин {sortKey === 'username' ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+          </div>
+          <div
+            role="columnheader"
+            className="p-4 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:opacity-90"
+            style={{ color: 'var(--text-muted)' }}
+            onClick={() => toggleSort('groupId')}
+          >
+            Группа {sortKey === 'groupId' ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+          </div>
+          <div className="p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Статус</div>
+          <div
+            role="columnheader"
+            className="p-4 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:opacity-90"
+            style={{ color: 'var(--text-muted)' }}
+            onClick={() => toggleSort('createdAt')}
+          >
+            Дата {sortKey === 'createdAt' ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+          </div>
+          <div className="p-4 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Действия</div>
+        </div>
+
+        {/* Virtualized table body */}
+        <div
+          ref={tableBodyRef}
+          className="overflow-auto"
+          style={{ maxHeight: 'min(60vh, 520px)', minHeight: 200 }}
+        >
+          {sortedUsers.length === 0 ? (
+            <p className="p-6 text-center" style={{ color: 'var(--text-muted)' }}>Нет пользователей</p>
+          ) : (
+            <div
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const u = sortedUsers[virtualRow.index];
+                return (
+                  <div
+                    key={u.id}
+                    className="grid items-center border-t text-sm"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      minWidth: 600,
+                      transform: `translateY(${virtualRow.start}px)`,
+                      gridTemplateColumns: gridCols,
+                      borderColor: 'var(--border)',
+                    }}
                   >
-                    {u.username}
-                  </button>
-                </td>
-                <td className="p-3">
-                  <select
-                    value={u.groupId}
-                    onChange={(e) => changeGroup(u.id, Number(e.target.value))}
-                    disabled={updating === u.id}
-                    className="input-field py-1.5 text-sm"
-                  >
-                    {groups.map((g) => (
-                      <option key={g.id} value={g.id}>{displayGroupName(g.name)}</option>
-                    ))}
-                  </select>
-                </td>
-                <td className="p-3">
-                  {(u.banned ?? 0) === 1 ? (
-                    <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--danger-dim)', color: 'var(--danger)' }}>
-                      Заблокирован
-                    </span>
-                  ) : u.online ? (
-                    <span className="px-2 py-1 rounded text-xs font-medium flex items-center gap-1" style={{ background: 'var(--success-dim)', color: 'var(--success)' }}>
-                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)] animate-pulse" />
-                      Онлайн
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
-                      Офлайн
-                    </span>
-                  )}
-                </td>
-                <td className="p-3" style={{ color: 'var(--text-muted)' }}>{new Date(u.createdAt).toLocaleString('ru-RU')}</td>
-                <td className="p-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    onClick={() => toggleBan(u.id, (u.banned ?? 0) === 1)}
-                    disabled={updating === u.id}
-                    className={`px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50 ${
-                      (u.banned ?? 0) === 1
-                        ? 'hover:brightness-110'
-                        : ''
-                    }`}
-                    style={(u.banned ?? 0) === 1 ? { background: 'var(--success-dim)', color: 'var(--success)' } : { background: 'var(--danger-dim)', color: 'var(--danger)' }}
-                  >
-                    {(u.banned ?? 0) === 1 ? 'Разблокировать' : 'Заблокировать'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => deleteUser(u.id)}
-                    disabled={updating === u.id}
-                    className="px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
-                    style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
-                  >
-                    Удалить
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {users.length === 0 && (
-          <p className="p-6 text-center" style={{ color: 'var(--text-muted)' }}>Нет пользователей</p>
-        )}
+                    <div className="p-4">
+                      <button
+                        type="button"
+                        onClick={() => openProfile(u.id)}
+                        className="text-left font-medium cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-inset rounded px-1 -ml-1"
+                        style={{ color: 'var(--accent)' }}
+                      >
+                        {u.username}
+                      </button>
+                    </div>
+                    <div className="p-3">
+                      <select
+                        value={u.groupId}
+                        onChange={(e) => changeGroup(u.id, Number(e.target.value))}
+                        disabled={updating === u.id}
+                        className="input-field py-1.5 text-sm"
+                      >
+                        {groups.map((g) => (
+                          <option key={g.id} value={g.id}>{displayGroupName(g.name)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="p-3">
+                      {(u.banned ?? 0) === 1 ? (
+                        <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--danger-dim)', color: 'var(--danger)' }}>
+                          Заблокирован
+                        </span>
+                      ) : u.online ? (
+                        <span className="px-2 py-1 rounded text-xs font-medium flex items-center gap-1" style={{ background: 'var(--success-dim)', color: 'var(--success)' }}>
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)] animate-pulse" />
+                          Онлайн
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 rounded text-xs font-medium" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
+                          Офлайн
+                        </span>
+                      )}
+                    </div>
+                    <div className="p-3" style={{ color: 'var(--text-muted)' }}>{new Date(u.createdAt).toLocaleString('ru-RU')}</div>
+                    <div className="p-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => toggleBan(u.id, (u.banned ?? 0) === 1)}
+                        disabled={updating === u.id}
+                        className={`px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50 ${
+                          (u.banned ?? 0) === 1 ? 'hover:brightness-110' : ''
+                        }`}
+                        style={(u.banned ?? 0) === 1 ? { background: 'var(--success-dim)', color: 'var(--success)' } : { background: 'var(--danger-dim)', color: 'var(--danger)' }}
+                      >
+                        {(u.banned ?? 0) === 1 ? 'Разблокировать' : 'Заблокировать'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteUser(u.id)}
+                        disabled={updating === u.id}
+                        className="px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
+                        style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
+                      >
+                        Удалить
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
       </div>
 

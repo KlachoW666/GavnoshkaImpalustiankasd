@@ -1,0 +1,89 @@
+{
+  "name": "CLABX — Ежедневный отчёт админу",
+  "nodes": [
+    {
+      "id": "d4e5f6a7-0001-4000-8000-000000000001",
+      "name": "Раз в день 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "d4e5f6a7-0002-4000-8000-000000000002",
+      "name": "GET Stats",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 200],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.CLABX_BASE_URL || 'https://your-domain.com' }}/api/stats"
+      }
+    },
+    {
+      "id": "d4e5f6a7-0003-4000-8000-000000000003",
+      "name": "GET News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 400],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.CLABX_BASE_URL || 'https://your-domain.com' }}/api/news?limit=5"
+      }
+    },
+    {
+      "id": "d4e5f6a7-0004-4000-8000-000000000004",
+      "name": "Собрать отчёт",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 300],
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst statsItem = items.find(i => (i.json?.body ?? i.json)?.orders != null) || items[0];\nconst newsItem = items.find(i => (i.json?.body ?? i.json)?.news != null) || items[1] || items[0];\nconst stats = statsItem?.json?.body ?? statsItem?.json ?? {};\nconst newsData = newsItem?.json?.body ?? newsItem?.json ?? {};\nconst news = newsData.news ?? [];\nconst o = stats.orders ?? {};\nconst msg = [\n  '<b>📊 Ежедневный отчёт CLABX</b>',\n  '',\n  'Ордера: ' + (o.total ?? 0) + ' (выигрышей: ' + (o.wins ?? 0) + ', проигрышей: ' + (o.losses ?? 0) + ')',\n  'Win Rate: ' + (o.winRate ?? 0) + '%',\n  'PnL: ' + (o.totalPnl ?? 0) + ' $',\n  'Пользователей: ' + (stats.usersCount ?? 0) + ', онлайн: ' + (stats.onlineUsersCount ?? 0),\n  'Объём: ' + (stats.volumeEarned ?? 0) + ' $',\n  '',\n  news.length ? 'Новости: ' + news.slice(0, 3).map(n => n.title || n.id).join(', ') : ''\n].filter(Boolean).join('\\n');\nreturn [{ json: { message: msg } }];"
+      }
+    },
+    {
+      "id": "d4e5f6a7-0005-4000-8000-000000000005",
+      "name": "Отправить в Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [920, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CLABX_BASE_URL || 'https://your-domain.com' }}/api/notify/telegram",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "botToken", "value": "={{ $env.TELEGRAM_BOT_TOKEN }}" },
+            { "name": "chatId", "value": "={{ $env.TELEGRAM_CHAT_ID }}" },
+            { "name": "message", "value": "={{ $json.message }}" }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Раз в день 09:00": {
+      "main": [
+        [
+          { "node": "GET Stats", "type": "main", "index": 0 },
+          { "node": "GET News", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "GET Stats": { "main": [[{ "node": "Собрать отчёт", "type": "main", "index": 0 }]] },
+    "GET News": { "main": [[{ "node": "Собрать отчёт", "type": "main", "index": 0 }]] },
+    "Собрать отчёт": { "main": [[{ "node": "Отправить в Telegram", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": {},
+  "meta": { "templateCredsInvalidated": false }
+}

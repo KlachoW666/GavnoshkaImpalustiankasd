@@ -10,7 +10,7 @@ import AnalysisBreakdown, { AnalysisBreakdown as BreakdownType } from '../compon
 import PositionChart from '../components/PositionChart';
 import TradingAnalytics from '../components/TradingAnalytics';
 import { RiskDisclaimer } from '../components/RiskDisclaimer';
-import { useNavigation } from '../contexts/NavigationContext';
+import { useAppNavigate } from '../hooks/useAppNavigate';
 import PositionsTable, { PositionItem } from '../components/AutoTrading/PositionsTable';
 import TradeHistory, { HistoryEntry as TradeHistoryEntry } from '../components/AutoTrading/TradeHistory';
 import { Card } from '../components/ui/Card';
@@ -378,7 +378,7 @@ function getInitialTradingState() {
 }
 
 export default function AutoTradingPage() {
-  const { navigateTo } = useNavigation();
+  const { navigateTo } = useAppNavigate();
   const [settings, setSettings] = useState<AutoTradingSettings>(loadSettings);
   const [enabled, setEnabled] = useState(false);
   const [tradingState, setTradingState] = useState(getInitialTradingState);

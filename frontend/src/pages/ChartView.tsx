@@ -4,7 +4,7 @@ import { OHLCVCandle } from '../types/signal';
 import { fetchPrice, normSymbol } from '../utils/fetchPrice';
 import { getSettings, updateSettings } from '../store/settingsStore';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigation } from '../contexts/NavigationContext';
+import { useAppNavigate } from '../hooks/useAppNavigate';
 
 const API = '/api';
 const PLATFORMS = [{ id: 'bitget', label: 'Bitget', exchange: 'bitget' }];
@@ -167,7 +167,7 @@ function OrderbookDepthChart({ bids, asks }: { bids: [number, number][]; asks: [
 }
 
 export default function ChartView() {
-  const { navigateTo } = useNavigation();
+  const { navigateTo } = useAppNavigate();
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);

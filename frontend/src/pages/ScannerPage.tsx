@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { api } from '../utils/api';
 import { useTableSort } from '../utils/useTableSort';
 import { SortableTh } from '../components/SortableTh';
-import { useNavigation } from '../contexts/NavigationContext';
+import { useAppNavigate } from '../hooks/useAppNavigate';
 
 interface CoinScore {
   symbol: string;
@@ -116,7 +116,7 @@ function levelTypeLabel(type: string): string {
 }
 
 export default function ScannerPage() {
-  const { navigateTo } = useNavigation();
+  const { navigateTo } = useAppNavigate();
   const [topCoins, setTopCoins] = useState<CoinScore[]>([]);
   const [analysis, setAnalysis] = useState<FullAnalysisItem[]>([]);
   const [loading, setLoading] = useState(true);

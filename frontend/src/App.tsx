@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import SignalFeed from './pages/SignalFeed';
-import { getSavedPage, savePage } from './store/appStore';
 import { useNotifications } from './contexts/NotificationContext';
 import { useAuth } from './contexts/AuthContext';
 import { getSettings } from './store/settingsStore';
 import { api } from './utils/api';
-import { NavigationProvider } from './contexts/NavigationContext';
 import { ThemeToggle } from './components/ui/ThemeToggle';
 
 const ChartView = lazy(() => import('./pages/ChartView'));
@@ -318,6 +317,8 @@ function NavDropdown({
    ══════════════════════════════════════════════════════════════════════ */
 export default function App() {
   const year = new Date().getFullYear();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading, logout, maintenanceMode, token } = useAuth();
   const allowedSet = useMemo(() => {
     const tabs = user?.allowedTabs ?? [];
@@ -346,10 +347,7 @@ export default function App() {
 
   const [page, setPage] = useState<Page>(() => {
     if (typeof window === 'undefined') return 'dashboard';
-    const fromUrl = getPageFromUrl();
-    if (fromUrl !== 'dashboard') return fromUrl;
-    const saved = getSavedPage() as Page | null;
-    return saved ?? 'dashboard';
+    return getPageFromUrl();
   });
   const [notifOpen, setNotifOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -382,83 +380,44 @@ export default function App() {
   };
 
 
+  // Sync page state with React Router location
+  useEffect(() => {
+    const fromLoc = getPageFromLocation(allowedSet);
+    setPage(fromLoc);
+  }, [location.pathname, allowedSet]);
+
+  useEffect(() => {
+    if (user?.activationActive && page === 'activate') {
+      navigate('/');
+    }
+  }, [user?.activationActive, page, navigate]);
+
   useEffect(() => {
     if (user) {
       try {
         if (sessionStorage.getItem('post_register_go_profile') === '1' && allowedSet.has('profile')) {
           sessionStorage.removeItem('post_register_go_profile');
-          setPage('profile');
-          if (typeof window !== 'undefined') {
-            window.history.replaceState({}, '', '/profile?welcome=1');
-          }
-          return;
+          navigate('/profile?welcome=1');
         }
       } catch {}
-      setPage((prev) => {
-        const fromLoc = getPageFromLocation(allowedSet);
-        const candidate = allowedSet.has(prev) ? prev : fromLoc;
-        return candidate as Page;
-      });
     }
-  }, [user?.id, allowedSet]);
+  }, [user?.id, allowedSet, navigate]);
 
-  useEffect(() => {
-    if (user && !allowedSet.has(page)) {
-      const fallback = getPageFromLocation(allowedSet);
-      setPage(fallback);
-      if (typeof window !== 'undefined') {
-        const path = PAGE_PATHS[fallback];
-        if (path && normalizePath(window.location.pathname) !== path) {
-          window.history.replaceState({}, '', path);
-        }
-      }
-    }
-  }, [user, page, allowedSet]);
-
-  useEffect(() => {
-    if (user?.activationActive && page === 'activate' && typeof window !== 'undefined') {
-      setPage('dashboard');
-      window.history.replaceState({}, '', '/');
-    }
-  }, [user?.activationActive, page]);
-
-  useEffect(() => { savePage(page); }, [page]);
-
-  const setPageSafe = (p: Page) => {
+  const setPageSafe = useCallback((p: Page) => {
     if (!allowedSet.has(p)) return;
-    if (typeof window !== 'undefined') {
-      const path = PAGE_PATHS[p];
-      const current = normalizePath(window.location.pathname);
-      if (current !== path) {
-        window.history.pushState({}, '', path);
-      }
-    }
+    navigate(PAGE_PATHS[p] ?? '/');
     setPage(p);
     setMobileMenuOpen(false);
     setOpenDropdown(null);
-  };
+  }, [allowedSet, navigate]);
 
-  const navigateToTrader = (userId: string) => {
+  const navigateToTrader = useCallback((userId: string) => {
     if (!allowedSet.has('trader')) return;
-    if (typeof window !== 'undefined') {
-      const path = `/trader/${encodeURIComponent(userId)}`;
-      window.history.pushState({}, '', path);
-    }
+    navigate(`/trader/${encodeURIComponent(userId)}`);
     setPage('trader');
-  };
+  }, [allowedSet, navigate]);
 
-  const stableNavigateTo = useCallback((p: string) => setPageSafe(p as any), [allowedSet]);
-  const stableNavigateToTrader = useCallback((userId: string) => navigateToTrader(userId), [allowedSet]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const onPopState = () => {
-      const next = getPageFromLocation(allowedSet);
-      setPage(next);
-    };
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-  }, [allowedSet]);
+  // React Router handles popstate/history natively — no manual listener needed
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -499,7 +458,7 @@ export default function App() {
   }
 
   return (
-    <NavigationProvider onNavigate={stableNavigateTo} onNavigateToTrader={stableNavigateToTrader}>
+    <>
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
 
       {/* ══ Bitget-style Horizontal Top Nav ═══════════════════════════ */}
@@ -827,6 +786,6 @@ export default function App() {
 
       {!online && <OfflineBanner />}
     </div>
-    </NavigationProvider>
+    </>
   );
 }

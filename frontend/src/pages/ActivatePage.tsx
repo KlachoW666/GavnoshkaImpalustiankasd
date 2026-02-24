@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../utils/api';
-import { useNavigation } from '../contexts/NavigationContext';
+import { useAppNavigate } from '../hooks/useAppNavigate';
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -11,7 +11,7 @@ function formatDate(iso: string): string {
 
 export default function ActivatePage() {
   const { token, user, fetchMe } = useAuth();
-  const { navigateTo } = useNavigation();
+  const { navigateTo } = useAppNavigate();
   const [key, setKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

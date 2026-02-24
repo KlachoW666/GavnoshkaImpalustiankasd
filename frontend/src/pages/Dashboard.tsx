@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { TradingSignal } from '../types/signal';
-import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import { formatNum4, formatNum4Signed } from '../utils/formatNum';
-import { useNavigation } from '../contexts/NavigationContext';
+import { useAppNavigate } from '../hooks/useAppNavigate';
 import { Card, StatCard } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { useStats } from '../hooks/queries/useStats';
+import { useNews } from '../hooks/queries/useNews';
+import { useSignalsPreview } from '../hooks/queries/useSignals';
 
 export interface DisplayStats {
   volumeEarned: number;
@@ -54,13 +56,34 @@ function StatSkeleton() {
 }
 
 export default function Dashboard() {
-  const [signals, setSignals] = useState<TradingSignal[]>([]);
-  const [stats, setStats] = useState<AppStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [news, setNews] = useState<NewsItem[]>([]);
   const [newsDetail, setNewsDetail] = useState<NewsItem | null>(null);
   const { token, user } = useAuth();
-  const { navigateTo } = useNavigation();
+  const { navigateTo } = useAppNavigate();
+
+  const { data: stats, isLoading: statsLoading } = useStats();
+  const { data: signalsData = [] } = useSignalsPreview();
+  const { data: news = [] } = useNews();
+
+  // Live signal updates via WebSocket (prepend to cached signals)
+  const [liveSignals, setLiveSignals] = useState<TradingSignal[]>([]);
+  const signals = liveSignals.length > 0 ? liveSignals : signalsData;
+
+  useEffect(() => {
+    const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
+    const ws = new WebSocket(wsUrl);
+    ws.onopen = () => { if (token) ws.send(JSON.stringify({ type: 'auth', token })); };
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'signal' && msg.data) {
+          const payload = msg.data as { signal?: TradingSignal } & TradingSignal;
+          const sig = payload.signal ?? payload;
+          if (sig?.symbol != null) setLiveSignals((prev) => [sig as TradingSignal, ...prev.slice(0, 9)]);
+        }
+      } catch {}
+    };
+    return () => ws.close();
+  }, [token]);
 
   function parseMediaUrls(raw: string | null | undefined): string[] {
     if (raw == null || raw === '') return [];
@@ -84,36 +107,6 @@ export default function Dashboard() {
         onlineUsersCount: stats.onlineUsersCount,
         signalsCount: signals.length
       } : null;
-
-  useEffect(() => {
-    const fetchStats = () => {
-      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-      api.get<AppStats>('/stats', { headers }).then(setStats).catch(() => setStats(null)).finally(() => setStatsLoading(false));
-    };
-    fetchStats();
-    const id = setInterval(fetchStats, 10000);
-    return () => clearInterval(id);
-  }, [token]);
-
-  useEffect(() => {
-    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-    api.get<TradingSignal[]>('/signals?limit=10', { headers }).then(setSignals).catch(() => {});
-    api.get<{ news: NewsItem[] }>('/news').then((d) => setNews(d.news || [])).catch(() => setNews([]));
-    const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
-    const ws = new WebSocket(wsUrl);
-    ws.onopen = () => { if (token) ws.send(JSON.stringify({ type: 'auth', token })); };
-    ws.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg.type === 'signal' && msg.data) {
-          const payload = msg.data as { signal?: TradingSignal } & TradingSignal;
-          const sig = payload.signal ?? payload;
-          if (sig?.symbol != null) setSignals((prev) => [sig as TradingSignal, ...prev.slice(0, 9)]);
-        }
-      } catch {}
-    };
-    return () => ws.close();
-  }, [token]);
 
   if (!user?.activationActive) {
     return (

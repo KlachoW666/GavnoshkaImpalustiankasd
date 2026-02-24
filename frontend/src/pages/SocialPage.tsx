@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { SkeletonTable } from '../components/Skeleton';
 import { useTableSort } from '../utils/useTableSort';
 import { SortableTh } from '../components/SortableTh';
-import { useNavigation } from '../contexts/NavigationContext';
+import { useAppNavigate } from '../hooks/useAppNavigate';
 
 const cardStyle = { background: 'var(--bg-card)', backdropFilter: 'blur(12px)', border: '1px solid var(--border)', color: 'var(--text-primary)' };
 
@@ -21,7 +21,7 @@ interface LeaderboardEntry {
 
 export default function SocialPage() {
   const { token } = useAuth();
-  const { navigateTo, navigateToTrader } = useNavigation();
+  const { navigateTo, navigateToTrader } = useAppNavigate();
   const navigateToCopy = () => navigateTo('copy');
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);

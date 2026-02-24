@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { adminApi, clearAdminToken } from '../../utils/adminApi';
 import { api } from '../../utils/api';
 import { formatNum4, formatNum4Signed } from '../../utils/formatNum';
-import { useNavigation } from '../../contexts/NavigationContext';
+import { useAppNavigate } from '../../hooks/useAppNavigate';
 
 interface DashboardData {
   system: {
@@ -53,7 +53,7 @@ function formatUptime(sec: number): string {
 }
 
 export default function AdminDashboard() {
-  const { navigateToTrader } = useNavigation();
+  const { navigateToTrader } = useAppNavigate();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { TradingSignal } from '../types/signal';
 import { useAuth } from '../contexts/AuthContext';
-import { api } from '../utils/api';
-import { useNavigation, type Page } from '../contexts/NavigationContext';
+import { useAppNavigate, type Page } from '../hooks/useAppNavigate';
+import { useSignals } from '../hooks/queries/useSignals';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -70,25 +71,19 @@ function SignalSkeleton() {
 }
 
 export default function SignalFeed() {
-  const { navigateTo } = useNavigation();
-  const [signals, setSignals] = useState<TradingSignal[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { navigateTo } = useAppNavigate();
+  const [liveSignals, setLiveSignals] = useState<TradingSignal[]>([]);
   const [filter, setFilter] = useState<DirectionFilter>('all');
   const [sortBy, setSortBy] = useState<SortBy>('time');
   const [searchSymbol, setSearchSymbol] = useState('');
   const [minConfidence, setMinConfidence] = useState(0);
   const { token } = useAuth();
 
-  const fetchSignals = () => {
-    setLoading(true);
-    api
-      .get<TradingSignal[]>('/signals?limit=100')
-      .then((arr) => setSignals(Array.isArray(arr) ? arr : []))
-      .catch(() => setSignals([]))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { fetchSignals(); }, []);
+  const { data: cachedSignals = [], isLoading: loading, refetch: fetchSignals } = useSignals(100);
+  // Prepend live signals from WebSocket, deduplicated against cache
+  const signals = liveSignals.length > 0
+    ? [...liveSignals, ...cachedSignals.filter(s => !liveSignals.some(l => l.id === s.id))]
+    : cachedSignals;
 
   useEffect(() => {
     const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
@@ -102,7 +97,7 @@ export default function SignalFeed() {
         if (msg.type === 'signal' && msg.data) {
           const payload = msg.data as { signal?: TradingSignal } & TradingSignal;
           const sig = payload.signal ?? payload;
-          if (sig?.symbol != null) setSignals((prev) => [sig as TradingSignal, ...prev]);
+          if (sig?.symbol != null) setLiveSignals((prev) => [sig as TradingSignal, ...prev]);
         }
       } catch {}
     };
@@ -131,6 +126,14 @@ export default function SignalFeed() {
     return { total: signals.length, long, short };
   }, [signals]);
 
+  const listParentRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: filteredAndSorted.length,
+    getScrollElement: () => listParentRef.current,
+    estimateSize: () => 220,
+    overscan: 5,
+  });
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -141,7 +144,7 @@ export default function SignalFeed() {
             Торговые идеи в реальном времени
           </p>
         </div>
-        <Button variant="secondary" size="sm" onClick={fetchSignals} loading={loading}>
+        <Button variant="secondary" size="sm" onClick={() => void fetchSignals()} loading={loading}>
           Обновить
         </Button>
       </div>
@@ -218,96 +221,121 @@ export default function SignalFeed() {
           </Button>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {filteredAndSorted.map((s, idx) => {
-            const isLong = s.direction === 'LONG';
-            return (
-              <Card
-                key={s.id ?? `sig-${idx}`}
-                variant="glass"
-                padding="none"
-                hoverable
-                className="overflow-hidden"
-              >
+        <div
+          ref={listParentRef}
+          className="overflow-auto rounded-lg"
+          style={{ minHeight: 420, maxHeight: 'calc(100vh - 280px)' }}
+        >
+          <div
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+              const s = filteredAndSorted[virtualRow.index];
+              const idx = virtualRow.index;
+              const isLong = s.direction === 'LONG';
+              return (
                 <div
-                  className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
-                  style={{ background: isLong ? 'var(--success)' : 'var(--danger)' }}
-                />
-                <div className="p-4 sm:p-5 pl-5">
-                  {/* Top row */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-bold text-base">{s.symbol}</span>
-                      <Badge variant={isLong ? 'long' : 'short'}>
-                        {isLong ? 'LONG' : 'SHORT'}
-                      </Badge>
-                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {s.exchange} · {s.timeframe}
-                      </span>
-                      {s.aiWinProbability != null && (
-                        <Badge variant="info">
-                          AI {(s.aiWinProbability * 100).toFixed(0)}%
-                        </Badge>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => goToChart(s.symbol, s.timeframe, navigateTo)}
-                      className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
-                      style={{ color: 'var(--accent)' }}
-                    >
-                      На график →
-                    </button>
-                  </div>
-
-                  {/* Price grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                    <div className="rounded-lg px-3 py-2" style={{ background: 'var(--bg-hover)' }}>
-                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>Вход</p>
-                      <p className="font-mono text-sm font-semibold tabular-nums">{formatPrice(s.entry_price)}</p>
-                    </div>
-                    <div className="rounded-lg px-3 py-2" style={{ background: 'var(--danger-dim)' }}>
-                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--danger)' }}>SL</p>
-                      <p className="font-mono text-sm font-semibold tabular-nums" style={{ color: 'var(--danger)' }}>{formatPrice(s.stop_loss)}</p>
-                    </div>
-                    <div className="rounded-lg px-3 py-2" style={{ background: 'var(--success-dim)' }}>
-                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--success)' }}>TP</p>
-                      <p className="font-mono text-sm tabular-nums" style={{ color: 'var(--success)' }}>
-                        {(Array.isArray(s.take_profit) ? s.take_profit : []).map((t) => formatPrice(t)).join(' / ') || '—'}
-                      </p>
-                    </div>
-                    <div className="rounded-lg px-3 py-2" style={{ background: 'var(--bg-hover)' }}>
-                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>R:R</p>
-                      <p className="font-mono text-sm font-semibold tabular-nums" style={{ color: 'var(--warning)' }}>
-                        {typeof s.risk_reward === 'number' ? s.risk_reward.toFixed(1) : '—'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Confidence bar */}
-                  <ConfidenceBar value={s.confidence ?? 0} />
-
-                  {/* Footer */}
-                  <div className="flex flex-wrap items-center gap-2 mt-2.5">
-                    <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{formatDate(s.timestamp)}</span>
-                    {Array.isArray(s.triggers) && s.triggers.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {s.triggers.map((t) => (
-                          <span
-                            key={t}
-                            className="px-1.5 py-0.5 rounded text-[10px]"
-                            style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
-                          >
-                            {t}
+                  key={s.id ?? `sig-${idx}`}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                    paddingBottom: 12,
+                  }}
+                >
+                  <Card
+                    variant="glass"
+                    padding="none"
+                    hoverable
+                    className="overflow-hidden"
+                  >
+                    <div
+                      className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+                      style={{ background: isLong ? 'var(--success)' : 'var(--danger)' }}
+                    />
+                    <div className="p-4 sm:p-5 pl-5">
+                      {/* Top row */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-base">{s.symbol}</span>
+                          <Badge variant={isLong ? 'long' : 'short'}>
+                            {isLong ? 'LONG' : 'SHORT'}
+                          </Badge>
+                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                            {s.exchange} · {s.timeframe}
                           </span>
-                        ))}
+                          {s.aiWinProbability != null && (
+                            <Badge variant="info">
+                              AI {(s.aiWinProbability * 100).toFixed(0)}%
+                            </Badge>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => goToChart(s.symbol, s.timeframe, navigateTo)}
+                          className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
+                          style={{ color: 'var(--accent)' }}
+                        >
+                          На график →
+                        </button>
                       </div>
-                    )}
-                  </div>
+
+                      {/* Price grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                        <div className="rounded-lg px-3 py-2" style={{ background: 'var(--bg-hover)' }}>
+                          <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>Вход</p>
+                          <p className="font-mono text-sm font-semibold tabular-nums">{formatPrice(s.entry_price)}</p>
+                        </div>
+                        <div className="rounded-lg px-3 py-2" style={{ background: 'var(--danger-dim)' }}>
+                          <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--danger)' }}>SL</p>
+                          <p className="font-mono text-sm font-semibold tabular-nums" style={{ color: 'var(--danger)' }}>{formatPrice(s.stop_loss)}</p>
+                        </div>
+                        <div className="rounded-lg px-3 py-2" style={{ background: 'var(--success-dim)' }}>
+                          <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--success)' }}>TP</p>
+                          <p className="font-mono text-sm tabular-nums" style={{ color: 'var(--success)' }}>
+                            {(Array.isArray(s.take_profit) ? s.take_profit : []).map((t) => formatPrice(t)).join(' / ') || '—'}
+                          </p>
+                        </div>
+                        <div className="rounded-lg px-3 py-2" style={{ background: 'var(--bg-hover)' }}>
+                          <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>R:R</p>
+                          <p className="font-mono text-sm font-semibold tabular-nums" style={{ color: 'var(--warning)' }}>
+                            {typeof s.risk_reward === 'number' ? s.risk_reward.toFixed(1) : '—'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Confidence bar */}
+                      <ConfidenceBar value={s.confidence ?? 0} />
+
+                      {/* Footer */}
+                      <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                        <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{formatDate(s.timestamp)}</span>
+                        {Array.isArray(s.triggers) && s.triggers.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {s.triggers.map((t) => (
+                              <span
+                                key={t}
+                                className="px-1.5 py-0.5 rounded text-[10px]"
+                                style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+                              >
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
                 </div>
-              </Card>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

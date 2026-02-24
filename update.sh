@@ -51,6 +51,7 @@ NO_RESTART=false
 FORCE_UPDATE=false
 PM2_APP_NAME="cryptosignal"
 PM2_BOT_NAME="telegram-bot"
+PM2_N8N_NAME="n8n"
 PM2_ECOSYSTEM="ecosystem.config.js"
 REPO_URL="https://github.com/KlachoW666/GavnoshkaImpalustiankasd.git"
 BRANCH=""
@@ -137,14 +138,15 @@ if [ -n "$(git status --porcelain)" ]; then
   fi
 fi
 
-# Останавливаем приложение (PM2 или systemd)
+# Останавливаем приложение (PM2 или systemd): сайт, бот, n8n
 if [ "$NO_RESTART" = false ]; then
   if command -v pm2 &>/dev/null; then
-    if pm2 describe "$PM2_APP_NAME" &>/dev/null || pm2 describe "$PM2_BOT_NAME" &>/dev/null; then
-      log "Останавливаем PM2: ${PM2_APP_NAME}, ${PM2_BOT_NAME}..."
+    if pm2 describe "$PM2_APP_NAME" &>/dev/null || pm2 describe "$PM2_BOT_NAME" &>/dev/null || pm2 describe "$PM2_N8N_NAME" &>/dev/null; then
+      log "Останавливаем PM2: ${PM2_APP_NAME}, ${PM2_BOT_NAME}, ${PM2_N8N_NAME}..."
       pm2 stop "$PM2_APP_NAME" 2>/dev/null || true
       pm2 stop "$PM2_BOT_NAME" 2>/dev/null || true
-      success "Приложения остановлены"
+      pm2 stop "$PM2_N8N_NAME" 2>/dev/null || true
+      success "Сайт, бот и n8n остановлены"
     fi
   elif command -v systemctl &>/dev/null && systemctl is-active --quiet clabx 2>/dev/null; then
     log "Останавливаем systemd сервис clabx..."
@@ -209,7 +211,7 @@ if [ "$CURRENT_COMMIT" = "$NEW_COMMIT" ]; then
     if command -v pm2 &>/dev/null; then
       if [ -f "$PM2_ECOSYSTEM" ]; then
         pm2 reload "$PM2_ECOSYSTEM" 2>/dev/null || pm2 start "$PM2_ECOSYSTEM" 2>/dev/null || true
-        success "PM2 (сайт + бот) запущены"
+        success "PM2 (сайт + бот + n8n) запущены"
       elif pm2 describe "$PM2_APP_NAME" &>/dev/null; then
         pm2 start "$PM2_APP_NAME" || true
         success "PM2 приложение запущено"
@@ -268,6 +270,14 @@ export npm_config_fetch_retries=5
 log "Устанавливаем зависимости (корень)..."
 npm_install_retry --no-fund --no-audit
 
+# n8n для PM2 (ecosystem): чтобы npx n8n работал с первого раза
+if [ -f "$PM2_ECOSYSTEM" ] && grep -q "n8n" "$PM2_ECOSYSTEM" 2>/dev/null; then
+  if ! npm list n8n &>/dev/null; then
+    log "Устанавливаем n8n для запуска вместе с сайтом и ботом..."
+    npm_install_retry n8n --no-fund --no-audit
+  fi
+fi
+
 log "Backend: зависимости и сборка..."
 cd backend
 npm_install_retry --include=dev --no-fund --no-audit
@@ -304,7 +314,7 @@ trap - ERR
 if [ "$NO_RESTART" = false ]; then
   if command -v pm2 &>/dev/null; then
     if [ -f "$PM2_ECOSYSTEM" ]; then
-      log "Запускаем PM2 из ${PM2_ECOSYSTEM} (сайт + Telegram-бот)..."
+      log "Запускаем PM2 из ${PM2_ECOSYSTEM} (сайт + Telegram-бот + n8n)..."
       pm2 reload "$PM2_ECOSYSTEM" 2>/dev/null || pm2 start "$PM2_ECOSYSTEM"
       pm2 save 2>/dev/null || true
       sleep 3
@@ -315,6 +325,11 @@ if [ "$NO_RESTART" = false ]; then
         success "✅ Telegram-бот (${PM2_BOT_NAME}) запущен"
       else
         warn "Бот не в PM2 — проверьте ecosystem.config.js и pm2 status"
+      fi
+      if pm2 describe "$PM2_N8N_NAME" &>/dev/null; then
+        success "✅ n8n (${PM2_N8N_NAME}) запущен — http://localhost:5678"
+      else
+        warn "n8n не в PM2 — проверьте ecosystem.config.js и pm2 status"
       fi
     else
       log "Запускаем PM2 приложение ${PM2_APP_NAME}..."
@@ -355,9 +370,10 @@ echo "  От:  ${CURRENT_COMMIT:0:8}"
 echo "  До:  ${NEW_COMMIT:0:8}"
 echo ""
 echo "Полезные команды:"
-echo "  pm2 status                                # Статус сайта и бота (PM2)"
+echo "  pm2 status                                # Статус сайта, бота и n8n (PM2)"
 echo "  pm2 logs ${PM2_APP_NAME}                  # Логи сайта"
 echo "  pm2 logs ${PM2_BOT_NAME}                  # Логи Telegram-бота"
+echo "  pm2 logs ${PM2_N8N_NAME}                  # Логи n8n (http://localhost:5678)"
 echo "  systemctl status clabx                    # Если через systemd"
 echo "  git log --oneline -5                     # Последние коммиты"
 echo ""

@@ -1,0 +1,50 @@
+# BotNot: бэкенд + n8n на одной машине
+# Запуск: docker compose -f docker-compose.botnot.yml up -d
+# Бэкенд: http://localhost:3000
+# n8n:    http://localhost:5678
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # Если Dockerfile нет — раскомментируйте image и volumes для node
+    # image: node:22-alpine
+    # working_dir: /app
+    # command: sh -c "npm ci && npm run dev"
+    # volumes:
+    #   - ./backend:/app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+    # Для доступа n8n к бэкенду по имени сервиса
+    networks:
+      - botnot
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      # Бэкенд по имени сервиса (в workflow в узле Config укажите backendUrl: http://backend:3000)
+      - GENERIC_TIMEZONE=Europe/Moscow
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+    networks:
+      - botnot
+
+networks:
+  botnot:
+    driver: bridge
+
+volumes:
+  n8n_data:
