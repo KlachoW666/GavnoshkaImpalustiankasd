@@ -67,7 +67,8 @@ export class DataAggregator {
       enableRateLimit: true,
       options: {
         defaultType: 'future',
-        fetchMarkets: ['future'],
+        /** Binance ccxt: только linear = USDT-M фьючерсы (не spot). Тип 'future' не поддерживается в fetchMarkets. */
+        fetchMarkets: { types: ['linear'] },
         fetchCurrencies: false
       },
       timeout: binance.timeout
