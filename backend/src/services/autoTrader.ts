@@ -416,7 +416,7 @@ export async function executeSignal(
   const side = signal.direction === 'LONG' ? 'buy' : 'sell';
   let posSide: string = signal.direction === 'LONG' ? 'long' : 'short';
 
-  /** oneWayMode: для Bitget в режиме unilateral (one-way) — не передаём posSide, используем side buy_single/sell_single */
+  /** oneWayMode: для Bitget в режиме One-way (unilateral) — только side buy/sell, без posSide и tradeSide (API так требует). */
   const tryPlaceOrder = async (tdMode: 'isolated' | 'cross', oneWayMode?: boolean) => {
     try {
       await exchange.setLeverage(options.leverage, ccxtSymbol, { marginMode: tdMode });
@@ -427,8 +427,8 @@ export async function executeSignal(
     const params: Record<string, unknown> = { tdMode };
     let orderSide = side;
     if (oneWayMode && isBitget) {
-      orderSide = signal.direction === 'LONG' ? 'buy_single' : 'sell_single';
-      params.side = orderSide;
+      orderSide = side;
+      // One-way: только buy/sell, posSide и tradeSide не передаём (Bitget API иначе возвращает 400172 side mismatch).
     } else {
       params.posSide = posSide;
       if (isBitget && (posSide === 'long' || posSide === 'short')) params.tradeSide = 'open';
@@ -455,14 +455,14 @@ export async function executeSignal(
       const isPosSideError = /51000.*posSide|Parameter posSide/i.test(errMsg);
       const isBitgetUnilateral = /40774|unilateral position must also be the unilateral|side mismatch/i.test(errMsg);
       if (isBitgetUnilateral) {
-        logger.info('AutoTrader', 'Retrying with Bitget one-way mode (buy_single/sell_single)', { symbol: signal.symbol });
+        logger.info('AutoTrader', 'Retrying with Bitget one-way mode (side buy/sell, no posSide)', { symbol: signal.symbol });
         try {
-          order = await tryPlaceOrder('cross', true);
+          order = await tryPlaceOrder('isolated', true);
         } catch (e2: any) {
           const errMsg2 = e2?.message ?? String(e2);
-          if (/51010|account mode/i.test(errMsg2)) {
-            logger.info('AutoTrader', 'Retrying Bitget one-way + tdMode=isolated', { symbol: signal.symbol });
-            order = await tryPlaceOrder('isolated', true);
+          if (/51010|account mode|side mismatch/i.test(errMsg2)) {
+            logger.info('AutoTrader', 'Retrying Bitget one-way + tdMode=cross', { symbol: signal.symbol });
+            order = await tryPlaceOrder('cross', true);
           } else {
             throw e2;
           }
@@ -478,8 +478,8 @@ export async function executeSignal(
             logger.info('AutoTrader', 'Retrying with posSide=net + tdMode=isolated', { symbol: signal.symbol });
             order = await tryPlaceOrder('isolated');
           } else if (/40774|unilateral|side mismatch/i.test(errMsg2)) {
-            logger.info('AutoTrader', 'Retrying with Bitget one-way mode (buy_single/sell_single)', { symbol: signal.symbol });
-            order = await tryPlaceOrder('cross', true);
+            logger.info('AutoTrader', 'Retrying with Bitget one-way mode (side buy/sell)', { symbol: signal.symbol });
+            order = await tryPlaceOrder('isolated', true);
           } else {
             throw e2;
           }
@@ -519,7 +519,7 @@ export async function executeSignal(
     logger.error('AutoTrader', 'createOrder failed', { symbol: signal.symbol, error: errMsg });
     let userMsg = parseBitgetShortError(errMsg) || errMsg;
     if (/40774|unilateral position must also be the unilateral|side mismatch/i.test(errMsg)) {
-      userMsg = `Bitget: режим позиции (40774/side mismatch). Убедитесь, что на бирже выбран режим One-way или перезапустите сервер после обновления.`;
+      userMsg = `Bitget: режим позиции (side mismatch). На бирже выберите режим позиции «One-way» (односторонний). Изолированная/Кросс-маржа поддерживаются.`;
     } else if (/insufficient|margin|51008|51020|51119/i.test(errMsg)) {
       userMsg = `Недостаточно маржи на Bitget. Пополните счёт USDT, закройте часть позиций или уменьшите «Долю баланса» в настройках.`;
     } else if (/50102|Timestamp request expired|timestamp expired/i.test(errMsg)) {
