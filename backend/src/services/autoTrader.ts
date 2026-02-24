@@ -75,7 +75,15 @@ export interface UserBitgetCreds {
   passphrase?: string;
 }
 
-function buildBitgetExchange(creds: { apiKey: string; secret: string; passphrase?: string }, useTestnet: boolean): Exchange {
+/**
+ * @param skipMarketLoad — true для запросов только баланса/позиций: не вызывать loadMarkets()
+ *   (GET .../contracts?productType=USDT-FUTURES), чтобы не падать при недоступности api.bitget.com.
+ */
+function buildBitgetExchange(
+  creds: { apiKey: string; secret: string; passphrase?: string },
+  useTestnet: boolean,
+  skipMarketLoad = false
+): Exchange {
   const opts: Record<string, unknown> = {
     apiKey: creds.apiKey,
     secret: creds.secret,
@@ -96,22 +104,34 @@ function buildBitgetExchange(creds: { apiKey: string; secret: string; passphrase
   const exchange = new ccxt.bitget(opts);
   /** Bitget только для фьючерсов: отключаем fetchCurrencies (spot API /v2/spot/public/coins). */
   (exchange as any).fetchCurrencies = async () => ({});
+  if (skipMarketLoad) {
+    /** Не вызывать GET .../mix/market/contracts — баланс и позиции приходят без списка контрактов. */
+    (exchange as any).loadMarkets = async () => {
+      if ((exchange as any).markets && Object.keys((exchange as any).markets).length > 0)
+        return (exchange as any).markets;
+      (exchange as any).markets = {};
+      (exchange as any).markets_by_id = {};
+      (exchange as any).marketsLoaded = true;
+      return (exchange as any).markets;
+    };
+  }
   return exchange;
 }
 
-function buildExchange(useTestnet: boolean): Exchange {
+function buildExchange(useTestnet: boolean, skipMarketLoad = false): Exchange {
   return buildBitgetExchange(
     {
       apiKey: config.bitget.apiKey,
       secret: config.bitget.secret,
       passphrase: config.bitget.passphrase
     },
-    useTestnet
+    useTestnet,
+    skipMarketLoad
   );
 }
 
-function buildExchangeFromCreds(creds: UserBitgetCreds, useTestnet: boolean): Exchange {
-  return buildBitgetExchange(creds, useTestnet);
+function buildExchangeFromCreds(creds: UserBitgetCreds, useTestnet: boolean, skipMarketLoad = false): Exchange {
+  return buildBitgetExchange(creds, useTestnet, skipMarketLoad);
 }
 
 /** Получить доступный баланс (USDT) для маржи */
@@ -831,7 +851,8 @@ export async function getPositionsAndBalanceForApi(
   if (!useUserCreds && !config.bitget.hasCredentials) {
     return { positions: [], balance: 0, openCount: 0 };
   }
-  let exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
+  /** Клиент без loadMarkets(): не дергаем GET .../contracts, чтобы не падать при недоступности api.bitget.com. */
+  let exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet, true) : buildExchange(useTestnet, true);
   let lastError: string | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -840,7 +861,7 @@ export async function getPositionsAndBalanceForApi(
         const isTimeout = /timed out|timeout|ETIMEDOUT/i.test(lastError || '');
         const delayMs = isTimestampRetry ? 2000 : (isTimeout ? 2500 : 0); // таймаут — пауза перед сменой прокси
         if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
-        exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
+        exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet, true) : buildExchange(useTestnet, true);
       }
       const { balance, positions, balanceError: fetchErr } = await fetchBalanceAndPositions(exchange);
       return { positions, balance, openCount: positions.length, balanceError: fetchErr ?? undefined };
