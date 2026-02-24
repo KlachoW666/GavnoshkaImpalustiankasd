@@ -450,6 +450,8 @@ export function initDb(): any {
         );
       `);
     } catch (e) { /* table exists */ }
+    try { db.prepare('ALTER TABLE news ADD COLUMN image_url TEXT').run(); } catch { /* column exists */ }
+    try { db.prepare('ALTER TABLE news ADD COLUMN media_urls TEXT').run(); } catch { /* column exists */ }
     
     return db;
   } catch (err) {

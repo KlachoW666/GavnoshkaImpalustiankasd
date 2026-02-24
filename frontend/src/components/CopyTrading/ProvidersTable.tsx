@@ -7,7 +7,7 @@ import { api } from '../../utils/api';
 import { useTableSort } from '../../utils/useTableSort';
 import { SortableTh } from '../SortableTh';
 
-interface Provider {
+export interface Provider {
   userId: string;
   username: string;
   displayName: string | null;
@@ -27,7 +27,7 @@ interface Provider {
 }
 
 /** Итоговые показатели (реальные + фейк), как в админке — синхронизация везде */
-function getDisplayStats(p: Provider) {
+export function getDisplayStats(p: Provider) {
   return {
     pnl: p.totalPnl + (p.fakePnl ?? 0),
     winRate: (p.fakeWinRate != null && p.fakeWinRate > 0) ? p.fakeWinRate : p.winRate,
@@ -42,6 +42,9 @@ interface ProvidersTableProps {
   onSubscribe: (providerId: string, sizePercent: number, profitSharePercent: number) => void;
   onUnsubscribe: (providerId: string) => void;
   onViewProfile: (providerId: string) => void;
+  /** Если передан — используется этот список вместо загрузки */
+  externalProviders?: Provider[] | null;
+  externalLoading?: boolean;
 }
 
 export default function ProvidersTable({ 
@@ -49,20 +52,26 @@ export default function ProvidersTable({
   subscribedIds, 
   onSubscribe, 
   onUnsubscribe,
-  onViewProfile 
+  onViewProfile,
+  externalProviders,
+  externalLoading
 }: ProvidersTableProps) {
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [internalProviders, setInternalProviders] = useState<Provider[]>([]);
+  const [internalLoading, setInternalLoading] = useState(true);
   const [subscribeSize, setSubscribeSize] = useState<Record<string, number>>({});
   const [profitShare, setProfitShare] = useState<Record<string, number>>({});
 
+  const providers = externalProviders !== undefined ? (externalProviders ?? []) : internalProviders;
+  const loading = externalLoading !== undefined ? externalLoading : internalLoading;
+
   useEffect(() => {
-    setLoading(true);
+    if (externalProviders !== undefined) return;
+    setInternalLoading(true);
     api.get<{ providers: Provider[] }>('/copy-trading-api/providers')
-      .then(r => setProviders(r.providers ?? []))
-      .catch(() => setProviders([]))
-      .finally(() => setLoading(false));
-  }, [token]);
+      .then(r => setInternalProviders(r.providers ?? []))
+      .catch(() => setInternalProviders([]))
+      .finally(() => setInternalLoading(false));
+  }, [token, externalProviders]);
 
   const compareFns = useMemo(() => ({
     username: (a: Provider, b: Provider) => a.username.localeCompare(b.username),

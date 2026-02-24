@@ -36,6 +36,7 @@ import socialRouter from './routes/social';
 import walletRouter from './routes/wallet';
 import userModeRouter from './routes/userMode';
 import copyTradingApiRouter from './routes/copyTradingApi';
+import newsRouter from './routes/news';
 import { createWebSocketServer, getBroadcastBreakout } from './websocket';
 import { eventBus } from './lib/eventBus';
 import { startDepositScanner } from './services/depositScanner';
@@ -108,6 +109,7 @@ app.use('/api/social', socialRouter);
 app.use('/api/wallet', walletRouter);
 app.use('/api/user/mode', userModeRouter);
 app.use('/api/copy-trading-api', copyTradingApiRouter);
+app.use('/api/news', newsRouter);
 
 startDepositScanner();
 startCopyTradingDepositScanner();

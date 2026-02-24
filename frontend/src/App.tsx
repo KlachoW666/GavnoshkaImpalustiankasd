@@ -156,7 +156,8 @@ const ALL_PAGES: NavItem[] = [
   { id: 'admin', label: 'Админ', group: 'account' },
 ];
 
-const MOBILE_TABS: Page[] = ['dashboard', 'signals', 'autotrade', 'chart'];
+/** Нижняя панель: без Скринера и Сигналов — они только в выпадающем меню «Ещё». */
+const MOBILE_TABS: Page[] = ['dashboard', 'autotrade', 'chart'];
 
 const GROUP_LABELS: Record<string, string> = {
   trading: 'Торговля',
@@ -727,7 +728,7 @@ export default function App() {
       )}
 
       {/* ══ Main content ═══════════════════════════════════════════════ */}
-      <main className="flex-1 min-h-0 overflow-auto px-4 sm:px-6 lg:px-8 py-5 pb-24 lg:pb-5">
+      <main className="flex-1 min-h-0 overflow-auto px-4 sm:px-6 lg:px-8 py-5 pb-32 lg:pb-5">
         <Suspense fallback={
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin-slow" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }} />
@@ -776,6 +777,7 @@ export default function App() {
           <div className="flex flex-wrap gap-4">
             <a href="https://clabx.ru" target="_blank" rel="noreferrer" className="hover:text-[var(--text-secondary)] transition-colors">clabx.ru</a>
             <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" className="hover:text-[var(--text-secondary)] transition-colors">@clabx_bot</a>
+            <a href="/help" onClick={(e) => { e.preventDefault(); setPageSafe('help'); }} className="hover:text-[var(--text-secondary)] transition-colors">Помощь</a>
             <a href="/privacy" onClick={(e) => { e.preventDefault(); setPageSafe('privacy'); }} className="hover:text-[var(--text-secondary)] transition-colors">Конфиденциальность</a>
             <a href="/terms" onClick={(e) => { e.preventDefault(); setPageSafe('terms'); }} className="hover:text-[var(--text-secondary)] transition-colors">Условия</a>
           </div>
@@ -784,8 +786,14 @@ export default function App() {
 
       {/* ══ Mobile bottom tab bar ═══════════════════════════════════ */}
       <nav
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around h-14 border-t"
-        style={{ background: 'var(--bg-topbar)', borderColor: 'var(--border)' }}
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around border-t"
+        style={{
+          background: 'var(--bg-topbar)',
+          borderColor: 'var(--border)',
+          minHeight: '5.5rem',
+          paddingTop: '0.75rem',
+          paddingBottom: 'env(safe-area-inset-bottom, 0.5rem)'
+        }}
       >
         {MOBILE_TABS.filter((id) => allowedSet.has(id)).map((id) => {
           const active = safePage === id;
@@ -795,13 +803,13 @@ export default function App() {
               key={id}
               type="button"
               onClick={() => setPageSafe(id)}
-              className="flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 transition-colors relative"
+              className="flex flex-col items-center justify-center gap-1.5 flex-1 py-2 transition-colors relative"
               style={{ color: active ? 'var(--accent)' : 'var(--text-muted)' }}
             >
-              <NavIcon name={id} className="w-5 h-5" />
-              <span className="text-[10px] font-medium">{info?.label ?? id}</span>
+              <NavIcon name={id} className="w-7 h-7" />
+              <span className="text-xs font-medium">{info?.label ?? id}</span>
               {active && (
-                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full" style={{ background: 'var(--accent)' }} />
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full" style={{ background: 'var(--accent)' }} />
               )}
             </button>
           );
@@ -809,11 +817,11 @@ export default function App() {
         <button
           type="button"
           onClick={() => setMobileMenuOpen(true)}
-          className="flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 transition-colors"
+          className="flex flex-col items-center justify-center gap-1.5 flex-1 py-2 transition-colors"
           style={{ color: 'var(--text-muted)' }}
         >
-          <NavIcon name="menu" className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Ещё</span>
+          <NavIcon name="menu" className="w-7 h-7" />
+          <span className="text-xs font-medium">Ещё</span>
         </button>
       </nav>
 

@@ -390,7 +390,7 @@ export default function AutoTradingPage() {
   const [lastSignal, setLastSignal] = useState<TradingSignal | null>(null);
   const [lastBreakdown, setLastBreakdown] = useState<BreakdownType | null>(null);
   const [status, setStatus] = useState<'idle' | 'running' | 'error' | 'stopped_daily_loss'>('idle');
-  const [bitgetData, setBitgetData] = useState<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number }>; balance: number; openCount: number; balanceError?: string; executionAvailable?: boolean } | null>(null);
+  const [bitgetData, setBitgetData] = useState<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; markPrice?: number; unrealizedPnl?: number }>; balance: number; openCount: number; balanceError?: string; positionsError?: string; executionAvailable?: boolean } | null>(null);
   const [lastExecution, setLastExecution] = useState<{
     lastError?: string;
     lastSkipReason?: string;
@@ -486,13 +486,17 @@ export default function AutoTradingPage() {
     const fetchOkx = () => {
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
-      api.get<{ positions: any[]; balance: number; openCount: number; balanceError?: string; executionAvailable?: boolean }>(`/trading/positions?useTestnet=false`, { headers })
+      api.get<{ positions: any[]; balance: number; openCount: number; balanceError?: string; positionsError?: string; executionAvailable?: boolean }>(`/trading/positions?useTestnet=false`, { headers })
         .then((data) => setBitgetData(data))
-        .catch(() => setBitgetData({ positions: [], balance: 0, openCount: 0, balanceError: 'Не удалось загрузить баланс. Проверьте ключи Bitget и сеть.' }));
+        .catch(() => setBitgetData({ positions: [], balance: 0, openCount: 0, balanceError: 'Не удалось загрузить данные. Проверьте ключи Bitget и сеть, нажмите «Обновить баланс».' }));
     };
     fetchOkxPositionsRef.current = fetchOkx;
     fetchOkx();
-    const id = setInterval(fetchOkx, 15000);
+    if (token) fetchServerHistory();
+    const id = setInterval(() => {
+      fetchOkxPositionsRef.current();
+      if (token) fetchServerHistory();
+    }, 15000);
     return () => clearInterval(id);
   }, [enabled, settings.fullAuto, settings.executeOrders, token]);
 
@@ -1425,6 +1429,11 @@ export default function AutoTradingPage() {
                 {bitgetData.balanceError && (
                   <p className="text-xs mb-2" style={{ color: 'var(--danger)' }} title={bitgetData.balanceError}>
                     Ошибка Bitget: {bitgetData.balanceError}
+                  </p>
+                )}
+                {bitgetData.positionsError && !bitgetData.balanceError && (
+                  <p className="text-xs mb-2" style={{ color: 'var(--danger)' }} title={bitgetData.positionsError}>
+                    Позиции не загружены: {bitgetData.positionsError}. Нажмите «Обновить баланс».
                   </p>
                 )}
                 {!bitgetData.balanceError && (bitgetData.balance ?? 0) === 0 && (

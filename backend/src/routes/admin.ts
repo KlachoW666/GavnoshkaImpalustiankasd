@@ -90,6 +90,7 @@ import {
   getCopyTradingTransactions
 } from '../db/copyTradingBalanceDb';
 import { getUserById } from '../db/authDb';
+import { listAllNews, createNews, updateNews, deleteNews } from '../db/newsDb';
 
 const router = Router();
 
@@ -1126,6 +1127,98 @@ router.put('/stats-display-config', requireAdmin, (req: Request, res: Response) 
     res.json(next);
   } catch (e) {
     logger.error('Admin', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** GET /api/admin/news — список всех новостей (включая черновики). */
+router.get('/news', requireAdmin, (_req: Request, res: Response) => {
+  try {
+    const items = listAllNews();
+    res.json({ news: items });
+  } catch (e) {
+    logger.error('Admin', 'News list error', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+function normalizeMediaUrls(v: unknown): string[] | null {
+  if (v == null) return null;
+  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === 'string' && x.trim() !== '').map((x) => x.trim());
+  if (typeof v === 'string') {
+    const urls = v.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+    return urls.length > 0 ? urls : null;
+  }
+  return null;
+}
+
+/** POST /api/admin/news — создать новость. */
+router.post('/news', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const body = req.body as { title?: string; content?: string; published?: boolean; image_url?: string; media_urls?: unknown };
+    const { title, content, published, image_url: imageUrl, media_urls: mediaUrlsRaw } = body;
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      res.status(400).json({ error: 'Заголовок обязателен' });
+      return;
+    }
+    const item = createNews({
+      title: title.trim(),
+      content: typeof content === 'string' ? content : '',
+      published: published ? 1 : 0,
+      image_url: typeof imageUrl === 'string' && imageUrl.trim() ? imageUrl.trim() : null,
+      media_urls: normalizeMediaUrls(mediaUrlsRaw)
+    });
+    res.status(201).json(item);
+  } catch (e) {
+    logger.error('Admin', 'News create error', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** PUT /api/admin/news/:id — обновить новость. */
+router.put('/news/:id', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: 'Неверный id' });
+      return;
+    }
+    const body = req.body as { title?: string; content?: string; published?: boolean; image_url?: string; media_urls?: unknown };
+    const { title, content, published, image_url: imageUrl, media_urls: mediaUrlsRaw } = body;
+    const updated = updateNews(id, {
+      ...(title !== undefined && { title: String(title).trim() }),
+      ...(content !== undefined && { content: String(content) }),
+      ...(published !== undefined && { published: published ? 1 : 0 }),
+      ...(imageUrl !== undefined && { image_url: typeof imageUrl === 'string' && imageUrl.trim() ? imageUrl.trim() : null }),
+      ...(mediaUrlsRaw !== undefined && { media_urls: normalizeMediaUrls(mediaUrlsRaw) })
+    });
+    if (!updated) {
+      res.status(404).json({ error: 'Новость не найдена' });
+      return;
+    }
+    res.json(updated);
+  } catch (e) {
+    logger.error('Admin', 'News update error', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** DELETE /api/admin/news/:id — удалить новость. */
+router.delete('/news/:id', requireAdmin, (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: 'Неверный id' });
+      return;
+    }
+    const ok = deleteNews(id);
+    if (!ok) {
+      res.status(404).json({ error: 'Новость не найдена' });
+      return;
+    }
+    res.status(204).send();
+  } catch (e) {
+    logger.error('Admin', 'News delete error', (e as Error).message);
     res.status(500).json({ error: (e as Error).message });
   }
 });

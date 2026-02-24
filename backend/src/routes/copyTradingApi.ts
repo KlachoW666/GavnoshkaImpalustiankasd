@@ -104,17 +104,25 @@ router.post('/deposit', (req: Request, res: Response) => {
   }
   
   const result = createDepositRequest(userId, amountUsdt, txHash, network);
-  
+
   if (!result.success) {
     res.status(400).json({ error: result.error });
     return;
   }
-  
+
   res.json({
     ok: true,
     txId: result.txId,
     status: 'pending',
-    message: 'Заявка на пополнение создана. Ожидайте подтверждения.'
+    message: 'Заявка создана. При поступлении средств баланс будет зачислен автоматически (обычно 1–2 мин).'
+  });
+
+  setImmediate(() => {
+    setTimeout(() => {
+      autoConfirmDeposits().then((r) => {
+        if (r.processed > 0) logger.info('CopyTradingApi', 'Immediate deposit check', { processed: r.processed });
+      }).catch(() => {});
+    }, 20000);
   });
 });
 

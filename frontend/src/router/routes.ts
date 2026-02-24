@@ -99,7 +99,8 @@ export const ALL_PAGES: NavItem[] = [
   { id: 'admin', label: 'Админ', group: 'account' },
 ];
 
-export const MOBILE_TABS: Page[] = ['dashboard', 'signals', 'autotrade', 'chart'];
+/** Нижняя панель: Скринер и Сигналы только в выпадающем меню. */
+export const MOBILE_TABS: Page[] = ['dashboard', 'autotrade', 'chart'];
 
 export const GROUP_LABELS: Record<string, string> = {
   trading: 'Торговля',

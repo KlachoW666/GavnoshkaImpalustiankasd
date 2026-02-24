@@ -1,20 +1,22 @@
 /**
- * Deposit Service - проверка депозитов через Bitget API
+ * Deposit Service - проверка депозитов через Bitget API и/или блокчейн (TRC20)
  */
 
 import ccxt from 'ccxt';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import TronWeb from 'tronweb';
 import { config } from '../config';
 import { getProxy } from '../db/proxies';
 import { logger } from '../lib/logger';
 import {
-  getCopyTradingTransactions,
   updateCopyTradingBalance,
-  updateTransactionStatus,
   getOrCreateCopyTradingBalance,
   CopyTradingTransaction
 } from '../db/copyTradingBalanceDb';
 import { getDb, initDb, isMemoryStore } from '../db/index';
+
+/** USDT TRC20 contract (Tron) */
+const TRC20_USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 
 export interface DepositAddress {
   id?: number;
@@ -287,10 +289,11 @@ export function rejectDeposit(txId: number, adminNote?: string): { success: bool
 let exchangeInstance: any = null;
 let autoConfirmInterval: ReturnType<typeof setInterval> | null = null;
 
+const AUTO_CONFIRM_INTERVAL_MS = Math.max(60 * 1000, parseInt(process.env.COPY_TRADING_DEPOSIT_SCAN_INTERVAL_MS || '60000', 10));
+
 export function startCopyTradingDepositScanner(): void {
   if (autoConfirmInterval) return;
-  
-  const intervalMs = 5 * 60 * 1000; // every 5 minutes
+
   autoConfirmInterval = setInterval(async () => {
     try {
       const result = await autoConfirmDeposits();
@@ -300,9 +303,9 @@ export function startCopyTradingDepositScanner(): void {
     } catch (e) {
       logger.warn('DepositService', `Auto-confirm cron error: ${(e as Error).message}`);
     }
-  }, intervalMs);
-  
-  logger.info('DepositService', `Copy trading deposit scanner started`, { intervalMs });
+  }, AUTO_CONFIRM_INTERVAL_MS);
+
+  logger.info('DepositService', `Copy trading deposit scanner started`, { intervalMs: AUTO_CONFIRM_INTERVAL_MS });
 }
 
 export function stopCopyTradingDepositScanner(): void {
@@ -379,18 +382,103 @@ export async function checkDepositOnBitget(txHash: string): Promise<{ found: boo
   return { found: false, confirmed: false };
 }
 
+/**
+ * Проверка депозита по блокчейну (без Bitget).
+ * TRC20: TronGrid API — транзакция успешна и на наш адрес пришло USDT >= expectedAmount.
+ */
+export async function verifyDepositOnBlockchain(
+  txHash: string,
+  network: string,
+  expectedAmount: number,
+  ourAddress: string
+): Promise<{ verified: boolean; amount?: number; error?: string }> {
+  const hash = txHash.trim();
+  if (network !== 'TRC20') {
+    return { verified: false, error: 'Автопроверка по блокчейну пока только для TRC20' };
+  }
+
+  try {
+    const tronWeb = new TronWeb({ fullHost: 'https://api.trongrid.io' });
+    const info = await tronWeb.trx.getTransactionInfo(hash);
+    if (!info) {
+      return { verified: false, error: 'Транзакция не найдена' };
+    }
+    if (info.result !== 'SUCCESS') {
+      return { verified: false, error: 'Транзакция ещё не подтверждена или неуспешна' };
+    }
+
+    const ourHex = tronWeb.address.toHex(ourAddress).toLowerCase().replace('0x', '').replace(/^41/, '');
+    const ourHex20 = ourHex.length >= 40 ? ourHex.slice(-40) : ourHex.padStart(40, '0').slice(-40);
+
+    const usdtContractHex = tronWeb.address.toHex(TRC20_USDT_CONTRACT).toLowerCase().replace('0x', '').replace(/^41/, '').slice(-40);
+    const log = (info.log || []).find((l: any) => {
+      const addr = String(l.address || '').toLowerCase().replace('0x', '').slice(-40);
+      return addr === usdtContractHex;
+    });
+    if (!log || !log.topics || !Array.isArray(log.topics) || log.topics.length < 3) {
+      return { verified: false, error: 'Нет лога TRC20 Transfer для USDT' };
+    }
+
+    const topicTo = log.topics[2];
+    const toHex = String(topicTo || '').toLowerCase().replace('0x', '').slice(-40);
+    if (toHex !== ourHex20) {
+      return { verified: false, error: 'Получатель не совпадает с адресом платформы' };
+    }
+
+    let amountRaw = 0;
+    if (log.data) {
+      const data = typeof log.data === 'string' ? log.data : Buffer.isBuffer(log.data) ? (log.data as Buffer).toString('hex') : '';
+      if (data.length >= 64) amountRaw = parseInt(data.slice(0, 64), 16);
+    }
+    const amountUsdt = amountRaw / 1e6;
+    if (amountUsdt < expectedAmount - 0.01) {
+      return { verified: false, error: `Сумма в сети ${amountUsdt.toFixed(2)} USDT меньше заявленной ${expectedAmount}` };
+    }
+
+    logger.info('DepositService', 'Blockchain verification OK', { txHash: hash.slice(0, 16) + '...', network, amountUsdt });
+    return { verified: true, amount: amountUsdt };
+  } catch (e) {
+    const msg = (e as Error).message;
+    logger.warn('DepositService', `verifyDepositOnBlockchain error: ${msg}`);
+    return { verified: false, error: msg };
+  }
+}
+
 export async function autoConfirmDeposits(): Promise<{ processed: number; errors: number }> {
   const pending = getPendingDeposits();
   let processed = 0;
   let errors = 0;
-  
+  const addresses = getDepositAddresses();
+
   for (const deposit of pending) {
     if (!deposit.tx_hash) continue;
-    
-    const result = await checkDepositOnBitget(deposit.tx_hash);
-    
-    if (result.found && result.confirmed) {
-      const success = approveDeposit(deposit.id, `Автоматически подтверждено. Сеть: ${result.network}`);
+
+    const network = deposit.network || 'TRC20';
+    const ourAddr = addresses.find(a => a.network === network)?.address;
+    let approved = false;
+    let note = '';
+
+    const bitgetResult = await checkDepositOnBitget(deposit.tx_hash);
+    if (bitgetResult.found && bitgetResult.confirmed) {
+      note = `Автоматически (Bitget). Сеть: ${bitgetResult.network}`;
+      approved = true;
+    }
+
+    if (!approved && ourAddr && (network === 'TRC20' || network === 'BEP20' || network === 'ERC20')) {
+      const chainResult = await verifyDepositOnBlockchain(
+        deposit.tx_hash,
+        network,
+        deposit.amount_usdt,
+        ourAddr
+      );
+      if (chainResult.verified) {
+        note = `Автоматически (блокчейн). Сеть: ${network}`;
+        approved = true;
+      }
+    }
+
+    if (approved) {
+      const success = approveDeposit(deposit.id, note);
       if (success.success) {
         processed++;
         logger.info('DepositService', `Auto-confirmed deposit ${deposit.id}`, {
@@ -402,6 +490,6 @@ export async function autoConfirmDeposits(): Promise<{ processed: number; errors
       }
     }
   }
-  
+
   return { processed, errors };
 }

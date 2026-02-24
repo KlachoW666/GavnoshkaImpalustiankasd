@@ -18,8 +18,9 @@ import AdminSignalProviders from './AdminSignalProviders';
 import AdminDepositAddresses from './AdminDepositAddresses';
 import AdminTransactions from './AdminTransactions';
 import AdminFinance from './AdminFinance';
+import AdminNews from './AdminNews';
 
-type AdminTab = 'dashboard' | 'trading' | 'analytics' | 'logs' | 'users' | 'groups' | 'keys' | 'plans' | 'proxies' | 'stats' | 'external-ai' | 'wallet' | 'copy-trading' | 'signal-providers' | 'deposit-addresses' | 'transactions' | 'finance';
+type AdminTab = 'dashboard' | 'trading' | 'analytics' | 'logs' | 'users' | 'groups' | 'keys' | 'plans' | 'proxies' | 'stats' | 'external-ai' | 'wallet' | 'copy-trading' | 'signal-providers' | 'deposit-addresses' | 'transactions' | 'finance' | 'news';
 
 interface TabItem {
   id: AdminTab;
@@ -45,7 +46,8 @@ const TABS: TabItem[] = [
   { id: 'logs', label: 'Логи', icon: '🖥', group: 'system' },
   { id: 'external-ai', label: 'Внешний ИИ', icon: '🤖', group: 'system' },
   { id: 'proxies', label: 'Прокси', icon: '🌐', group: 'system' },
-  { id: 'stats', label: 'Демо-статистики', icon: '📊', group: 'system' }
+  { id: 'stats', label: 'Демо-статистики', icon: '📊', group: 'system' },
+  { id: 'news', label: 'Новости', icon: '📰', group: 'main' }
 ];
 
 const GROUP_LABELS: Record<string, string> = {
@@ -220,6 +222,7 @@ export default function AdminPanel() {
             {tab === 'plans' && <AdminSubscriptionPlans />}
             {tab === 'proxies' && <AdminProxies />}
             {tab === 'stats' && <AdminStatsDisplay />}
+            {tab === 'news' && <AdminNews />}
           </div>
         </main>
       </div>

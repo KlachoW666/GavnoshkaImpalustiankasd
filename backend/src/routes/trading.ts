@@ -119,7 +119,7 @@ router.get('/positions', async (req: Request, res: Response) => {
       res.json({ positions: [], balance: 0, openCount: 0, executionAvailable: false, useTestnet });
       return;
     }
-    const { positions, balance, openCount, balanceError } = await getPositionsAndBalanceForApi(useTestnet, hasCreds ? userCreds : undefined);
+    const { positions, balance, openCount, balanceError, positionsError } = await getPositionsAndBalanceForApi(useTestnet, hasCreds ? userCreds : undefined);
     if (userId && hasCreds) {
       Promise.all([
         syncClosedOrdersFromBitget(useTestnet, userCreds, userId),
@@ -135,6 +135,7 @@ router.get('/positions', async (req: Request, res: Response) => {
       balance,
       openCount,
       balanceError: balanceError ?? undefined,
+      positionsError: positionsError ?? undefined,
       executionAvailable: config.autoTradingExecutionEnabled,
       useTestnet
     });

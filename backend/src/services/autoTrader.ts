@@ -773,7 +773,7 @@ export async function fetchPositionsForApi(useTestnet: boolean): Promise<Array<{
   }
 }
 
-async function fetchBalanceAndPositions(exchange: Exchange): Promise<{ balance: number; positions: any[]; balanceError?: string }> {
+async function fetchBalanceAndPositions(exchange: Exchange): Promise<{ balance: number; positions: any[]; balanceError?: string; positionsError?: string }> {
   const [balanceSettled, positionsSettled] = await Promise.allSettled([
     exchange.fetchBalance(),
     exchange.fetchPositions()
@@ -781,39 +781,56 @@ async function fetchBalanceAndPositions(exchange: Exchange): Promise<{ balance: 
   const balanceRes = balanceSettled.status === 'fulfilled' ? balanceSettled.value : {};
   const positionsRes: any[] = positionsSettled.status === 'fulfilled' ? (positionsSettled.value || []) : [];
   let balanceError: string | undefined;
+  let positionsError: string | undefined;
   if (balanceSettled.status === 'rejected') {
     const errMsg = (balanceSettled.reason as Error)?.message || String(balanceSettled.reason);
     balanceError = errMsg;
     logger.debug('AutoTrader', 'fetchBalance failed (positions may be ok)', { error: errMsg });
+  }
+  if (positionsSettled.status === 'rejected') {
+    const errMsg = (positionsSettled.reason as Error)?.message || String(positionsSettled.reason);
+    positionsError = errMsg;
+    logger.debug('AutoTrader', 'fetchPositions failed', { error: errMsg });
   }
   const usdt = (balanceRes as any)?.USDT ?? (balanceRes as any)?.usdt;
   /** ccxt возвращает total/free как строки; приводим к числу для отображения. */
   const totalNum = Number(usdt?.total);
   const freeNum = Number(usdt?.free ?? usdt?.total);
   const balance = (totalNum > 0 && !Number.isNaN(totalNum)) ? totalNum : ((!Number.isNaN(freeNum) ? freeNum : 0));
+  /** Bitget: totalSz, sz, notional; CCXT: contracts, notional; прочие: pos, total, size. */
   const positions = positionsRes
     .filter((p: any) => {
-      const sz = Number(p.contracts ?? p.info?.pos ?? 0);
-      return sz !== 0;
+      const info = p.info ?? {};
+      const sz = Number(
+        p.contracts ?? info?.totalSz ?? info?.sz ?? info?.pos ?? info?.total ?? info?.totalPos ?? info?.size ?? info?.holdSize ?? 0
+      );
+      const notional = Number(p.notional ?? info?.notional ?? info?.totalEquity ?? 0);
+      return sz !== 0 || notional > 0;
     })
     .map((p: any) => {
-      const contracts = Number(p.contracts ?? p.info?.pos ?? 0);
-      const entryPrice = Number(p.entryPrice ?? p.info?.avgPx ?? 0);
       const info = p.info ?? {};
+      let contracts = Number(
+        p.contracts ?? info?.totalSz ?? info?.sz ?? info?.pos ?? info?.total ?? info?.totalPos ?? info?.size ?? info?.holdSize ?? 0
+      );
+      const entryPrice = Number(p.entryPrice ?? info?.avgPx ?? info?.openPriceAvg ?? info?.openAvgPrice ?? 0);
+      const notionalRaw = Number(p.notional ?? info?.notional ?? info?.totalEquity ?? 0);
+      if (contracts === 0 && notionalRaw > 0 && entryPrice > 0) contracts = notionalRaw / entryPrice;
+      const sideFromHold = (info?.holdSide ?? '').toString().toLowerCase();
+      const side = p.side ?? (sideFromHold === 'long' ? 'long' : sideFromHold === 'short' ? 'short' : (Number(info?.pos ?? 0) > 0 ? 'long' : 'short'));
       return {
-        symbol: p.symbol ?? info?.instId ?? '',
-        side: p.side ?? (Number(info?.pos ?? 0) > 0 ? 'long' : 'short'),
+        symbol: p.symbol ?? info?.symbol ?? info?.instId ?? info?.symbolName ?? '',
+        side,
         contracts,
         entryPrice,
-        notional: contracts * entryPrice,
-        markPrice: p.markPrice != null ? Number(p.markPrice) : undefined,
-        unrealizedPnl: p.unrealizedPnl != null ? Number(p.unrealizedPnl) : undefined,
+        notional: contracts * entryPrice || notionalRaw,
+        markPrice: p.markPrice != null ? Number(p.markPrice) : (info?.markPrice != null ? Number(info.markPrice) : undefined),
+        unrealizedPnl: p.unrealizedPnl != null ? Number(p.unrealizedPnl) : (info?.unrealizedPnl != null ? Number(info.unrealizedPnl) : undefined),
         leverage: Number(p.leverage ?? info?.lever ?? 1),
         stopLoss: info?.slTriggerPx != null ? Number(info.slTriggerPx) : undefined,
         takeProfit: info?.tpTriggerPx != null ? Number(info.tpTriggerPx) : undefined
       };
     });
-  return { balance, positions, balanceError };
+  return { balance, positions, balanceError, positionsError };
 }
 
 const BITGET_TIMESTAMP_EXPIRED = /50102|Timestamp request expired/i;
@@ -834,7 +851,7 @@ function formatBitgetNetworkErrorMessage(raw: string): string {
 export async function getPositionsAndBalanceForApi(
   useTestnet: boolean,
   userCreds?: UserBitgetCreds | null
-): Promise<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; notional?: number; markPrice?: number; unrealizedPnl?: number; leverage: number; stopLoss?: number; takeProfit?: number }>; balance: number; openCount: number; balanceError?: string }> {
+): Promise<{ positions: Array<{ symbol: string; side: string; contracts: number; entryPrice: number; notional?: number; markPrice?: number; unrealizedPnl?: number; leverage: number; stopLoss?: number; takeProfit?: number }>; balance: number; openCount: number; balanceError?: string; positionsError?: string }> {
   const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
   if (!useUserCreds && !config.bitget.hasCredentials) {
     return { positions: [], balance: 0, openCount: 0 };
@@ -853,14 +870,14 @@ export async function getPositionsAndBalanceForApi(
         if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
         exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet, true) : buildExchange(useTestnet, true);
       }
-      const { balance, positions, balanceError: fetchErr } = await fetchBalanceAndPositions(exchange);
+      const { balance, positions, balanceError: fetchErr, positionsError: posErr } = await fetchBalanceAndPositions(exchange);
       lastBalanceError = fetchErr;
       if (fetchErr && BITGET_NETWORK_ERROR.test(fetchErr) && attempt < 2) {
         lastError = fetchErr;
         logger.warn('AutoTrader', 'getPositionsAndBalance network error, retrying with new proxy', { attempt: attempt + 1, useUserCreds: !!useUserCreds });
         continue;
       }
-      return { positions, balance, openCount: positions.length, balanceError: fetchErr ?? undefined };
+      return { positions, balance, openCount: positions.length, balanceError: fetchErr ?? undefined, positionsError: posErr };
     } catch (e) {
       const msg = (e as Error).message || String(e);
       lastError = msg;
@@ -881,12 +898,12 @@ export async function getPositionsAndBalanceForApi(
       }
       logger.warn('AutoTrader', 'getPositionsAndBalance failed', { error: msg, useUserCreds: !!useUserCreds });
       const balanceError = isTimestampExpired ? formatTimestampExpiredMessage(msg) : (isNetworkError ? formatBitgetNetworkErrorMessage(msg) : msg);
-      return { positions: [], balance: 0, openCount: 0, balanceError };
+      return { positions: [], balance: 0, openCount: 0, balanceError, positionsError: msg };
     }
   }
   const networkHint = lastBalanceError && BITGET_NETWORK_ERROR.test(lastBalanceError)
     ? formatBitgetNetworkErrorMessage(lastBalanceError)
     : (lastError && BITGET_NETWORK_ERROR.test(lastError) ? formatBitgetNetworkErrorMessage(lastError) : null);
   const balanceError = networkHint ?? (lastError && BITGET_TIMESTAMP_EXPIRED.test(lastError) ? formatTimestampExpiredMessage(lastError) : (lastError || 'Request failed after retry'));
-  return { positions: [], balance: 0, openCount: 0, balanceError };
+  return { positions: [], balance: 0, openCount: 0, balanceError, positionsError: lastBalanceError ?? lastError ?? undefined };
 }

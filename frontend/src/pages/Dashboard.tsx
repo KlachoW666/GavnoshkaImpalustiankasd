@@ -7,6 +7,7 @@ import { useNavigation } from '../contexts/NavigationContext';
 import { Card, StatCard } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 
 export interface DisplayStats {
   volumeEarned: number;
@@ -31,6 +32,18 @@ export interface AppStats {
   display?: DisplayStats;
 }
 
+export interface NewsItem {
+  id: number;
+  title: string;
+  content: string;
+  author_id: string | null;
+  published: number;
+  created_at: string;
+  updated_at: string;
+  image_url?: string | null;
+  media_urls?: string | null; // JSON array as string
+}
+
 function StatSkeleton() {
   return (
     <div className="rounded-2xl p-5" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
@@ -44,8 +57,20 @@ export default function Dashboard() {
   const [signals, setSignals] = useState<TradingSignal[]>([]);
   const [stats, setStats] = useState<AppStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [newsDetail, setNewsDetail] = useState<NewsItem | null>(null);
   const { token, user } = useAuth();
   const { navigateTo } = useNavigation();
+
+  function parseMediaUrls(raw: string | null | undefined): string[] {
+    if (raw == null || raw === '') return [];
+    try {
+      const a = JSON.parse(raw);
+      return Array.isArray(a) ? a.filter((x): x is string => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  }
 
   const display = stats?.displayEnabled && stats?.display
     ? { ...stats.display, signalsCount: stats.display.signalsCount + signals.length }
@@ -73,6 +98,7 @@ export default function Dashboard() {
   useEffect(() => {
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
     api.get<TradingSignal[]>('/signals?limit=10', { headers }).then(setSignals).catch(() => {});
+    api.get<{ news: NewsItem[] }>('/news').then((d) => setNews(d.news || [])).catch(() => setNews([]));
     const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
     const ws = new WebSocket(wsUrl);
     ws.onopen = () => { if (token) ws.send(JSON.stringify({ type: 'auth', token })); };
@@ -168,13 +194,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <Button variant="primary" onClick={() => navigateTo('autotrade')}>Авто-трейд</Button>
-        <Button variant="secondary" onClick={() => navigateTo('scanner')}>Скринер</Button>
-        <Button variant="secondary" onClick={() => navigateTo('signals')}>Сигналы</Button>
-        <Button variant="secondary" onClick={() => navigateTo('chart')}>График</Button>
-      </div>
-
       <Card variant="accent" padding="spacious">
         <h2 className="text-sm font-bold uppercase tracking-wider mb-6 flex items-center gap-2">
           <span className="text-gradient">⚡</span> Как начать
@@ -214,21 +233,88 @@ export default function Dashboard() {
         </Card>
 
         <Card variant="glass" padding="normal">
-          <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Интеграции</h3>
-          <ul className="space-y-3">
-            {[
-              { label: 'Bitget — биржа', active: true },
-              { label: 'TradingView — графики', active: true },
-              { label: 'Telegram — @clabx_bot', active: true },
-            ].map((item, i) => (
-              <li key={i} className="flex items-center gap-3 text-sm">
-                <span className="w-2 h-2 rounded-full" style={{ background: item.active ? 'var(--accent)' : 'var(--text-muted)' }} />
-                <span style={{ color: 'var(--text-secondary)' }}>{item.label}</span>
-              </li>
-            ))}
-          </ul>
+          <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Новости</h3>
+          {news.length === 0 ? (
+            <p className="text-sm py-6 text-center" style={{ color: 'var(--text-muted)' }}>Пока нет новостей</p>
+          ) : (
+            <ul className="space-y-3 max-h-48 overflow-auto custom-scrollbar">
+              {news.slice(0, 10).map((item) => (
+                <li
+                  key={item.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setNewsDetail(item)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setNewsDetail(item); } }}
+                  className="text-sm py-2 px-3 rounded-lg cursor-pointer transition-colors hover:opacity-90"
+                  style={{ background: 'var(--bg-hover)' }}
+                >
+                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{item.title}</p>
+                  {item.content && (
+                    <p className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{item.content}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
       </div>
+
+      <Modal
+        open={newsDetail != null}
+        onClose={() => setNewsDetail(null)}
+        title={newsDetail?.title ?? ''}
+        maxWidth="max-w-2xl"
+        footer={
+          <Button variant="secondary" onClick={() => setNewsDetail(null)}>Закрыть</Button>
+        }
+      >
+        {newsDetail && (
+          <div className="space-y-4">
+            {newsDetail.image_url && (
+              <div className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-hover)' }}>
+                <img src={newsDetail.image_url} alt="" className="w-full max-h-80 object-contain" />
+              </div>
+            )}
+            <div className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
+              {newsDetail.content || '—'}
+            </div>
+            {(() => {
+              const urls = parseMediaUrls(newsDetail.media_urls);
+              if (urls.length === 0) return null;
+              return (
+                <div>
+                  <p className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Медиа</p>
+                  <ul className="space-y-2">
+                    {urls.map((url, i) => {
+                      const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s?]+)/);
+                      const embedUrl = ytMatch ? `https://www.youtube.com/embed/${ytMatch[1]}` : null;
+                      const isDirectVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(url);
+                      return (
+                        <li key={i}>
+                          {embedUrl ? (
+                            <iframe
+                              title={`Медиа ${i + 1}`}
+                              src={embedUrl}
+                              className="w-full aspect-video rounded-lg"
+                              allowFullScreen
+                            />
+                          ) : isDirectVideo ? (
+                            <video src={url} controls className="w-full rounded-lg max-h-64" />
+                          ) : (
+                            <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm break-all" style={{ color: 'var(--accent)' }}>
+                              {url}
+                            </a>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
