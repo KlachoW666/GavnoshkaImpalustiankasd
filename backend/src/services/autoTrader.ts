@@ -456,17 +456,7 @@ export async function executeSignal(
       const isBitgetUnilateral = /40774|unilateral position must also be the unilateral|side mismatch/i.test(errMsg);
       if (isBitgetUnilateral) {
         logger.info('AutoTrader', 'Retrying with Bitget one-way mode (side buy/sell, no posSide)', { symbol: signal.symbol });
-        try {
-          order = await tryPlaceOrder('isolated', true);
-        } catch (e2: any) {
-          const errMsg2 = e2?.message ?? String(e2);
-          if (/51010|account mode|side mismatch/i.test(errMsg2)) {
-            logger.info('AutoTrader', 'Retrying Bitget one-way + tdMode=cross', { symbol: signal.symbol });
-            order = await tryPlaceOrder('cross', true);
-          } else {
-            throw e2;
-          }
-        }
+        order = await tryPlaceOrder('isolated', true);
       } else if (isPosSideError) {
         posSide = 'net';
         logger.info('AutoTrader', 'Retrying with posSide=net (account in net/one-way mode)', { symbol: signal.symbol });
@@ -474,10 +464,7 @@ export async function executeSignal(
           order = await tryPlaceOrder('isolated');
         } catch (e2: any) {
           const errMsg2 = e2?.message ?? String(e2);
-          if (/51010|account mode/i.test(errMsg2)) {
-            logger.info('AutoTrader', 'Retrying with posSide=net + tdMode=cross', { symbol: signal.symbol });
-            order = await tryPlaceOrder('cross');
-          } else if (/40774|unilateral|side mismatch/i.test(errMsg2)) {
+          if (/40774|unilateral|side mismatch/i.test(errMsg2)) {
             logger.info('AutoTrader', 'Retrying with Bitget one-way mode (side buy/sell)', { symbol: signal.symbol });
             order = await tryPlaceOrder('isolated', true);
           } else {
@@ -485,19 +472,7 @@ export async function executeSignal(
           }
         }
       } else if (isAccountModeError) {
-        logger.info('AutoTrader', 'Retrying with tdMode=cross (account mode 51010)', { symbol: signal.symbol });
-        try {
-          order = await tryPlaceOrder('cross');
-        } catch (e2: any) {
-          const errMsg2 = e2?.message ?? String(e2);
-          if (/51000.*posSide|Parameter posSide/i.test(errMsg2)) {
-            posSide = 'net';
-            logger.info('AutoTrader', 'Retrying with posSide=net + tdMode=cross', { symbol: signal.symbol });
-            order = await tryPlaceOrder('cross');
-          } else {
-            throw e2;
-          }
-        }
+        throw new Error('Bitget: используются только изолированная маржа. На бирже выберите по контракту режим маржи «Изолированная» (51010).');
       } else if (isTimestampExpired) {
         logger.info('AutoTrader', '50102 Timestamp expired, retrying createOrder after 2s (sync server clock: timedatectl set-ntp true)', { symbol: signal.symbol });
         await sleep(2000);
@@ -518,8 +493,10 @@ export async function executeSignal(
     const errMsg = e?.message ?? String(e);
     logger.error('AutoTrader', 'createOrder failed', { symbol: signal.symbol, error: errMsg });
     let userMsg = parseBitgetShortError(errMsg) || errMsg;
-    if (/40774|unilateral position must also be the unilateral|side mismatch/i.test(errMsg)) {
-      userMsg = `Bitget: режим позиции (side mismatch). На бирже выберите режим позиции «One-way» (односторонний). Изолированная/Кросс-маржа поддерживаются.`;
+    if (/51010|account mode|cannot complete.*account mode/i.test(errMsg)) {
+      userMsg = `Bitget: используются только изолированная маржа. На бирже выберите по контракту режим маржи «Изолированная».`;
+    } else if (/40774|unilateral position must also be the unilateral|side mismatch/i.test(errMsg)) {
+      userMsg = `Bitget: режим позиции (side mismatch). На бирже выберите режим позиции «One-way» (односторонний) и маржу «Изолированная».`;
     } else if (/insufficient|margin|51008|51020|51119/i.test(errMsg)) {
       userMsg = `Недостаточно маржи на Bitget. Пополните счёт USDT, закройте часть позиций или уменьшите «Долю баланса» в настройках.`;
     } else if (/50102|Timestamp request expired|timestamp expired/i.test(errMsg)) {

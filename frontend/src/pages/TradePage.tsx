@@ -157,7 +157,7 @@ export default function TradePage() {
   const [showTpSl, setShowTpSl] = useState(false);
   const [postOnly, setPostOnly] = useState(false);
   const [reduceOnly, setReduceOnly] = useState(false);
-  const [marginMode, setMarginMode] = useState<'cross' | 'isolated'>('cross');
+  const [marginMode, setMarginMode] = useState<'cross' | 'isolated'>('isolated');
   const [positionMode, setPositionMode] = useState<'one_way' | 'hedge'>('one_way');
   const [triggerPrice, setTriggerPrice] = useState('');
   const [openOrders, setOpenOrders] = useState<OpenOrderRow[]>([]);
@@ -589,8 +589,8 @@ export default function TradePage() {
           <>
             <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Маржа:</span>
             <div className="flex gap-1">
-              <button type="button" onClick={() => setMarginMode('cross')} className="px-2 py-1 text-[11px] font-medium rounded" style={{ background: marginMode === 'cross' ? 'var(--accent-dim)' : 'var(--bg)', color: marginMode === 'cross' ? 'var(--accent)' : 'var(--text-muted)' }}>Кросс</button>
               <button type="button" onClick={() => setMarginMode('isolated')} className="px-2 py-1 text-[11px] font-medium rounded" style={{ background: marginMode === 'isolated' ? 'var(--accent-dim)' : 'var(--bg)', color: marginMode === 'isolated' ? 'var(--accent)' : 'var(--text-muted)' }}>Изолир.</button>
+              <button type="button" onClick={() => setMarginMode('cross')} className="px-2 py-1 text-[11px] font-medium rounded" style={{ background: marginMode === 'cross' ? 'var(--accent-dim)' : 'var(--bg)', color: marginMode === 'cross' ? 'var(--accent)' : 'var(--text-muted)' }}>Кросс</button>
             </div>
             <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Режим:</span>
             <div className="flex gap-1">
