@@ -19,6 +19,9 @@ import { acquire as bitgetRateLimitAcquire, setMaxPerSecond as setBitgetRateLimi
  */
 const ohlcvInFlight = new Map<string, Promise<OHLCVCandle[]>>();
 const obInFlight = new Map<string, Promise<{ bids: [number, number][]; asks: [number, number][] }>>();
+/** После 403/429 от Massive не обращаться к нему до этой метки (мс), использовать только Bitget */
+let massiveBackoffUntil = 0;
+const MASSIVE_BACKOFF_MS = 10 * 60 * 1000; // 10 мин
 
 export class DataAggregator {
   private exchange: Exchange;
@@ -67,10 +70,10 @@ export class DataAggregator {
     return /timed out|timeout|ETIMEDOUT/i.test(msg);
   }
 
-  /** 403 NOT_AUTHORIZED (plan) или 429 rate limit — fallback на Bitget */
+  /** 401 Unknown API Key, 403 NOT_AUTHORIZED (plan) или 429 rate limit — fallback на Bitget */
   private isMassivePlanLimitOrRateLimit(err: unknown): boolean {
     const msg = err instanceof Error ? err.message : String(err);
-    return /Massive API (403|429)|NOT_AUTHORIZED|exceeded the maximum requests/i.test(msg);
+    return /Massive API (401|403|429)|Unknown API Key|NOT_AUTHORIZED|exceeded the maximum requests/i.test(msg);
   }
 
   getExchangeIds(): string[] {
@@ -117,8 +120,8 @@ export class DataAggregator {
     if (promise) return promise;
 
     promise = (async (): Promise<OHLCVCandle[]> => {
-      let useBitget = !config.useMassiveForMarketData;
-      if (config.useMassiveForMarketData) {
+      let useBitget = !config.useMassiveForMarketData || Date.now() < massiveBackoffUntil;
+      if (config.useMassiveForMarketData && !useBitget) {
         try {
           const ticker = toMassiveTicker(symbol);
           const toMs = Date.now();
@@ -133,6 +136,7 @@ export class DataAggregator {
           }
         } catch (e) {
           if (this.isMassivePlanLimitOrRateLimit(e)) {
+            massiveBackoffUntil = Date.now() + MASSIVE_BACKOFF_MS;
             useBitget = true;
           } else {
             return this.getMockCandles(symbol, timeframe, limit);
@@ -230,8 +234,8 @@ export class DataAggregator {
     if (promise) return promise;
 
     promise = (async (): Promise<{ bids: [number, number][]; asks: [number, number][] }> => {
-      let useBitgetOb = !config.useMassiveForMarketData;
-      if (config.useMassiveForMarketData) {
+      let useBitgetOb = !config.useMassiveForMarketData || Date.now() < massiveBackoffUntil;
+      if (config.useMassiveForMarketData && !useBitgetOb) {
         try {
           const ticker = toMassiveTicker(symbol);
           const ob = await getOrderBookFromSnapshot(ticker);
@@ -253,8 +257,10 @@ export class DataAggregator {
           } catch (_) { /* ignore */ }
           return result;
         } catch (e) {
-          if (this.isMassivePlanLimitOrRateLimit(e)) useBitgetOb = true;
-          else return this.getMockOrderBook(symbol, limit);
+          if (this.isMassivePlanLimitOrRateLimit(e)) {
+            massiveBackoffUntil = Date.now() + MASSIVE_BACKOFF_MS;
+            useBitgetOb = true;
+          } else return this.getMockOrderBook(symbol, limit);
         }
       }
       if (useBitgetOb) {
@@ -306,7 +312,7 @@ export class DataAggregator {
     const cachedPrice = this.priceCache.get(symbol);
     if (cachedPrice) return cachedPrice;
 
-    if (config.useMassiveForMarketData) {
+    if (config.useMassiveForMarketData && Date.now() >= massiveBackoffUntil) {
       try {
         const snap = await getCryptoSnapshotTicker(toMassiveTicker(symbol));
         const p = snap?.lastTrade?.p ?? snap?.min?.c;
@@ -316,7 +322,9 @@ export class DataAggregator {
         }
         return this.getSymbolBasePrice(symbol);
       } catch (e) {
-        if (!this.isMassivePlanLimitOrRateLimit(e)) {
+        if (this.isMassivePlanLimitOrRateLimit(e)) {
+          massiveBackoffUntil = Date.now() + MASSIVE_BACKOFF_MS;
+        } else {
           return this.getSymbolBasePrice(symbol);
         }
         // fall through to Bitget path below

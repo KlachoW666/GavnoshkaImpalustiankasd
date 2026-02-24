@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 backend/.env
+backend/.envTESTING.conf
 *.log
 .DS_Store
 release/

@@ -69,11 +69,17 @@ async function massiveFetch(path: string, searchParams?: Record<string, string>)
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     const isUnknownKey = res.status === 401 && typeof body === 'object' && body !== null && String((body as { error?: string }).error).includes('Unknown API Key');
-    logger.warn('MassiveClient', 'API error', {
-      path: url.pathname,
-      status: res.status,
-      body: typeof body === 'object' ? JSON.stringify(body) : String(body)
-    });
+    const isPlanLimit = res.status === 403 && typeof body === 'object' && body !== null && String((body as { status?: string; message?: string }).message || '').includes('not entitled');
+    const isRateLimit = res.status === 429;
+    if (isUnknownKey || isPlanLimit || isRateLimit) {
+      logger.debug('MassiveClient', isUnknownKey ? 'API 401 Unknown API Key — используйте ключ от massive.com и MASSIVE_API_BASE_URL=https://api.massive.com или от polygon.io и MASSIVE_API_BASE_URL=https://api.polygon.io; DataAggregator переключится на Bitget' : isRateLimit ? 'API 429 rate limit, DataAggregator backoff 10min' : 'API 403 plan limit, DataAggregator will use Bitget', { path: url.pathname });
+    } else {
+      logger.warn('MassiveClient', 'API error', {
+        path: url.pathname,
+        status: res.status,
+        body: typeof body === 'object' ? JSON.stringify(body) : String(body)
+      });
+    }
     if (isUnknownKey) {
       throw new Error(
         'Massive API 401 Unknown API Key. For massive.com keys use MASSIVE_API_BASE_URL=https://api.massive.com and MASSIVE_API_KEY from massive.com dashboard (Accessing the API). Restart app after changing .env.'

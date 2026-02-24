@@ -11,6 +11,12 @@ import { getDb, initDb } from '../db';
 const USDT_TRC20 = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 const TRONGRID_API = 'https://api.trongrid.io';
 const USDT_DECIMALS = 6;
+/** Задержка между запросами по разным адресам (мс), чтобы не упираться в rate limit */
+const DELAY_BETWEEN_ADDRESSES_MS = 1500;
+/** При 429 ждём столько мс и повторяем один раз */
+const RETRY_AFTER_RATE_LIMIT_MS = 8000;
+/** После 429 не дергать TronGrid столько мс (5 мин), чтобы не спамить лимит */
+const BACKOFF_AFTER_RATE_LIMIT_MS = 5 * 60 * 1000;
 
 /** Адреса наших кошельков → user_id */
 async function getAddressToUser(): Promise<Map<string, string>> {
@@ -35,31 +41,39 @@ interface Trc20Tx {
   block_timestamp: number;
 }
 
-/** Сканировать TRC20 транзакции на адрес через TronGrid */
-async function fetchTrc20Transfers(toAddress: string, minTs?: number): Promise<Trc20Tx[]> {
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Сканировать TRC20 транзакции на адрес через TronGrid (с одним повтором при 429) */
+async function fetchTrc20Transfers(toAddress: string, minTs?: number, isRetry = false): Promise<Trc20Tx[]> {
   const apiKey = process.env.TRONGRID_API_KEY?.trim();
   const headers: Record<string, string> = {};
   if (apiKey) headers['TRON-PRO-API-KEY'] = apiKey;
   const url = `${TRONGRID_API}/v1/accounts/${toAddress}/transactions/trc20?limit=50&only_confirmed=true`;
-  try {
-    const res = await fetch(url, { headers });
-    if (!res.ok) {
-      if (res.status === 429) throw new Error('TronGrid rate limit');
-      if (res.status >= 500) throw new Error(`TronGrid ${res.status}`);
-      return [];
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    if (res.status === 429) {
+      if (!isRetry) {
+        await sleep(RETRY_AFTER_RATE_LIMIT_MS);
+        return fetchTrc20Transfers(toAddress, minTs, true);
+      }
+      throw new Error('TronGrid rate limit');
     }
-    const data = (await res.json()) as { data?: Trc20Tx[] };
-    const list = data.data ?? [];
-    return list.filter((t) => t.token_info?.address === USDT_TRC20 && t.to === toAddress && (!minTs || t.block_timestamp >= minTs));
-  } catch (e) {
-    throw e;
+    if (res.status >= 500) throw new Error(`TronGrid ${res.status}`);
+    return [];
   }
+  const data = (await res.json()) as { data?: Trc20Tx[] };
+  const list = data.data ?? [];
+  return list.filter((t) => t.token_info?.address === USDT_TRC20 && t.to === toAddress && (!minTs || t.block_timestamp >= minTs));
 }
 
 /** Сканировать депозиты USDT TRC20 */
 export async function scanDeposits(): Promise<{ processed: number; credits: number }> {
   const cfg = getConfig();
   if (!cfg) return { processed: 0, credits: 0 };
+
+  if (Date.now() < nextScanNoEarlierThan) return { processed: 0, credits: 0 };
 
   const addressToUser = await getAddressToUser();
   const ourAddresses = Array.from(addressToUser.keys());
@@ -70,7 +84,9 @@ export async function scanDeposits(): Promise<{ processed: number; credits: numb
   let processed = 0;
 
   try {
-    for (const addr of ourAddresses) {
+    for (let i = 0; i < ourAddresses.length; i++) {
+      if (i > 0) await sleep(DELAY_BETWEEN_ADDRESSES_MS);
+      const addr = ourAddresses[i];
       const txs = await fetchTrc20Transfers(addr, minTs);
       processed += txs.length;
       for (const tx of txs) {
@@ -92,18 +108,27 @@ export async function scanDeposits(): Promise<{ processed: number; credits: numb
     }
     return { processed, credits };
   } catch (e) {
-    logger.warn('depositScanner', 'Scan failed', { error: (e as Error).message });
+    const msg = (e as Error).message;
+    if (msg === 'TronGrid rate limit') {
+      nextScanNoEarlierThan = Date.now() + BACKOFF_AFTER_RATE_LIMIT_MS;
+      logger.warn('depositScanner', 'Scan failed (rate limit), next scan in 5 min', { error: msg });
+    } else {
+      logger.warn('depositScanner', 'Scan failed', { error: msg });
+    }
     return { processed: 0, credits: 0 };
   }
 }
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
+/** После 429 не запускать скан до этой метки времени */
+let nextScanNoEarlierThan = 0;
 
-/** Запустить периодическое сканирование (каждые 60 сек) */
+/** Запустить периодическое сканирование. С API-ключом — 60 сек, без — 120 сек (меньше лимитов TronGrid). */
 export function startDepositScanner(): void {
   if (!getConfig()) return;
   if (intervalId) return;
-  const intervalMs = 60 * 1000;
+  const hasKey = !!process.env.TRONGRID_API_KEY?.trim();
+  const intervalMs = hasKey ? 60 * 1000 : 120 * 1000;
   intervalId = setInterval(() => {
     scanDeposits().catch((e) => logger.warn('depositScanner', 'Cron error', { error: (e as Error).message }));
   }, intervalMs);
