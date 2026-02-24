@@ -110,3 +110,39 @@ docker compose -f docker-compose.botnot.yml up -d
 6. Сайт шлёт POST на `http://<ваш-сервер>:5678/webhook/analysis` с телом `{ "symbol": "ETH", ... }`.
 
 После этого запросы к webhook должны проходить, а бэкенд — отвечать на вызовы анализа и скринера.
+
+---
+
+## Вариант C: PM2 + Nginx на одной машине (clabx.ru)
+
+Если сайт отдаётся через **Nginx** (например, на домене clabx.ru), а бэкенд и бот запущены через **PM2** (без Docker), Nginx должен проксировать на **127.0.0.1:3000**, а не на `backend:3000` (имя сервиса Docker).
+
+### 1. Конфиг Nginx для PM2
+
+В репозитории есть **nginx/nginx-pm2.conf** — конфиг для деплоя через PM2:
+
+- **upstream** — `127.0.0.1:3000` (backend под PM2)
+- **root** — путь к собранному фронтенду, например `/root/opt/cryptosignal/frontend/dist`
+
+### 2. Установка на сервере
+
+```bash
+# Путь к проекту (как у вас на VPS)
+PROJECT=/root/opt/cryptosignal
+
+# Подставить путь в конфиг и положить в Nginx
+sed "s|/root/opt/cryptosignal|$PROJECT|g" nginx/nginx-pm2.conf | sudo tee /etc/nginx/sites-available/clabx
+sudo ln -sf /etc/nginx/sites-available/clabx /etc/nginx/sites-enabled/
+# Уберите default, если мешает: sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Замените в конфиге **server_name** на ваш домен (clabx.ru и т.д.).
+
+### 3. Почему 502
+
+Если видите **502 Bad Gateway** при работе через PM2:
+
+- В конфиге Nginx не должно быть **upstream backend { server backend:3000; }** — это для Docker.
+- Должно быть **server 127.0.0.1:3000** (как в **nginx/nginx-pm2.conf**).
+- Убедитесь, что бэкенд слушает порт 3000: `pm2 status` → cryptosignal в статусе **online**, `curl -s http://127.0.0.1:3000/api/health` должен вернуть OK.
