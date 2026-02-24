@@ -425,6 +425,10 @@ export async function executeSignal(
     }
     const isBitget = (exchange as any).id === 'bitget';
     const params: Record<string, unknown> = { tdMode };
+    if (isBitget) {
+      params.marginMode = tdMode === 'cross' ? 'crossed' : 'isolated';
+      params.marginCoin = 'USDT';
+    }
     let orderSide = side;
     if (oneWayMode && isBitget) {
       orderSide = side;
