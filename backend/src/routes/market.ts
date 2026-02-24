@@ -889,11 +889,11 @@ function scannerSymbolToMarket(s: string): string {
  * Если useScanner === true — сначала получаем топ монет из скринера (волатильность, объём, BB squeeze).
  * TP/SL, leverage, mode — определяются по анализу (ATR, волатильность, confluence).
  */
-const LOCK_TIMEOUT_MS = 8 * 60 * 1000; // 8 мин — цикл с анализом и внешним ИИ может занимать 5+ мин
-const QUEUED_LOG_COOLDOWN_MS = 120 * 1000; // не спамить лог «queued» чаще раза в 2 мин по ключу
+const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 мин — при превышении новый цикл может стартовать (долгий цикл не блокирует очередь)
+const QUEUED_LOG_COOLDOWN_MS = 180 * 1000; // не спамить лог «queued» чаще раза в 3 мин по ключу
 const ANALYSIS_SYMBOL_TIMEOUT_MS = 90_000; // 90s на символ — защита от зависания при долгом ответе API/прокси
-const BTC_FETCH_TIMEOUT_MS = 45_000; // 45s на загрузку свечей BTC
-const SCANNER_TIMEOUT_MS = 45_000; // 45s на сканер — при 429 Massive сканер тормозит, не ждём дольше
+const BTC_FETCH_TIMEOUT_MS = 30_000; // 30s на загрузку свечей BTC
+const SCANNER_TIMEOUT_MS = 25_000; // 25s на сканер — быстрее fallback на дефолтные символы при задержках
 /** Фильтр SHORT после резкого падения (5m): число свечей и порог падения (%) — не шортить вдогонку */
 const SHARP_DROP_CANDLES = 8;
 const SHARP_DROP_PCT = 1.5;

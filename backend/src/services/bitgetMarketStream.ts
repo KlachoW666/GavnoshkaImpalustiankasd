@@ -10,6 +10,7 @@ import type { OHLCVCandle } from '../types/candle';
 
 const WS_URL = 'wss://ws.bitget.com/v2/ws/public';
 const PING_INTERVAL_MS = 25_000;
+const RECONNECT_DELAY_MS = 3_000;
 const MAX_CHANNELS = 48;
 const CANDLE_CHANNELS = ['candle1m', 'candle5m', 'candle15m', 'candle1H', 'candle4H', 'candle1D'] as const;
 const TF_TO_CHANNEL: Record<string, string> = {
@@ -118,7 +119,17 @@ function ensureConnected(): Promise<void> {
         ws = null;
         if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }
         connectPromise = null;
-        logger.warn('BitgetMarketStream', 'WebSocket closed, will reconnect on next use');
+        const toResubscribe = Array.from(subscribedChannels);
+        subscribedChannels.clear();
+        logger.debug('BitgetMarketStream', 'WebSocket closed, reconnecting in 3s');
+        setTimeout(() => {
+          ensureConnected().then(() => {
+            for (const key of toResubscribe) {
+              const i = key.lastIndexOf('_');
+              if (i > 0) subscribeChannel(key.slice(0, i), key.slice(i + 1));
+            }
+          }).catch(() => {});
+        }, RECONNECT_DELAY_MS);
       });
       ws.on('error', (err) => logger.warn('BitgetMarketStream', (err as Error).message));
     } catch (err) {

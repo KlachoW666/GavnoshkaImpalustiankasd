@@ -9,6 +9,7 @@ import { toBitgetInstId } from '../lib/symbol';
 
 const WS_URL = 'wss://ws.bitget.com/v2/ws/public';
 const PING_INTERVAL_MS = 25_000;
+const RECONNECT_DELAY_MS = 3_000;
 const MAX_SUBSCRIPTIONS = 40;
 
 export interface OrderBookSnapshot {
@@ -76,7 +77,16 @@ function ensureConnected(): Promise<void> {
         pingTimer = null;
       }
       connectPromise = null;
-      logger.warn('BitgetOrderBookStream', 'WebSocket closed, will reconnect on next use');
+      const toResubscribe = Array.from(subscribed);
+      subscribed.clear();
+      logger.debug('BitgetOrderBookStream', 'WebSocket closed, reconnecting in 3s');
+      setTimeout(() => {
+        ensureConnected().then(() => {
+          for (const instId of toResubscribe) {
+            subscribe(instId);
+          }
+        }).catch(() => {});
+      }, RECONNECT_DELAY_MS);
     });
     ws.on('error', (err) => {
       logger.warn('BitgetOrderBookStream', (err as Error).message);
