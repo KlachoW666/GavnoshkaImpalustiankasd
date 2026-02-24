@@ -836,10 +836,17 @@ async function fetchBalanceAndPositions(exchange: Exchange): Promise<{ balance: 
 }
 
 const BITGET_TIMESTAMP_EXPIRED = /50102|Timestamp request expired/i;
+/** Сетевая ошибка Bitget (api.bitget.com недоступен — блокировка или прокси). */
+const BITGET_NETWORK_ERROR = /fetch failed|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|ECONNRESET|network/i;
 
 /** Сообщение для пользователя при ошибке времени Bitget: ордера могут исполняться, баланс не показывается. */
 function formatTimestampExpiredMessage(raw: string): string {
   return `${raw} Исполнение ордеров при этом может работать. Синхронизируйте время на сервере с интернетом (NTP).`;
+}
+
+/** Сообщение при недоступности api.bitget.com: подсказка про прокси. */
+function formatBitgetNetworkErrorMessage(raw: string): string {
+  return `api.bitget.com недоступен (${raw}). Добавьте рабочий прокси в .env: PROXY_LIST или PROXY (например http://user:pass@host:port).`;
 }
 
 /** Позиции и баланс Bitget: при передаче userCreds — ключи пользователя (как в админке), иначе ключи из .env. При таймауте — один повтор с новым прокси. */
@@ -854,24 +861,37 @@ export async function getPositionsAndBalanceForApi(
   /** Клиент без loadMarkets(): не дергаем GET .../contracts, чтобы не падать при недоступности api.bitget.com. */
   let exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet, true) : buildExchange(useTestnet, true);
   let lastError: string | null = null;
+  let lastBalanceError: string | undefined;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       if (attempt > 0) {
         const isTimestampRetry = BITGET_TIMESTAMP_EXPIRED.test(lastError || '');
         const isTimeout = /timed out|timeout|ETIMEDOUT/i.test(lastError || '');
-        const delayMs = isTimestampRetry ? 2000 : (isTimeout ? 2500 : 0); // таймаут — пауза перед сменой прокси
+        const isNetworkRetry = BITGET_NETWORK_ERROR.test(lastError || '');
+        const delayMs = isTimestampRetry ? 2000 : (isTimeout || isNetworkRetry ? 2500 : 0);
         if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
         exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet, true) : buildExchange(useTestnet, true);
       }
       const { balance, positions, balanceError: fetchErr } = await fetchBalanceAndPositions(exchange);
+      lastBalanceError = fetchErr;
+      if (fetchErr && BITGET_NETWORK_ERROR.test(fetchErr) && attempt < 2) {
+        lastError = fetchErr;
+        logger.warn('AutoTrader', 'getPositionsAndBalance network error, retrying with new proxy', { attempt: attempt + 1, useUserCreds: !!useUserCreds });
+        continue;
+      }
       return { positions, balance, openCount: positions.length, balanceError: fetchErr ?? undefined };
     } catch (e) {
       const msg = (e as Error).message || String(e);
       lastError = msg;
       const isTimeout = /timed out|timeout|ETIMEDOUT/i.test(msg);
       const isTimestampExpired = BITGET_TIMESTAMP_EXPIRED.test(msg);
+      const isNetworkError = BITGET_NETWORK_ERROR.test(msg);
       if (isTimeout && attempt < 2) {
         logger.warn('AutoTrader', 'getPositionsAndBalance timeout, retrying with new proxy after 2.5s', { attempt: attempt + 1, useUserCreds: !!useUserCreds });
+        continue;
+      }
+      if (isNetworkError && attempt < 2) {
+        logger.warn('AutoTrader', 'getPositionsAndBalance fetch failed, retrying with new proxy', { attempt: attempt + 1, useUserCreds: !!useUserCreds });
         continue;
       }
       if (isTimestampExpired && attempt < 2) {
@@ -879,12 +899,13 @@ export async function getPositionsAndBalanceForApi(
         continue;
       }
       logger.warn('AutoTrader', 'getPositionsAndBalance failed', { error: msg, useUserCreds: !!useUserCreds });
-      const balanceError = isTimestampExpired ? formatTimestampExpiredMessage(msg) : msg;
+      const balanceError = isTimestampExpired ? formatTimestampExpiredMessage(msg) : (isNetworkError ? formatBitgetNetworkErrorMessage(msg) : msg);
       return { positions: [], balance: 0, openCount: 0, balanceError };
     }
   }
-  const balanceError = lastError && BITGET_TIMESTAMP_EXPIRED.test(lastError)
-    ? formatTimestampExpiredMessage(lastError)
-    : (lastError || 'Request failed after retry');
+  const networkHint = lastBalanceError && BITGET_NETWORK_ERROR.test(lastBalanceError)
+    ? formatBitgetNetworkErrorMessage(lastBalanceError)
+    : (lastError && BITGET_NETWORK_ERROR.test(lastError) ? formatBitgetNetworkErrorMessage(lastError) : null);
+  const balanceError = networkHint ?? (lastError && BITGET_TIMESTAMP_EXPIRED.test(lastError) ? formatTimestampExpiredMessage(lastError) : (lastError || 'Request failed after retry'));
   return { positions: [], balance: 0, openCount: 0, balanceError };
 }
