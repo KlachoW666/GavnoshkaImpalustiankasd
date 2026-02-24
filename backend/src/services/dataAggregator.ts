@@ -27,6 +27,10 @@ const MASSIVE_BACKOFF_MS = 10 * 60 * 1000; // 10 мин
 let lastBitgetNetworkErrorLogAt = 0;
 let bitgetNetworkErrorCount = 0;
 const BITGET_NETWORK_ERROR_LOG_INTERVAL_MS = 60 * 1000;
+/** Троттлинг логов при недоступности Binance (fapi.binance.com fetch failed): не чаще раза в минуту */
+let lastBinanceNetworkErrorLogAt = 0;
+let binanceNetworkErrorCount = 0;
+const BINANCE_NETWORK_ERROR_LOG_INTERVAL_MS = 60 * 1000;
 
 export class DataAggregator {
   private exchange: Exchange;
@@ -104,6 +108,22 @@ export class DataAggregator {
   private isBitgetNetworkError(err: unknown): boolean {
     const msg = err instanceof Error ? err.message : String(err);
     return /fetch failed|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|ECONNRESET|network/i.test(msg);
+  }
+
+  /** Сетевая ошибка Binance (fapi.binance.com недоступен — блокировка или прокси). */
+  private isBinanceNetworkError(err: unknown): boolean {
+    const msg = err instanceof Error ? err.message : String(err);
+    return /fetch failed|exchangeInfo|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|ECONNRESET|network/i.test(msg);
+  }
+
+  private logBinanceNetworkErrorOnce(context: string): void {
+    binanceNetworkErrorCount++;
+    const now = Date.now();
+    if (now - lastBinanceNetworkErrorLogAt >= BINANCE_NETWORK_ERROR_LOG_INTERVAL_MS) {
+      logger.warn('DataAggregator', `Binance unreachable (${binanceNetworkErrorCount} errors). Проверьте PROXY_LIST в .env — fapi.binance.com может быть заблокирован в регионе.`, { context });
+      lastBinanceNetworkErrorLogAt = now;
+      binanceNetworkErrorCount = 0;
+    }
   }
 
   private logBitgetNetworkErrorOnce(context: string): void {
@@ -188,7 +208,8 @@ export class DataAggregator {
             }
           } catch (e) {
             const msg = (e as Error).message;
-            logger.warn('DataAggregator', 'Binance OHLCV fetch failed', { symbol, attempt: attempt + 1, error: msg });
+            if (this.isBinanceNetworkError(e)) this.logBinanceNetworkErrorOnce('OHLCV');
+            else logger.warn('DataAggregator', 'Binance OHLCV fetch failed', { symbol, attempt: attempt + 1, error: msg });
             if (this.isTimeout(e) && attempt === 0) {
               this.exchange = this.createBinanceExchange();
               await new Promise((r) => setTimeout(r, 1500));
@@ -342,7 +363,8 @@ export class DataAggregator {
             } catch (_) { /* ignore */ }
             return result;
           } catch (e) {
-            logger.warn('DataAggregator', 'Binance OrderBook fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
+            if (this.isBinanceNetworkError(e)) this.logBinanceNetworkErrorOnce('OrderBook');
+            else logger.warn('DataAggregator', 'Binance OrderBook fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
             if (this.isTimeout(e) && attempt === 0) {
               this.exchange = this.createBinanceExchange();
               await new Promise((r) => setTimeout(r, 1500));
@@ -443,7 +465,8 @@ export class DataAggregator {
           return last;
         }
       } catch (err) {
-        logger.warn('DataAggregator', 'Binance getCurrentPrice failed', { symbol, error: (err as Error).message });
+        if (this.isBinanceNetworkError(err)) this.logBinanceNetworkErrorOnce('getCurrentPrice');
+        else logger.warn('DataAggregator', 'Binance getCurrentPrice failed', { symbol, error: (err as Error).message });
       }
       try {
         const ob = await this.getOrderBookByExchange(symbol, 5);
@@ -455,7 +478,8 @@ export class DataAggregator {
           return mid;
         }
       } catch (err) {
-        logger.warn('DataAggregator', 'Binance getCurrentPrice(ob) failed', { symbol, error: (err as Error).message });
+        if (this.isBinanceNetworkError(err)) this.logBinanceNetworkErrorOnce('getCurrentPrice(ob)');
+        else logger.warn('DataAggregator', 'Binance getCurrentPrice(ob) failed', { symbol, error: (err as Error).message });
       }
       return this.getSymbolBasePrice(symbol);
     }
@@ -585,7 +609,8 @@ export class DataAggregator {
         return trades;
       } catch (e) {
         if (config.useBinanceForMarketData) {
-          logger.warn('DataAggregator', 'Binance Trades fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
+          if (this.isBinanceNetworkError(e)) this.logBinanceNetworkErrorOnce('Trades');
+          else logger.warn('DataAggregator', 'Binance Trades fetch failed', { symbol, attempt: attempt + 1, error: (e as Error).message });
           if (this.isTimeout(e) && attempt === 0) {
             this.exchange = this.createBinanceExchange();
             await new Promise((r) => setTimeout(r, 1500));
