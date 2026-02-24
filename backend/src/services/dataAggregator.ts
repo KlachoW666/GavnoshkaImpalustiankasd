@@ -66,8 +66,8 @@ export class DataAggregator {
       secret: binance.hasCredentials ? binance.secret : undefined,
       enableRateLimit: true,
       options: {
-        defaultType: 'future',
-        /** Binance ccxt: только linear = USDT-M фьючерсы (не spot). Тип 'future' не поддерживается в fetchMarkets. */
+        defaultType: 'swap',
+        /** Binance ccxt: только linear = USDT-M фьючерсы (не spot). */
         fetchMarkets: { types: ['linear'] },
         fetchCurrencies: false
       },
