@@ -31,6 +31,13 @@ const BITGET_NETWORK_ERROR_LOG_INTERVAL_MS = 60 * 1000;
 let lastBinanceNetworkErrorLogAt = 0;
 let binanceNetworkErrorCount = 0;
 const BINANCE_NETWORK_ERROR_LOG_INTERVAL_MS = 60 * 1000;
+/** Допустимые значения depth для Binance fapi/v1/depth: только эти. */
+const BINANCE_ORDERBOOK_LIMITS = [5, 10, 20, 50, 100, 500, 1000];
+
+function clampToBinanceOrderBookLimit(limit: number): number {
+  const valid = BINANCE_ORDERBOOK_LIMITS.filter((v) => v <= limit);
+  return valid.length > 0 ? valid[valid.length - 1]! : BINANCE_ORDERBOOK_LIMITS[0]!;
+}
 
 export class DataAggregator {
   private exchange: Exchange;
@@ -209,6 +216,7 @@ export class DataAggregator {
           } catch (e) {
             const msg = (e as Error).message;
             if (this.isBinanceNetworkError(e)) this.logBinanceNetworkErrorOnce('OHLCV');
+            else if (/does not have market symbol/i.test(msg)) logger.debug('DataAggregator', 'Binance: symbol not listed', { symbol });
             else logger.warn('DataAggregator', 'Binance OHLCV fetch failed', { symbol, attempt: attempt + 1, error: msg });
             if (this.isTimeout(e) && attempt === 0) {
               this.exchange = this.createBinanceExchange();
@@ -342,7 +350,8 @@ export class DataAggregator {
     promise = (async (): Promise<{ bids: [number, number][]; asks: [number, number][] }> => {
       if (config.useBinanceForMarketData) {
         const ccxtSymbol = this.toCcxtSymbol(symbol);
-        const bookLimit = Math.min(limit, config.limits.orderBook);
+        const requested = Math.min(limit, config.limits.orderBook);
+        const bookLimit = clampToBinanceOrderBookLimit(requested);
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
             const ob = await this.exchange.fetchOrderBook(ccxtSymbol, bookLimit);
