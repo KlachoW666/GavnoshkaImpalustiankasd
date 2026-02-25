@@ -73,3 +73,18 @@ nginx -t && nginx -s reload
 Проверить Node: `curl -s http://127.0.0.1:3000/ | head -5` — должен быть HTML. Если пусто или ошибка: `pm2 restart cryptosignal` и `ls frontend/dist/index.html` (должен быть после `npm run build` в frontend).
 
 **Диагностика на VPS:** `bash scripts/diagnose-vps.sh` — скрипт покажет, что не так (бэкенд, frontend/dist, nginx), и выведет команды для исправления.
+
+## 6. По IP сайт открывается, по clabx.ru — нет
+
+1. **DNS:** Убедитесь, что домен указывает на VPS: `nslookup clabx.ru` должен вернуть **91.219.151.7**. Если другой IP — в панели регистратора домена добавьте A-запись: `@` → 91.219.151.7 и `www` → 91.219.151.7.
+2. **На VPS** обновите конфиг и оставьте только наш файл (иначе другой server может перехватывать clabx.ru):
+   ```bash
+   cd /root/opt/cryptosignal
+   git pull origin main
+   cp nginx/cryptosignal.conf /etc/nginx/sites-available/cryptosignal.conf
+   rm -f /etc/nginx/sites-enabled/*
+   ln -sf /etc/nginx/sites-available/cryptosignal.conf /etc/nginx/sites-enabled/
+   nginx -t && nginx -s reload
+   ```
+3. Если есть каталог **/etc/nginx/conf.d/** — временно переименуйте или удалите конфиги там с `server_name clabx.ru`, чтобы не дублировали наш сайт.
+4. Проверка с сервера: `curl -s -o /dev/null -w "%{http_code}" -H "Host: clabx.ru" http://127.0.0.1:80/` — должен быть **200**.
