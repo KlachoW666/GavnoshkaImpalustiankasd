@@ -1,9 +1,7 @@
 /**
  * PM2 config для деплоя на VPS.
  * Запуск из корня проекта: pm2 start ecosystem.config.js
- * Сайт (backend) + Telegram-бот на одной машине (clabx.ru).
  * Бот читает backend/.env (TELEGRAM_BOT_TOKEN, BOT_WEBHOOK_SECRET, API_BASE_URL).
- * n8n — на отдельном VPS, синхронизация по мере подключения.
  */
 module.exports = {
   apps: [

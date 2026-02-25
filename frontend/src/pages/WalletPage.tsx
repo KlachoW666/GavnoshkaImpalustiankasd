@@ -7,11 +7,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../utils/api';
-import { useAppNavigate } from '../hooks/useAppNavigate';
+import { useNavigation } from '../contexts/NavigationContext';
 
 export default function WalletPage() {
   const { token } = useAuth();
-  const { navigateTo } = useAppNavigate();
+  const { navigateTo } = useNavigation();
   const [balance, setBalance] = useState<number | null>(null);
   const [walletEnabled, setWalletEnabled] = useState(false);
   const [depositAddresses, setDepositAddresses] = useState<Array<{ network: string; label: string; address: string }>>([]);

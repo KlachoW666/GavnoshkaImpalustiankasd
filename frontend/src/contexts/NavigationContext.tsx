@@ -1,5 +1,4 @@
 import { createContext, useContext, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 export type Page = 'dashboard' | 'signals' | 'chart' | 'trade' | 'demo' | 'autotrade' | 'scanner' | 'pnl' | 'analytics' | 'settings' | 'activate' | 'admin' | 'profile' | 'privacy' | 'terms' | 'help' | 'backtest' | 'copy' | 'social' | 'trader' | 'wallet';
 
@@ -37,16 +36,22 @@ const NavigationContext = createContext<NavigationContextValue>({
   navigateToTrader: () => {}
 });
 
-export function NavigationProvider({ children }: { children: React.ReactNode }) {
-  const navigate = useNavigate();
-
+export function NavigationProvider({
+  children,
+  onNavigate,
+  onNavigateToTrader
+}: {
+  children: React.ReactNode;
+  onNavigate: (page: Page) => void;
+  onNavigateToTrader: (userId: string) => void;
+}) {
   const navigateTo = useCallback((page: Page) => {
-    navigate(PAGE_PATHS[page] ?? '/');
-  }, [navigate]);
+    onNavigate(page);
+  }, [onNavigate]);
 
   const navigateToTrader = useCallback((userId: string) => {
-    navigate(`/trader/${encodeURIComponent(userId)}`);
-  }, [navigate]);
+    onNavigateToTrader(userId);
+  }, [onNavigateToTrader]);
 
   return (
     <NavigationContext.Provider value={{ navigateTo, navigateToTrader }}>

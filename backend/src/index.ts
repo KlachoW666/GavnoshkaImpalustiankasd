@@ -141,10 +141,10 @@ app.use(errorHandler);
 
 function getFrontendPath(): string | null {
   const candidates: string[] = [];
-  const cwd = process.cwd();
-  candidates.push(path.resolve(cwd, 'frontend', 'dist'));
   const inElectron = typeof process !== 'undefined' && (process as NodeJS.Process & { versions?: { electron?: string } }).versions?.electron;
   if (inElectron) {
+    const cwd = process.cwd();
+    candidates.push(path.resolve(cwd, 'frontend', 'dist'));
     try {
       const { app: electronApp } = require('electron');
       candidates.push(path.join(electronApp.getAppPath(), 'frontend', 'dist'));

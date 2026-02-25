@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
-import { useAppNavigate } from '../hooks/useAppNavigate';
+import { useNavigation } from '../contexts/NavigationContext';
 
 const cardStyle = {
   background: 'var(--bg-card)',
@@ -25,7 +25,7 @@ interface TraderProfilePageProps {
 }
 
 export default function TraderProfilePage({ traderId, onBackToSocial }: TraderProfilePageProps) {
-  const { navigateTo } = useAppNavigate();
+  const { navigateTo } = useNavigation();
   const [profile, setProfile] = useState<TraderProfile | null>(null);
   const [loading, setLoading] = useState(!!traderId);
   const [error, setError] = useState('');

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAppNavigate } from '../hooks/useAppNavigate';
+import { useNavigation } from '../contexts/NavigationContext';
 
 const cardStyle: React.CSSProperties = {
   background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
@@ -27,7 +27,7 @@ function NavLink({
   page: string;
   label?: string;
 }) {
-  const { navigateTo } = useAppNavigate();
+  const { navigateTo } = useNavigation();
   const go = () => navigateTo(page as any);
   return (
     <button

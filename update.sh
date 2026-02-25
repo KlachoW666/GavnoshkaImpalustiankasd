@@ -218,10 +218,6 @@ if [ "$CURRENT_COMMIT" = "$NEW_COMMIT" ]; then
       systemctl start clabx 2>/dev/null || sudo systemctl start clabx 2>/dev/null || true
       success "Сервис запущен"
     fi
-    [ -f "nginx/cryptosignal.conf" ] && command -v nginx &>/dev/null && [ "$(id -u)" = "0" ] && \
-      cp nginx/cryptosignal.conf /etc/nginx/sites-available/cryptosignal.conf && \
-      rm -f /etc/nginx/sites-enabled/* && ln -sf /etc/nginx/sites-available/cryptosignal.conf /etc/nginx/sites-enabled/cryptosignal.conf && \
-      nginx -t 2>/dev/null && ( nginx -s reload 2>/dev/null || systemctl reload nginx 2>/dev/null ) && success "Nginx перезагружен"
   fi
   exit 0
 fi
@@ -341,20 +337,6 @@ if [ "$NO_RESTART" = false ]; then
       err "Проверьте: systemctl status clabx && journalctl -u clabx -n 50"
       exit 1
     fi
-  fi
-fi
-
-# Nginx: применить cryptosignal.conf (proxy на Node :3000) при деплое с root
-if [ "$NO_RESTART" = false ] && [ -f "nginx/cryptosignal.conf" ] && command -v nginx &>/dev/null && [ "$(id -u)" = "0" ]; then
-  log "Применяем Nginx (proxy на Node :3000)..."
-  cp nginx/cryptosignal.conf /etc/nginx/sites-available/cryptosignal.conf 2>/dev/null || true
-  rm -f /etc/nginx/sites-enabled/* 2>/dev/null || true
-  ln -sf /etc/nginx/sites-available/cryptosignal.conf /etc/nginx/sites-enabled/cryptosignal.conf 2>/dev/null || true
-  if nginx -t 2>/dev/null; then
-    nginx -s reload 2>/dev/null || systemctl reload nginx 2>/dev/null || true
-    success "Nginx перезагружен (clabx.ru → 127.0.0.1:3000)"
-  else
-    warn "nginx -t не прошёл. Запустите: bash scripts/diagnose-vps.sh"
   fi
 fi
 
