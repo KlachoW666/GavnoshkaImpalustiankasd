@@ -304,9 +304,30 @@ TRADING_SIGNAL_API_KEY=a8f3k2m9xQpL1nR7vY4wZ0cB6hJ5tU
 - Telegram bot token (нода «Telegram уведомление»)
 - `X-API-Key` для сайта (нода «Отправить на сайт») — значение взять из `TRADING_SIGNAL_API_KEY` на сервере
 
+### Деплой на сервер clabx.ru (устранение 404)
+
+Если кнопка «Запустить цикл через n8n» даёт **404** или «n8n error», на сервере запущена старая сборка без маршрутов `auto-start` и `trading-signal`. Нужно обновить и перезапустить backend:
+
+```bash
+# На сервере (или через CI/CD)
+cd /path/to/BotNot   # или GavnoshkaImpalustiankasd
+git pull origin main
+
+cd backend
+npm install
+npm run build
+
+# Перезапуск (PM2, systemd или как у вас настроено)
+pm2 restart backend
+# или: systemctl restart clabx-backend
+```
+
+После деплоя в .env backend должны быть заданы `N8N_WEBHOOK_URL` и `TRADING_SIGNAL_API_KEY` (см. выше).
+
 ### Порядок проверки
 
 1. В n8n импортировать обновлённый `crypto-trading-full.json`, включить workflow.
 2. В .env бэкенда задать `N8N_WEBHOOK_URL` и `TRADING_SIGNAL_API_KEY`.
 3. У пользователя в настройках должны быть сохранены ключи Bitget (иначе `trading-signal` вернёт «No Bitget credentials»).
-4. С фронта вызывать `POST /api/market/auto-start` (с куками/токеном) — цикл запустится в n8n, по завершении n8n вызовет `/api/market/trading-signal` с `userId` и при наличии ключей откроется позиция BitGet.
+4. На сервере задеплоить актуальный backend (см. «Деплой на сервер»), чтобы отвечал `POST /api/market/auto-start`.
+5. С фронта вызывать `POST /api/market/auto-start` (с куками/токеном) — цикл запустится в n8n, по завершении n8n вызовет `/api/market/trading-signal` с `userId` и при наличии ключей откроется позиция BitGet.

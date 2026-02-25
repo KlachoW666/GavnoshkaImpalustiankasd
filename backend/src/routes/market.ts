@@ -1683,37 +1683,20 @@ router.get('/auto-analyze/last-execution', requireAuth, (req, res) => {
   });
 });
 
-/** POST /api/market/auto-start — запуск цикла авто-трейда через n8n (кнопка «Запустить» на странице /auto). */
+/** POST /api/market/auto-start — запуск цикла авто-трейда через n8n. Ответ сразу, n8n работает в фоне (1–3 мин), результат — в Telegram и callback на сайт. */
 const autoStartLimit = rateLimit({ windowMs: 60 * 1000, max: 10 });
-const N8N_WEBHOOK_TIMEOUT_MS = 180000; // 3 мин — workflow может выполняться 1–3 мин
-router.post('/auto-start', autoStartLimit, requireAuth, async (req, res) => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), N8N_WEBHOOK_TIMEOUT_MS);
-  try {
-    const userId = (req as any).userId as string;
-    const webhookUrl = config.n8n?.webhookUrl || process.env.N8N_WEBHOOK_URL || 'http://188.127.230.83/webhook/auto-start';
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, source: 'clabx.ru/auto' }),
-      signal: controller.signal
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(response.status).json({ error: 'n8n error', details: text });
-    }
-    const data = await response.json().catch(() => ({}));
-    return res.json(data);
-  } catch (err) {
-    const isTimeout = (err as Error)?.name === 'AbortError';
-    logger.error('auto-start', (err as Error).message);
-    return res.status(500).json({
-      error: isTimeout ? 'n8n timeout (cycle takes too long)' : 'Failed to start cycle',
-      details: (err as Error).message
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
+router.post('/auto-start', autoStartLimit, requireAuth, (req, res) => {
+  const userId = (req as any).userId as string;
+  const webhookUrl = config.n8n?.webhookUrl || process.env.N8N_WEBHOOK_URL || 'http://188.127.230.83/webhook/auto-start';
+  fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, source: 'clabx.ru/auto' })
+  }).catch((err) => logger.error('auto-start', (err as Error).message));
+  res.json({
+    status: 'started',
+    message: 'Цикл n8n запущен. Результат придёт в Telegram; при открытии позиции — в разделе авто-торговли. Ожидайте 1–3 мин.'
+  });
 });
 
 /** POST /api/market/trading-signal — callback от n8n с результатом цикла (открытие позиции BitGet по userId). Защита: X-API-Key. */

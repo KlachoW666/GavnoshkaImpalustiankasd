@@ -411,6 +411,7 @@ export default function AutoTradingPage() {
     topSignal?: { symbol?: string; direction?: string; confidence?: number; currentPrice?: number; action?: string };
     allSignals?: Array<{ symbol?: string; direction?: string; confidence?: number }>;
     timestamp?: string;
+    _message?: string;
   } | null>(null);
   const [n8nError, setN8nError] = useState<string | null>(null);
   const closePositionRef = useRef<(pos: DemoPosition, price?: number) => void>(() => {});
@@ -1093,15 +1094,28 @@ export default function AutoTradingPage() {
                   });
                   const data = await res.json().catch(() => ({}));
                   if (!res.ok) {
-                    setN8nError(data?.error || data?.details || res.statusText);
+                    const msg = data?.error || data?.details || res.statusText;
+                    setN8nError(
+                      res.status === 404
+                        ? 'Маршрут не найден (404). Обновите backend на сервере: git pull, npm run build в backend, перезапуск процесса.'
+                        : msg
+                    );
                     return;
                   }
-                  setN8nResult({
-                    aiDecision: data?.aiDecision,
-                    topSignal: data?.topSignal,
-                    allSignals: data?.allSignals,
-                    timestamp: data?.timestamp
-                  });
+                  if (data?.status === 'started') {
+                    setN8nResult({
+                      aiDecision: 'STARTED',
+                      timestamp: new Date().toISOString(),
+                      _message: data?.message || 'Цикл запущен. Результат в Telegram и на сайте через 1–3 мин.'
+                    });
+                  } else {
+                    setN8nResult({
+                      aiDecision: data?.aiDecision,
+                      topSignal: data?.topSignal,
+                      allSignals: data?.allSignals,
+                      timestamp: data?.timestamp
+                    });
+                  }
                 } catch (e) {
                   setN8nError((e as Error).message || 'Ошибка сети');
                 } finally {
@@ -1131,8 +1145,12 @@ export default function AutoTradingPage() {
           )}
           {n8nResult && (
             <div className="text-sm space-y-1">
-              <p><strong>Итог:</strong> {n8nResult.aiDecision ?? '—'}</p>
-              {n8nResult.topSignal?.symbol && (
+              {n8nResult._message ? (
+                <p style={{ color: 'var(--success)' }}>{n8nResult._message}</p>
+              ) : (
+                <>
+                  <p><strong>Итог:</strong> {n8nResult.aiDecision ?? '—'}</p>
+                  {n8nResult.topSignal?.symbol && (
                 <p>
                   <strong>Топ сигнал:</strong> {n8nResult.topSignal.symbol} {n8nResult.topSignal.direction ?? ''}
                   {n8nResult.topSignal.confidence != null && ` (${(Number(n8nResult.topSignal.confidence) * 100).toFixed(0)}%)`}
@@ -1144,6 +1162,8 @@ export default function AutoTradingPage() {
               )}
               {n8nResult.timestamp && (
                 <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{n8nResult.timestamp}</p>
+              )}
+                </>
               )}
             </div>
           )}
