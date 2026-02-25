@@ -1683,6 +1683,101 @@ router.get('/auto-analyze/last-execution', requireAuth, (req, res) => {
   });
 });
 
+/** POST /api/market/auto-start — запуск цикла авто-трейда через n8n (кнопка «Запустить» на странице /auto). */
+const autoStartLimit = rateLimit({ windowMs: 60 * 1000, max: 10 });
+const N8N_WEBHOOK_TIMEOUT_MS = 180000; // 3 мин — workflow может выполняться 1–3 мин
+router.post('/auto-start', autoStartLimit, requireAuth, async (req, res) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), N8N_WEBHOOK_TIMEOUT_MS);
+  try {
+    const userId = (req as any).userId as string;
+    const webhookUrl = config.n8n?.webhookUrl || process.env.N8N_WEBHOOK_URL || 'http://188.127.230.83/webhook/auto-start';
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, source: 'clabx.ru/auto' }),
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      return res.status(response.status).json({ error: 'n8n error', details: text });
+    }
+    const data = await response.json().catch(() => ({}));
+    return res.json(data);
+  } catch (err) {
+    const isTimeout = (err as Error)?.name === 'AbortError';
+    logger.error('auto-start', (err as Error).message);
+    return res.status(500).json({
+      error: isTimeout ? 'n8n timeout (cycle takes too long)' : 'Failed to start cycle',
+      details: (err as Error).message
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+});
+
+/** POST /api/market/trading-signal — callback от n8n с результатом цикла (открытие позиции BitGet по userId). Защита: X-API-Key. */
+router.post('/trading-signal', (req, res) => {
+  const apiKey = req.headers['x-api-key'] ?? req.body?.apiKey;
+  const expected = config.n8n?.tradingSignalApiKey || process.env.TRADING_SIGNAL_API_KEY;
+  if (expected && apiKey !== expected) {
+    return res.status(401).json({ error: 'Invalid or missing X-API-Key' });
+  }
+  try {
+    const body = req.body || {};
+    const userId = body.userId as string | undefined;
+    const aiDecision = body.aiDecision as string | undefined;
+    const topSignal = body.topSignal as { symbol?: string; direction?: string; confidence?: number; currentPrice?: number } | undefined;
+    if (!topSignal?.symbol || !topSignal?.direction) {
+      return res.status(400).json({ error: 'Missing topSignal.symbol or topSignal.direction' });
+    }
+    if (aiDecision !== 'OPEN_LONG' && aiDecision !== 'OPEN_SHORT') {
+      return res.json({ received: true, executed: false, reason: 'aiDecision is not OPEN_LONG/OPEN_SHORT' });
+    }
+    const direction = (topSignal.direction === 'LONG' ? 'LONG' : 'SHORT') as 'LONG' | 'SHORT';
+    const entryPrice = Number(topSignal.currentPrice) || 0;
+    if (entryPrice <= 0) {
+      return res.status(400).json({ error: 'topSignal.currentPrice required and must be > 0' });
+    }
+    const slPct = 0.01;
+    const tpPct = 0.02;
+    const stopLoss = direction === 'LONG' ? entryPrice * (1 - slPct) : entryPrice * (1 + slPct);
+    const takeProfit1 = direction === 'LONG' ? entryPrice * (1 + tpPct) : entryPrice * (1 - tpPct);
+    const rawSym = String(topSignal.symbol || '').replace(/_/g, '-');
+    const symbol = rawSym.endsWith('USDT') ? rawSym.replace(/USDT$/, '-USDT') : rawSym ? `${rawSym}-USDT` : 'BTC-USDT';
+    const signal: import('../types/signal').TradingSignal = {
+      id: `n8n_${Date.now()}`,
+      timestamp: body.timestamp || new Date().toISOString(),
+      symbol,
+      exchange: 'Bitget',
+      direction,
+      entry_price: entryPrice,
+      stop_loss: stopLoss,
+      take_profit: [takeProfit1],
+      risk_reward: 2,
+      confidence: Number(topSignal.confidence) || 0.7,
+      timeframe: '5m',
+      triggers: ['n8n_auto'],
+      expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+    };
+    const creds = userId ? getBitgetCredentials(userId) : null;
+    if (!userId || !creds) {
+      return res.json({ received: true, executed: false, reason: 'No userId or Bitget credentials for user' });
+    }
+    const opts = {
+      sizePercent: 5,
+      leverage: 25,
+      maxPositions: 5,
+      useTestnet: false
+    };
+    executeSignal(signal, opts, creds)
+      .then((result) => res.json({ received: true, executed: result.ok, orderId: result.orderId, error: result.error }))
+      .catch((e) => res.status(500).json({ received: true, executed: false, error: (e as Error).message }));
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
 /** Тестовый сигнал для проверки потока (демо). Не исполняется на OKX. */
 router.post('/test-signal', requireAuth, (req, res) => {
   try {

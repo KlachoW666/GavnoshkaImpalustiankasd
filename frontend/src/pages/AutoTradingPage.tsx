@@ -404,6 +404,15 @@ export default function AutoTradingPage() {
   const [cycleTimer, setCycleTimer] = useState<{ lastCycleAt: number; intervalMs: number } | null>(null);
   const [, setTick] = useState(0);
   const [serverHistory, setServerHistory] = useState<HistoryEntry[]>([]);
+  /** Результат одного запуска цикла через n8n (кнопка «Запустить цикл через n8n») */
+  const [n8nLoading, setN8nLoading] = useState(false);
+  const [n8nResult, setN8nResult] = useState<{
+    aiDecision?: string;
+    topSignal?: { symbol?: string; direction?: string; confidence?: number; currentPrice?: number; action?: string };
+    allSignals?: Array<{ symbol?: string; direction?: string; confidence?: number }>;
+    timestamp?: string;
+  } | null>(null);
+  const [n8nError, setN8nError] = useState<string | null>(null);
   const closePositionRef = useRef<(pos: DemoPosition, price?: number) => void>(() => {});
   const positionsRef = useRef<DemoPosition[]>([]);
   const closingIdsRef = useRef<Set<string>>(new Set());
@@ -1067,12 +1076,79 @@ export default function AutoTradingPage() {
             >
               {enabled ? 'Остановить' : 'Запустить'}
             </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              disabled={!token || n8nLoading}
+              onClick={async () => {
+                setN8nError(null);
+                setN8nResult(null);
+                setN8nLoading(true);
+                try {
+                  const res = await fetch(`${API}/market/auto-start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                    credentials: 'include',
+                    body: JSON.stringify({})
+                  });
+                  const data = await res.json().catch(() => ({}));
+                  if (!res.ok) {
+                    setN8nError(data?.error || data?.details || res.statusText);
+                    return;
+                  }
+                  setN8nResult({
+                    aiDecision: data?.aiDecision,
+                    topSignal: data?.topSignal,
+                    allSignals: data?.allSignals,
+                    timestamp: data?.timestamp
+                  });
+                } catch (e) {
+                  setN8nError((e as Error).message || 'Ошибка сети');
+                } finally {
+                  setN8nLoading(false);
+                }
+              }}
+              className="min-w-[180px]"
+              title="Один цикл: топ-10 монет → анализ → AI → отправка сигнала на сайт (n8n)"
+            >
+              {n8nLoading ? 'Цикл n8n…' : 'Запустить цикл через n8n'}
+            </Button>
             <span className="text-sm font-medium px-3 py-1.5 rounded-lg" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
               {mode === 'spot' ? 'SPOT 1x' : `${leverage}x`}
             </span>
           </div>
         </div>
       </Card>
+
+      {/* Результат цикла n8n */}
+      {(n8nResult != null || n8nError != null) && (
+        <Card variant="glass" padding="normal">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Цикл n8n</span>
+          </div>
+          {n8nError && (
+            <p className="text-sm font-medium mb-2" style={{ color: 'var(--danger)' }}>{n8nError}</p>
+          )}
+          {n8nResult && (
+            <div className="text-sm space-y-1">
+              <p><strong>Итог:</strong> {n8nResult.aiDecision ?? '—'}</p>
+              {n8nResult.topSignal?.symbol && (
+                <p>
+                  <strong>Топ сигнал:</strong> {n8nResult.topSignal.symbol} {n8nResult.topSignal.direction ?? ''}
+                  {n8nResult.topSignal.confidence != null && ` (${(Number(n8nResult.topSignal.confidence) * 100).toFixed(0)}%)`}
+                  {n8nResult.topSignal.currentPrice != null && ` · $${Number(n8nResult.topSignal.currentPrice).toLocaleString()}`}
+                </p>
+              )}
+              {Array.isArray(n8nResult.allSignals) && n8nResult.allSignals.length > 0 && (
+                <p><strong>Сигналов:</strong> {n8nResult.allSignals.length}</p>
+              )}
+              {n8nResult.timestamp && (
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{n8nResult.timestamp}</p>
+              )}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Управление: Статус и таймер */}
       <Card variant="glass" padding="normal">
