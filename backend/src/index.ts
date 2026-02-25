@@ -12,14 +12,31 @@ if (!fs.existsSync(rootEnv) && !fs.existsSync(backendEnv)) dotenv.config();
 
 import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
 import { createServer } from 'http';
 import { validateEnvironment } from './lib/envValidator';
 
 import { config } from './config';
 import { logger } from './lib/logger';
 import { errorHandler } from './middleware/errorHandler';
-import v1Router from './routes/v1';
+import signalsRouter from './routes/signals';
+import marketRouter from './routes/market';
+import mlRouter from './routes/ml';
+import connectionsRouter from './routes/connections';
+import notifyRouter from './routes/notify';
+import scannerRouter from './routes/scanner';
+import tradingRouter from './routes/trading';
+import backtestRouter from './routes/backtest';
+import ordersRouter from './routes/orders';
+import authRouter from './routes/auth';
+import statsRouter from './routes/stats';
+import adminRouter from './routes/admin';
+import botRouter from './routes/bot';
+import copyTradingRouter from './routes/copyTrading';
+import socialRouter from './routes/social';
+import walletRouter from './routes/wallet';
+import userModeRouter from './routes/userMode';
+import copyTradingApiRouter from './routes/copyTradingApi';
+import newsRouter from './routes/news';
 import { createWebSocketServer, getBroadcastBreakout } from './websocket';
 import { eventBus } from './lib/eventBus';
 import { startDepositScanner } from './services/depositScanner';
@@ -34,6 +51,7 @@ import { seedDefaultAdmin } from './db/seed';
 import { notifyBreakoutAlert } from './services/notificationService';
 import { startBreakoutMonitor } from './services/breakoutMonitor';
 import { startBitgetSyncCron } from './services/bitgetSyncCron';
+import { rateLimit } from './middleware/rateLimit';
 import { compression } from './middleware/compression';
 
 const app = express();
@@ -44,6 +62,7 @@ startBreakoutMonitor({
   topN: 5,
   minConfidence: 0.75,
   onAlert: (alert) => {
+    // Use event bus (preferred) with fallback to legacy global
     eventBus.emitBreakout(alert);
     notifyBreakoutAlert({
       symbol: alert.symbol,
@@ -55,30 +74,47 @@ startBreakoutMonitor({
   }
 });
 
-// Security headers
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      connectSrc: ["'self'", 'wss:', 'https:'],
-    },
-  },
-  hsts: { maxAge: 31536000, includeSubDomains: true },
-}));
-
-// CORS
+// --- CORS configuration ---
+// CORS_ORIGINS in .env: comma-separated list of allowed origins (e.g. https://clabx.ru,http://localhost:5173)
+// If not set, allows all origins (development mode).
 const corsOrigins = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 app.use(cors(corsOrigins.length > 0 ? {
   origin: corsOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Bot-Token', 'X-CSRF-Token']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Bot-Token']
 } : undefined));
-app.use(compression());
+// compression() — отключён до стабилизации; для включения раскомментируйте:
+// app.use(compression());
 app.use(express.json({ limit: '64kb' }));
 
-// Health (before /api mount so it's not swallowed by v1Router)
-const healthHandler = (_req: express.Request, res: express.Response) => {
+const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
+const signalsRateLimit = rateLimit({ windowMs: 60 * 1000, max: 120 });
+
+app.use('/api/signals', signalsRateLimit, signalsRouter);
+app.use('/api/market', marketRouter);
+app.use('/api/ml', mlRouter);
+app.use('/api/connections', connectionsRouter);
+app.use('/api/notify', notifyRouter);
+app.use('/api/scanner', scannerRouter);
+app.use('/api/trading', tradingRouter);
+app.use('/api/backtest', backtestRouter);
+app.use('/api/orders', ordersRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/stats', statsRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/bot', botRouter);
+app.use('/api/copy-trading', copyTradingRouter);
+app.use('/api/social', socialRouter);
+app.use('/api/wallet', walletRouter);
+app.use('/api/user/mode', userModeRouter);
+app.use('/api/copy-trading-api', copyTradingApiRouter);
+app.use('/api/news', newsRouter);
+
+startDepositScanner();
+startCopyTradingDepositScanner();
+
+app.get('/api/health', (_req, res) => {
   try {
     const dbMode = isMemoryStore() ? 'memory' : 'sqlite';
     let databaseOk = true;
@@ -99,25 +135,16 @@ const healthHandler = (_req: express.Request, res: express.Response) => {
   } catch (e) {
     res.status(500).json({ status: 'error', message: (e as Error).message });
   }
-};
-app.get('/api/health', healthHandler);
-app.get('/api/v1/health', healthHandler);
-
-// API v1 + backward compatibility
-app.use('/api/v1', v1Router);
-app.use('/api', v1Router);
-
-startDepositScanner();
-startCopyTradingDepositScanner();
+});
 
 app.use(errorHandler);
 
 function getFrontendPath(): string | null {
   const candidates: string[] = [];
+  const cwd = process.cwd();
+  candidates.push(path.resolve(cwd, 'frontend', 'dist'));
   const inElectron = typeof process !== 'undefined' && (process as NodeJS.Process & { versions?: { electron?: string } }).versions?.electron;
   if (inElectron) {
-    const cwd = process.cwd();
-    candidates.push(path.resolve(cwd, 'frontend', 'dist'));
     try {
       const { app: electronApp } = require('electron');
       candidates.push(path.join(electronApp.getAppPath(), 'frontend', 'dist'));
@@ -135,25 +162,7 @@ function getFrontendPath(): string | null {
 const frontendPath = getFrontendPath();
 if (frontendPath) {
   logger.info('Server', `Frontend: ${frontendPath}`);
-  // Хэшированные ассеты Vite (JS/CSS в /assets/) кэшируем на 1 год (immutable)
-  app.use('/assets', express.static(path.join(frontendPath, 'assets'), {
-    maxAge: '1y',
-    immutable: true,
-    index: false,
-    etag: true,
-    lastModified: true,
-  }));
-  // index.html и остальные файлы — без кэша (контент меняется при деплое)
-  app.use(express.static(frontendPath, {
-    index: false,
-    etag: true,
-    lastModified: true,
-    setHeaders: (res, filePath) => {
-      if (filePath.endsWith('.html')) {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      }
-    }
-  }));
+  app.use(express.static(frontendPath, { index: false }));
   app.get('*', (_, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
   });

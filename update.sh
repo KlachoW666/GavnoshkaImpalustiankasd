@@ -110,7 +110,13 @@ fi
 NEW_COMMIT=$(git rev-parse HEAD)
 if [ "$CURRENT_COMMIT" = "$NEW_COMMIT" ]; then
   success "Уже последняя версия."
-  [ "$NO_RESTART" = false ] && command -v pm2 &>/dev/null && [ -f "$PM2_ECOSYSTEM" ] && pm2 reload "$PM2_ECOSYSTEM" 2>/dev/null || true
+  if [ "$NO_RESTART" = false ]; then
+    command -v pm2 &>/dev/null && [ -f "$PM2_ECOSYSTEM" ] && pm2 reload "$PM2_ECOSYSTEM" 2>/dev/null || true
+    [ -f "nginx/cryptosignal.conf" ] && command -v nginx &>/dev/null && [ "$(id -u)" = "0" ] && \
+      cp nginx/cryptosignal.conf /etc/nginx/sites-available/cryptosignal.conf && \
+      rm -f /etc/nginx/sites-enabled/* && ln -sf /etc/nginx/sites-available/cryptosignal.conf /etc/nginx/sites-enabled/cryptosignal.conf && \
+      nginx -t 2>/dev/null && ( nginx -s reload 2>/dev/null || systemctl reload nginx 2>/dev/null ) && success "Nginx перезагружен"
+  fi
   exit 0
 fi
 
@@ -151,6 +157,20 @@ trap - ERR
 if [ "$NO_RESTART" = false ] && command -v pm2 &>/dev/null && [ -f "$PM2_ECOSYSTEM" ]; then
   pm2 reload "$PM2_ECOSYSTEM" 2>/dev/null || pm2 start "$PM2_ECOSYSTEM"
   pm2 save 2>/dev/null || true
+fi
+
+# Nginx: один конфиг — proxy на Node (иначе 404)
+if [ "$NO_RESTART" = false ] && [ -f "nginx/cryptosignal.conf" ] && command -v nginx &>/dev/null && [ "$(id -u)" = "0" ]; then
+  log "Применяем Nginx (только cryptosignal.conf, proxy на Node :3000)..."
+  cp nginx/cryptosignal.conf /etc/nginx/sites-available/cryptosignal.conf 2>/dev/null || true
+  rm -f /etc/nginx/sites-enabled/* 2>/dev/null || true
+  ln -sf /etc/nginx/sites-available/cryptosignal.conf /etc/nginx/sites-enabled/cryptosignal.conf 2>/dev/null || true
+  if nginx -t 2>/dev/null; then
+    nginx -s reload 2>/dev/null || systemctl reload nginx 2>/dev/null || true
+    success "Nginx перезагружен (clabx.ru → 127.0.0.1:3000)"
+  else
+    warn "nginx -t не прошёл. Запустите: bash scripts/diagnose-vps.sh"
+  fi
 fi
 
 [ -d "backups" ] && ls -t backups 2>/dev/null | tail -n +6 | xargs -I {} rm -rf backups/{} 2>/dev/null || true
