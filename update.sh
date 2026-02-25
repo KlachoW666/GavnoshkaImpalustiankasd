@@ -81,6 +81,9 @@ if [ "$NO_RESTART" = false ]; then
   if command -v pm2 &>/dev/null; then
     pm2 stop "$PM2_APP_NAME" 2>/dev/null || true
     pm2 stop "$PM2_BOT_NAME" 2>/dev/null || true
+    # Удаляем n8n из PM2 (больше не используем)
+    pm2 stop n8n 2>/dev/null || true
+    pm2 delete n8n 2>/dev/null || true
   fi
 fi
 
