@@ -25,6 +25,7 @@ export interface MTFAnalysisResult {
   alignCount: number;
   totalTfs: number;
   confidenceBonus: number;
+  isPerfectAlignment: boolean;
 }
 
 const candleAnalyzer = new CandleAnalyzer();
@@ -74,7 +75,8 @@ export async function runMTFAnalysis(
       direction: 'NEUTRAL',
       alignCount: 0,
       totalTfs: 0,
-      confidenceBonus: 0
+      confidenceBonus: 0,
+      isPerfectAlignment: false
     };
   }
 
@@ -109,6 +111,9 @@ export async function runMTFAnalysis(
   const alignCount = Object.values(tfResults).filter((r) => r.direction === direction).length;
   const totalTfs = Object.keys(tfResults).length;
 
+  // Sniper Mode: Ожидаем идеального выравнивания всех проверенных таймфреймов
+  const isPerfectAlignment = totalTfs > 0 && alignCount === totalTfs && direction !== 'NEUTRAL';
+
   let confidenceBonus = 0;
   if (totalTfs >= 4 && alignCount >= 4) confidenceBonus = 0.15;
   else if (totalTfs >= 3 && alignCount >= 3) confidenceBonus = 0.08;
@@ -121,6 +126,7 @@ export async function runMTFAnalysis(
     direction,
     alignCount,
     totalTfs,
-    confidenceBonus
+    confidenceBonus,
+    isPerfectAlignment
   };
 }

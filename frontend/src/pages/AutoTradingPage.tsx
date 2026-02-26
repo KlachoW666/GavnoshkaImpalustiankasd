@@ -186,7 +186,7 @@ function loadSettings(): AutoTradingSettings {
       if ((s.minConfidence ?? 80) > 90) s.minConfidence = 90;
       return s;
     }
-  } catch {}
+  } catch { }
   return { ...DEFAULT_SETTINGS };
 }
 
@@ -195,7 +195,7 @@ function saveSettings(s: Partial<AutoTradingSettings>) {
     const current = loadSettings();
     const next = { ...current, ...s };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  } catch {}
+  } catch { }
 }
 
 interface StoredPosition {
@@ -291,7 +291,7 @@ function loadTradingState(): { balance: number; initialBalance: number; position
         history: history.slice(0, 100)
       };
     }
-  } catch {}
+  } catch { }
   return { balance: 10000, initialBalance: 10000, positions: [], history: [] };
 }
 
@@ -326,7 +326,7 @@ function saveTradingState(state: { balance: number; initialBalance: number; posi
       }))
     };
     localStorage.setItem(STORAGE_KEY_STATE, JSON.stringify(toSave));
-  } catch {}
+  } catch { }
 }
 
 interface DemoPosition {
@@ -404,17 +404,8 @@ export default function AutoTradingPage() {
   const [cycleTimer, setCycleTimer] = useState<{ lastCycleAt: number; intervalMs: number } | null>(null);
   const [, setTick] = useState(0);
   const [serverHistory, setServerHistory] = useState<HistoryEntry[]>([]);
-  /** Результат одного запуска цикла через n8n (кнопка «Запустить цикл через n8n») */
-  const [n8nLoading, setN8nLoading] = useState(false);
-  const [n8nResult, setN8nResult] = useState<{
-    aiDecision?: string;
-    topSignal?: { symbol?: string; direction?: string; confidence?: number; currentPrice?: number; action?: string };
-    allSignals?: Array<{ symbol?: string; direction?: string; confidence?: number }>;
-    timestamp?: string;
-    _message?: string;
-  } | null>(null);
-  const [n8nError, setN8nError] = useState<string | null>(null);
-  const closePositionRef = useRef<(pos: DemoPosition, price?: number) => void>(() => {});
+
+  const closePositionRef = useRef<(pos: DemoPosition, price?: number) => void>(() => { });
   const positionsRef = useRef<DemoPosition[]>([]);
   const closingIdsRef = useRef<Set<string>>(new Set());
   const lastOpenTimeRef = useRef<Record<string, number>>({});
@@ -487,7 +478,7 @@ export default function AutoTradingPage() {
     return () => clearInterval(id);
   }, [token]);
 
-  const fetchOkxPositionsRef = useRef<() => void>(() => {});
+  const fetchOkxPositionsRef = useRef<() => void>(() => { });
   useEffect(() => {
     if (!enabled || !settings.executeOrders) {
       setBitgetData(null);
@@ -517,18 +508,18 @@ export default function AutoTradingPage() {
     }
     const fetchLast = () => {
       api.get<{
-          lastError?: string;
-          lastSkipReason?: string;
-          lastOrderId?: string;
-          at?: number;
-          lastAiProb?: number;
-          lastEffectiveAiProb?: number;
-          lastExternalAiScore?: number;
-          lastExternalAiUsed?: boolean;
-        }>('/market/auto-analyze/last-execution', { headers: { Authorization: `Bearer ${token}` } })
+        lastError?: string;
+        lastSkipReason?: string;
+        lastOrderId?: string;
+        at?: number;
+        lastAiProb?: number;
+        lastEffectiveAiProb?: number;
+        lastExternalAiScore?: number;
+        lastExternalAiUsed?: boolean;
+      }>('/market/auto-analyze/last-execution', { headers: { Authorization: `Bearer ${token}` } })
         .then((data) => setLastExecution(
           data?.lastError !== undefined || data?.lastSkipReason !== undefined || data?.lastOrderId !== undefined ||
-          data?.lastAiProb !== undefined || data?.lastExternalAiUsed !== undefined
+            data?.lastAiProb !== undefined || data?.lastExternalAiUsed !== undefined
             ? data
             : null
         ))
@@ -548,7 +539,7 @@ export default function AutoTradingPage() {
           setStatus('running');
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [token]);
 
   useEffect(() => {
@@ -578,17 +569,17 @@ export default function AutoTradingPage() {
     };
     const payload = isFullAuto
       ? {
-          ...baseManual,
-          fullAuto: true,
-          intervalMs: FULL_AUTO_DEFAULTS.intervalMs,
-          useScanner: settings.useScanner !== false,
-          executeOrders: settings.executeOrders === true,
-          maxPositions: FULL_AUTO_DEFAULTS.maxPositions,
-          sizePercent: FULL_AUTO_DEFAULTS.sizePercent,
-          leverage: FULL_AUTO_DEFAULTS.leverage,
-          tpMultiplier: FULL_AUTO_DEFAULTS.tpMultiplier ?? 0.8,
-          minConfidence: (FULL_AUTO_DEFAULTS.minConfidence ?? 78) / 100
-        }
+        ...baseManual,
+        fullAuto: true,
+        intervalMs: FULL_AUTO_DEFAULTS.intervalMs,
+        useScanner: settings.useScanner !== false,
+        executeOrders: settings.executeOrders === true,
+        maxPositions: FULL_AUTO_DEFAULTS.maxPositions,
+        sizePercent: FULL_AUTO_DEFAULTS.sizePercent,
+        leverage: FULL_AUTO_DEFAULTS.leverage,
+        tpMultiplier: FULL_AUTO_DEFAULTS.tpMultiplier ?? 0.8,
+        minConfidence: (FULL_AUTO_DEFAULTS.minConfidence ?? 78) / 100
+      }
       : baseManual;
     fetch(`${API}/market/auto-analyze/start`, {
       method: 'POST',
@@ -693,7 +684,7 @@ export default function AutoTradingPage() {
           // Ордера выставляет только бэкенд на реальном счёте Bitget.
           return;
         }
-      } catch {}
+      } catch { }
     };
     return () => ws.close();
   }, [enabled, symbols, token]);
@@ -744,7 +735,7 @@ export default function AutoTradingPage() {
       openTime: pos.openTime.toISOString(),
       autoOpened: true,
       confidenceAtOpen: typeof signal.confidence === 'number' ? signal.confidence : undefined
-    }).catch(() => {});
+    }).catch(() => { });
     notifyTelegram(
       `📈 <b>Позиция открыта</b>\n` +
       `${signal.symbol} ${signal.direction} | $${size.toFixed(2)} | ${lev}x\n` +
@@ -794,7 +785,7 @@ export default function AutoTradingPage() {
       pnl,
       pnlPercent,
       closeTime: entry.closeTime.toISOString()
-    }).catch(() => {});
+    }).catch(() => { });
     fetch(`${API}/ml/trade-outcome`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -806,7 +797,7 @@ export default function AutoTradingPage() {
         triggers: pos.signal.triggers ?? [],
         pnl
       })
-    }).catch(() => {});
+    }).catch(() => { });
     notifyTelegram(
       `📉 <b>Позиция закрыта</b>\n` +
       `${pos.signal.symbol} ${pos.signal.direction}\n` +
@@ -1068,7 +1059,7 @@ export default function AutoTradingPage() {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
                     });
-                  } catch {}
+                  } catch { }
                 }
                 setEnabled(!enabled);
               }}
@@ -1077,56 +1068,6 @@ export default function AutoTradingPage() {
             >
               {enabled ? 'Остановить' : 'Запустить'}
             </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              disabled={!token || n8nLoading}
-              onClick={async () => {
-                setN8nError(null);
-                setN8nResult(null);
-                setN8nLoading(true);
-                try {
-                  const res = await fetch(`${API}/market/auto-start`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-                    credentials: 'include',
-                    body: JSON.stringify({})
-                  });
-                  const data = await res.json().catch(() => ({}));
-                  if (!res.ok) {
-                    const msg = data?.error || data?.details || res.statusText;
-                    setN8nError(
-                      res.status === 404
-                        ? 'Маршрут не найден (404). Обновите backend на сервере: git pull, npm run build в backend, перезапуск процесса.'
-                        : msg
-                    );
-                    return;
-                  }
-                  if (data?.status === 'started') {
-                    setN8nResult({
-                      aiDecision: 'STARTED',
-                      timestamp: new Date().toISOString(),
-                      _message: data?.message || 'Цикл запущен. Результат в Telegram и на сайте через 1–3 мин.'
-                    });
-                  } else {
-                    setN8nResult({
-                      aiDecision: data?.aiDecision,
-                      topSignal: data?.topSignal,
-                      allSignals: data?.allSignals,
-                      timestamp: data?.timestamp
-                    });
-                  }
-                } catch (e) {
-                  setN8nError((e as Error).message || 'Ошибка сети');
-                } finally {
-                  setN8nLoading(false);
-                }
-              }}
-              className="min-w-[180px]"
-              title="Один цикл: топ-10 монет → анализ → AI → отправка сигнала на сайт (n8n)"
-            >
-              {n8nLoading ? 'Цикл n8n…' : 'Запустить цикл через n8n'}
-            </Button>
             <span className="text-sm font-medium px-3 py-1.5 rounded-lg" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
               {mode === 'spot' ? 'SPOT 1x' : `${leverage}x`}
             </span>
@@ -1134,65 +1075,30 @@ export default function AutoTradingPage() {
         </div>
       </Card>
 
-      {/* Результат цикла n8n */}
-      {(n8nResult != null || n8nError != null) && (
-        <Card variant="glass" padding="normal">
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Цикл n8n</span>
-          </div>
-          {n8nError && (
-            <p className="text-sm font-medium mb-2" style={{ color: 'var(--danger)' }}>{n8nError}</p>
-          )}
-          {n8nResult && (
-            <div className="text-sm space-y-1">
-              {n8nResult._message ? (
-                <p style={{ color: 'var(--success)' }}>{n8nResult._message}</p>
-              ) : (
-                <>
-                  <p><strong>Итог:</strong> {n8nResult.aiDecision ?? '—'}</p>
-                  {n8nResult.topSignal?.symbol && (
-                <p>
-                  <strong>Топ сигнал:</strong> {n8nResult.topSignal.symbol} {n8nResult.topSignal.direction ?? ''}
-                  {n8nResult.topSignal.confidence != null && ` (${(Number(n8nResult.topSignal.confidence) * 100).toFixed(0)}%)`}
-                  {n8nResult.topSignal.currentPrice != null && ` · $${Number(n8nResult.topSignal.currentPrice).toLocaleString()}`}
-                </p>
-              )}
-              {Array.isArray(n8nResult.allSignals) && n8nResult.allSignals.length > 0 && (
-                <p><strong>Сигналов:</strong> {n8nResult.allSignals.length}</p>
-              )}
-              {n8nResult.timestamp && (
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{n8nResult.timestamp}</p>
-              )}
-                </>
-              )}
-            </div>
-          )}
-        </Card>
-      )}
-
       {/* Управление: Статус и таймер */}
       <Card variant="glass" padding="normal">
         <div className="flex flex-wrap items-center gap-3">
           <Badge variant={enabled && status === 'running' ? 'success' : status === 'stopped_daily_loss' ? 'warning' : 'neutral'} dot pulse={enabled && status === 'running'}>
             {enabled ? status === 'running' ? 'Анализ запущен' : status === 'error' ? 'Ошибка' : status === 'stopped_daily_loss' ? 'Дневной лимит' : 'Запуск...' : 'Выключено'}
           </Badge>
-            {enabled && status === 'running' && settings.fullAuto && (
-              <>
-                <span className="text-xs px-4 py-2 rounded-lg" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
-                  Ожидание сигнала ≥{FULL_AUTO_DEFAULTS.minConfidence}% · цикл каждые {FULL_AUTO_DEFAULTS.intervalMs >= 60000 ? `${FULL_AUTO_DEFAULTS.intervalMs / 60000} мин` : `${FULL_AUTO_DEFAULTS.intervalMs / 1000} сек`}
+          {enabled && status === 'running' && settings.fullAuto && (
+            <>
+              <span className="text-xs px-4 py-2 rounded-lg" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
+                Ожидание сигнала ≥{FULL_AUTO_DEFAULTS.minConfidence}% · цикл каждые {FULL_AUTO_DEFAULTS.intervalMs >= 60000 ? `${FULL_AUTO_DEFAULTS.intervalMs / 60000} мин` : `${FULL_AUTO_DEFAULTS.intervalMs / 1000} сек`}
+              </span>
+              {cycleTimer && (
+                <span className="text-xs px-4 py-2 rounded-lg tabular-nums font-medium" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }} title="Время последнего цикла анализа и до следующего">
+                  Цикл: {Math.max(0, Math.floor((Date.now() - cycleTimer.lastCycleAt) / 1000))} сек назад · След. через {Math.max(0, Math.floor((cycleTimer.intervalMs - (Date.now() - cycleTimer.lastCycleAt) % cycleTimer.intervalMs) / 1000))} сек
                 </span>
-                {cycleTimer && (
-                  <span className="text-xs px-4 py-2 rounded-lg tabular-nums font-medium" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }} title="Время последнего цикла анализа и до следующего">
-                    Цикл: {Math.max(0, Math.floor((Date.now() - cycleTimer.lastCycleAt) / 1000))} сек назад · След. через {Math.max(0, Math.floor((cycleTimer.intervalMs - (Date.now() - cycleTimer.lastCycleAt) % cycleTimer.intervalMs) / 1000))} сек
-                  </span>
-                )}
-                {settings.fullAuto && settings.useScanner !== false && (
-                  <span className="text-xs px-4 py-2 rounded-lg" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }} title="Список из 30 монет: BTC, ETH, SOL, BNB, XRP, ADA, DOGE, ATOM, … По объёму и волатильности отбираем топ-5, по ним строим лучший сигнал.">
-                    Сканируем 30 монет → топ-10 по скорингу → лучший сигнал
-                  </span>
-                )}
-              </>
-            )}
+              )}
+              {settings.fullAuto && settings.useScanner !== false && (
+                <span className="text-xs px-4 py-2 rounded-lg" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }} title="Список из 30 монет: BTC, ETH, SOL, BNB, XRP, ADA, DOGE, ATOM, … По объёму и волатильности отбираем топ-5, по ним строим лучший сигнал.">
+                  Сканируем 30 монет → топ-10 по скорингу → лучший сигнал
+                </span>
+              )}
+            </>
+          )}
+        </div>
         {enabled && !settings.executeOrders && (
           <div className="mt-4 pt-4 border-t text-sm" style={{ borderColor: 'var(--border)' }}>
             <p className="font-medium" style={{ color: 'var(--warning)' }}>
@@ -1247,13 +1153,17 @@ export default function AutoTradingPage() {
             <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
               При нехватке баланса исполнение пропустится, анализ продолжается — откроемся, когда хватит средств.
             </p>
+            {lastExecution.at && (
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                Обновлено: {new Date(lastExecution.at).toLocaleTimeString('ru-RU')}
+              </p>
+            )}
           </div>
         )}
-        </div>
-      </Card>
+      </Card >
 
       {/* Режим и настройки */}
-      <Card variant="glass" padding="normal">
+      < Card variant="glass" padding="normal" >
         <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Режим и настройки</h2>
         <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Полный автомат (скринер + исполнение на Bitget) или ручной режим: пары, плечо, порог уверенности. Торговля только на реальном счёте.</p>
         <div className="flex flex-wrap items-center gap-4 sm:gap-6 mb-6">
@@ -1303,413 +1213,426 @@ export default function AutoTradingPage() {
                 Ордера выставляются на реальном счёте Bitget по ключам из профиля. Пополните торговый счёт USDT на bitget.com.
               </p>
               <div className="mt-4 space-y-4">
-                  <div className="pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
-                    <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Быстрый выход (меньше время в позиции)</p>
-                    <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>TP ближе к входу — позиция закрывается по профиту раньше. 85% = уже цель, 100% = полный TP сигнала.</p>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="range"
-                        min={50}
-                        max={100}
-                        step={5}
-                        value={Math.round((settings.tpMultiplier ?? 0.85) * 100)}
-                        onChange={(e) => updateSetting('tpMultiplier', parseInt(e.target.value, 10) / 100)}
-                        className="slider-track max-w-[200px]"
-                      />
-                      <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{Math.round((settings.tpMultiplier ?? 0.85) * 100)}%</span>
-                    </div>
-                  </div>
-                  <div className="pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
-                    <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Размер позиции</p>
-                    <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>percent = доля баланса; risk = по стопу (размер из riskPct баланса на сделку).</p>
-                    <div className="flex flex-wrap items-center gap-4">
-                      <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
-                        <button type="button" onClick={() => updateSetting('sizeMode', 'percent')} className={`px-3 py-2 text-sm ${(settings.sizeMode ?? 'percent') === 'percent' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-card-solid)] hover:bg-[var(--bg-hover)]'}`}>% баланса</button>
-                        <button type="button" onClick={() => updateSetting('sizeMode', 'risk')} className={`px-3 py-2 text-sm ${(settings.sizeMode ?? 'percent') === 'risk' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-card-solid)] hover:bg-[var(--bg-hover)]'}`}>По риску</button>
-                      </div>
-                      {(settings.sizeMode ?? 'percent') === 'risk' && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Риск %:</span>
-                          <input type="number" min={1} max={3} step={0.5} value={settings.riskPct ?? 2} onChange={(e) => updateSetting('riskPct', Math.max(1, Math.min(3, parseFloat(e.target.value) || 2)))} className="w-16 px-2 py-1 rounded border text-sm" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }} />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
-                    <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>AI-фильтр: мин. вероятность выигрыша</p>
-                    <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Ордер не откроется, если ML-оценка ниже порога. 0% = выкл. Не гарантирует прибыль, но отсекает слабые сигналы.</p>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="range"
-                        min={0}
-                        max={70}
-                        step={5}
-                        value={Math.round((settings.minAiProb ?? 0) * 100)}
-                        onChange={(e) => updateSetting('minAiProb', parseInt(e.target.value, 10) / 100)}
-                        className="slider-track max-w-[200px]"
-                      />
-                      <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--accent)' }}>
-                        {(settings.minAiProb ?? 0) === 0 ? 'Выкл' : `${Math.round((settings.minAiProb ?? 0) * 100)}%`}
-                      </span>
-                    </div>
+                <div className="pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+                  <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Быстрый выход (меньше время в позиции)</p>
+                  <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>TP ближе к входу — позиция закрывается по профиту раньше. 85% = уже цель, 100% = полный TP сигнала.</p>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min={50}
+                      max={100}
+                      step={5}
+                      value={Math.round((settings.tpMultiplier ?? 0.85) * 100)}
+                      onChange={(e) => updateSetting('tpMultiplier', parseInt(e.target.value, 10) / 100)}
+                      className="slider-track max-w-[200px]"
+                    />
+                    <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--accent)' }}>{Math.round((settings.tpMultiplier ?? 0.85) * 100)}%</span>
                   </div>
                 </div>
+                <div className="pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+                  <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Размер позиции</p>
+                  <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>percent = доля баланса; risk = по стопу (размер из riskPct баланса на сделку).</p>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
+                      <button type="button" onClick={() => updateSetting('sizeMode', 'percent')} className={`px-3 py-2 text-sm ${(settings.sizeMode ?? 'percent') === 'percent' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-card-solid)] hover:bg-[var(--bg-hover)]'}`}>% баланса</button>
+                      <button type="button" onClick={() => updateSetting('sizeMode', 'risk')} className={`px-3 py-2 text-sm ${(settings.sizeMode ?? 'percent') === 'risk' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-card-solid)] hover:bg-[var(--bg-hover)]'}`}>По риску</button>
+                    </div>
+                    {(settings.sizeMode ?? 'percent') === 'risk' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Риск %:</span>
+                        <input type="number" min={1} max={3} step={0.5} value={settings.riskPct ?? 2} onChange={(e) => updateSetting('riskPct', Math.max(1, Math.min(3, parseFloat(e.target.value) || 2)))} className="w-16 px-2 py-1 rounded border text-sm" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }} />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+                  <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>AI-фильтр: мин. вероятность выигрыша</p>
+                  <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Ордер не откроется, если ML-оценка ниже порога. 0% = выкл. Не гарантирует прибыль, но отсекает слабые сигналы.</p>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min={0}
+                      max={70}
+                      step={5}
+                      value={Math.round((settings.minAiProb ?? 0) * 100)}
+                      onChange={(e) => updateSetting('minAiProb', parseInt(e.target.value, 10) / 100)}
+                      className="slider-track max-w-[200px]"
+                    />
+                    <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--accent)' }}>
+                      {(settings.minAiProb ?? 0) === 0 ? 'Выкл' : `${Math.round((settings.minAiProb ?? 0) * 100)}%`}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </>
           )}
         </div>
-        {settings.fullAuto && (
-          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-            {settings.useScanner !== false
-              ? 'В каждом цикле система берёт топ-5 монет из скринера (волатильность, объём, BB squeeze), затем выбирает лучший сигнал.'
-              : 'Используются выбранные ниже пары для поиска лучшего сигнала.'}
-          </p>
-        )}
+        {
+          settings.fullAuto && (
+            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+              {settings.useScanner !== false
+                ? 'В каждом цикле система берёт топ-5 монет из скринера (волатильность, объём, BB squeeze), затем выбирает лучший сигнал.'
+                : 'Используются выбранные ниже пары для поиска лучшего сигнала.'}
+            </p>
+          )
+        }
 
         {/* Торговые пары (до 5) */}
         <div className="border-t pt-6 mt-2" style={{ borderColor: 'var(--border)' }}>
           <p className={sectionTitleClass} style={sectionTitleStyle}>Торговые пары (до {MAX_SYMBOLS})</p>
-        <div className="flex flex-wrap gap-6 mb-6">
-          <div className="flex-1 min-w-[200px]">
-            <div className="flex flex-wrap gap-2 mb-2">
-              {symbols.map((s) => (
-                <span
-                  key={s}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/40"
-                >
-                  {s.split('-')[0]}
+          <div className="flex flex-wrap gap-6 mb-6">
+            <div className="flex-1 min-w-[200px]">
+              <div className="flex flex-wrap gap-2 mb-2">
+                {symbols.map((s) => (
+                  <span
+                    key={s}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/40"
+                  >
+                    {s.split('-')[0]}
+                    <button
+                      type="button"
+                      onClick={() => updateSetting('symbols', symbols.filter((x) => x !== s))}
+                      className="hover:opacity-80 text-current"
+                      aria-label="Удалить"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {symbols.length < MAX_SYMBOLS && (
+                  <>
+                    {QUICK_SYMBOLS.filter((s) => !symbols.includes(s)).map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => updateSetting('symbols', [...symbols, s].slice(0, MAX_SYMBOLS))}
+                        className="px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-[var(--bg-card-solid)] hover:bg-[var(--bg-hover)] border border-[var(--border)]"
+                      >
+                        + {s.split('-')[0]}
+                      </button>
+                    ))}
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        placeholder="Добавить пару (RIVER-USDT)"
+                        className="input-field w-40"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const val = (e.target as HTMLInputElement).value.toUpperCase().replace(/\s/g, '').replace(/_/g, '-');
+                            if (val && val.includes('-') && !symbols.includes(val) && symbols.length < MAX_SYMBOLS) {
+                              updateSetting('symbols', [...symbols, val].slice(0, MAX_SYMBOLS));
+                              (e.target as HTMLInputElement).value = '';
+                            }
+                          }
+                        }}
+                      />
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Enter</span>
+                    </div>
+                  </>
+                )}
+              </div>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Выберите до {MAX_SYMBOLS} пар для одновременной торговли</p>
+            </div>
+            {!settings.fullAuto && (
+              <div>
+                <p className={sectionTitleClass} style={sectionTitleStyle}>Режим</p>
+                <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
                   <button
                     type="button"
-                    onClick={() => updateSetting('symbols', symbols.filter((x) => x !== s))}
-                    className="hover:opacity-80 text-current"
-                    aria-label="Удалить"
+                    onClick={() => updateSetting('mode', 'spot')}
+                    className={`px-5 py-2.5 text-sm font-medium transition ${mode === 'spot' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-card-solid)] hover:bg-[var(--bg-hover)]'}`}
                   >
-                    ×
+                    SPOT
                   </button>
-                </span>
-              ))}
-              {symbols.length < MAX_SYMBOLS && (
-                <>
-                  {QUICK_SYMBOLS.filter((s) => !symbols.includes(s)).map((s) => (
+                  <button
+                    type="button"
+                    onClick={() => updateSetting('mode', 'futures')}
+                    className={`px-5 py-2.5 text-sm font-medium transition ${mode === 'futures' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-card-solid)] hover:bg-[var(--bg-hover)]'}`}
+                  >
+                    Futures
+                  </button>
+                </div>
+              </div>
+            )}
+            {!settings.fullAuto && (
+              <div>
+                <p className={sectionTitleClass} style={sectionTitleStyle}>Стратегия</p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { id: 'default' as const, label: 'Обычная' },
+                    { id: 'scalping' as const, label: 'Скальпинг' },
+                    { id: 'futures25x' as const, label: '25x 10%' }
+                  ].map((s) => (
                     <button
-                      key={s}
+                      key={s.id}
                       type="button"
-                      onClick={() => updateSetting('symbols', [...symbols, s].slice(0, MAX_SYMBOLS))}
-                      className="px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-[var(--bg-card-solid)] hover:bg-[var(--bg-hover)] border border-[var(--border)]"
-                    >
-                      + {s.split('-')[0]}
-                    </button>
-                  ))}
-                  <div className="flex gap-2 items-center">
-                    <input
-                      type="text"
-                      placeholder="Добавить пару (RIVER-USDT)"
-                      className="input-field w-40"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          const val = (e.target as HTMLInputElement).value.toUpperCase().replace(/\s/g, '').replace(/_/g, '-');
-                          if (val && val.includes('-') && !symbols.includes(val) && symbols.length < MAX_SYMBOLS) {
-                            updateSetting('symbols', [...symbols, val].slice(0, MAX_SYMBOLS));
-                            (e.target as HTMLInputElement).value = '';
-                          }
+                      onClick={() => {
+                        if (s.id === 'futures25x') {
+                          setSettings((prev) => {
+                            const next = { ...prev, strategy: s.id, mode: 'futures' as const, ...FUTURES_25X_PRESET };
+                            saveSettings(next);
+                            return next;
+                          });
+                        } else {
+                          updateSetting('strategy', s.id);
                         }
                       }}
-                    />
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Enter</span>
-                  </div>
-                </>
-              )}
-            </div>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Выберите до {MAX_SYMBOLS} пар для одновременной торговли</p>
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition ${settings.strategy === s.id ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-card-solid)] hover:bg-[var(--bg-hover)] border border-[var(--border)]'
+                        }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  {settings.strategy === 'futures25x' ? 'BTC/USDT 25x: 10% депозита, R:R 1:2+, макс 2 сделки, дневной лимит 4%' : ''}
+                </p>
+              </div>
+            )}
           </div>
-          {!settings.fullAuto && (
-          <div>
-            <p className={sectionTitleClass} style={sectionTitleStyle}>Режим</p>
-            <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
-              <button
-                type="button"
-                onClick={() => updateSetting('mode', 'spot')}
-                className={`px-5 py-2.5 text-sm font-medium transition ${mode === 'spot' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-card-solid)] hover:bg-[var(--bg-hover)]'}`}
-              >
-                SPOT
-              </button>
-              <button
-                type="button"
-                onClick={() => updateSetting('mode', 'futures')}
-                className={`px-5 py-2.5 text-sm font-medium transition ${mode === 'futures' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-card-solid)] hover:bg-[var(--bg-hover)]'}`}
-              >
-                Futures
-              </button>
-            </div>
-          </div>
-          )}
-          {!settings.fullAuto && (
-          <div>
-            <p className={sectionTitleClass} style={sectionTitleStyle}>Стратегия</p>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { id: 'default' as const, label: 'Обычная' },
-                { id: 'scalping' as const, label: 'Скальпинг' },
-                { id: 'futures25x' as const, label: '25x 10%' }
-              ].map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => {
-                    if (s.id === 'futures25x') {
-                      setSettings((prev) => {
-                        const next = { ...prev, strategy: s.id, mode: 'futures' as const, ...FUTURES_25X_PRESET };
-                        saveSettings(next);
-                        return next;
-                      });
-                    } else {
-                      updateSetting('strategy', s.id);
-                    }
-                  }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                    settings.strategy === s.id ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-card-solid)] hover:bg-[var(--bg-hover)] border border-[var(--border)]'
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              {settings.strategy === 'futures25x' ? 'BTC/USDT 25x: 10% депозита, R:R 1:2+, макс 2 сделки, дневной лимит 4%' : ''}
-            </p>
-          </div>
-          )}
-        </div>
         </div>
 
         <div className="my-6 py-4 px-5 rounded-lg text-sm" style={{ background: 'var(--bg-hover)', borderLeft: '3px solid var(--text-muted)' }}>
           <span style={{ color: 'var(--text-muted)' }}>«Принятие риска — фундамент. Правота ≠ прибыль» — Douglas</span>
         </div>
 
-        {settings.fullAuto && (
-          <div className="mb-6 p-5 rounded-lg border-2" style={{ borderColor: 'var(--accent)', background: 'var(--accent-dim)' }}>
-            <p className="text-sm font-semibold mb-1" style={{ color: 'var(--accent)' }}>Автоматические настройки</p>
-            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              Динамический размер (риск 2%) · Плечо {FULL_AUTO_DEFAULTS.leverage}x · Мин. уверенность {FULL_AUTO_DEFAULTS.minConfidence}% · TP/SL из анализа · Макс. {FULL_AUTO_DEFAULTS.maxPositions} позиций{FULL_AUTO_DEFAULTS.maxDailyLossPercent > 0 ? ` · Hard Stop при просадке ${FULL_AUTO_DEFAULTS.maxDailyLossPercent}%` : ''}
-            </p>
-          </div>
-        )}
-
-        {settings.executeOrders && (
-          <div className="mb-6 p-5 rounded-lg border" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
-            <p className={sectionTitleClass} style={sectionTitleStyle}>Позиции и баланс Bitget</p>
-            <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-              <p className="text-sm font-medium">
-                Позиции Bitget (реальный счёт)
+        {
+          settings.fullAuto && (
+            <div className="mb-6 p-5 rounded-lg border-2" style={{ borderColor: 'var(--accent)', background: 'var(--accent-dim)' }}>
+              <p className="text-sm font-semibold mb-1" style={{ color: 'var(--accent)' }}>Автоматические настройки</p>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                Динамический размер (риск 2%) · Плечо {FULL_AUTO_DEFAULTS.leverage}x · Мин. уверенность {FULL_AUTO_DEFAULTS.minConfidence}% · TP/SL из анализа · Макс. {FULL_AUTO_DEFAULTS.maxPositions} позиций{FULL_AUTO_DEFAULTS.maxDailyLossPercent > 0 ? ` · Hard Stop при просадке ${FULL_AUTO_DEFAULTS.maxDailyLossPercent}%` : ''}
               </p>
-              <button
-                type="button"
-                onClick={() => { setBitgetData(null); fetchOkxPositionsRef.current(); }}
-                className="text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90"
-                style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
-              >
-                {bitgetData ? 'Обновить баланс' : 'Загрузить баланс'}
-              </button>
             </div>
-            {!bitgetData ? (
-              <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Загрузка баланса Bitget…</p>
-            ) : (
-              <>
-                <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
-                  Баланс: ${(bitgetData.balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} · Открыто: {bitgetData.openCount ?? 0}
+          )
+        }
+
+        {
+          settings.executeOrders && (
+            <div className="mb-6 p-5 rounded-lg border" style={{ borderColor: 'var(--border)', background: 'var(--bg-hover)' }}>
+              <p className={sectionTitleClass} style={sectionTitleStyle}>Позиции и баланс Bitget</p>
+              <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                <p className="text-sm font-medium">
+                  Позиции Bitget (реальный счёт)
                 </p>
-                {bitgetData.executionAvailable === false && (
-                  <p className="text-xs mb-2" style={{ color: 'var(--warning)' }}>
-                    Исполнение ордеров отключено на сервере. Включите AUTO_TRADING_EXECUTION_ENABLED=1 в .env на сервере.
+                <button
+                  type="button"
+                  onClick={() => { setBitgetData(null); fetchOkxPositionsRef.current(); }}
+                  className="text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90"
+                  style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}
+                >
+                  {bitgetData ? 'Обновить баланс' : 'Загрузить баланс'}
+                </button>
+              </div>
+              {!bitgetData ? (
+                <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Загрузка баланса Bitget…</p>
+              ) : (
+                <>
+                  <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+                    Баланс: ${(bitgetData.balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} · Открыто: {bitgetData.openCount ?? 0}
                   </p>
-                )}
-                {bitgetData.balanceError && (
-                  <p className="text-xs mb-2" style={{ color: 'var(--danger)' }} title={bitgetData.balanceError}>
-                    Ошибка Bitget: {bitgetData.balanceError}
-                  </p>
-                )}
-                {bitgetData.positionsError && !bitgetData.balanceError && (
-                  <p className="text-xs mb-2" style={{ color: 'var(--danger)' }} title={bitgetData.positionsError}>
-                    Позиции не загружены: {bitgetData.positionsError}. Нажмите «Обновить баланс».
-                  </p>
-                )}
-                {!bitgetData.balanceError && (bitgetData.balance ?? 0) === 0 && (
-                  <p className="text-xs mb-2" style={{ color: 'var(--warning)' }}>
-                    Для исполнения ордеров пополните реальный счёт Bitget: Finance → Transfer → USDT на Trading Account.
-                  </p>
-                )}
-                {bitgetData.positions && bitgetData.positions.length > 0 && (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr style={{ borderColor: 'var(--border)' }}>
-                          <th className="text-left py-1 px-2">Символ</th>
-                          <th className="text-right py-1 px-2">Сторона</th>
-                          <th className="text-right py-1 px-2">Кол-во</th>
-                          <th className="text-right py-1 px-2">Вход</th>
-                          <th className="text-right py-1 px-2">Сумма</th>
-                          <th className="text-right py-1 px-2">P&L</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {bitgetData.positions.map((p: any, i: number) => {
-                          const symNorm = normSymbol((p.symbol || '').replace(/:.*$/, ''));
-                          const base = symNorm ? symNorm.split('-')[0] : (p.symbol || '').split(/[/:-]/)[0] || '—';
-                          const amountStr = p.contracts != null ? `${Math.abs(Number(p.contracts)).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${base}` : '—';
-                          return (
-                            <tr key={i} className="border-t" style={{ borderColor: 'var(--border)' }}>
-                              <td className="py-1 px-2">{symNorm || p.symbol}</td>
-                              <td className="text-right py-1 px-2">{p.side === 'long' ? 'LONG' : 'SHORT'}</td>
-                              <td className="text-right py-1 px-2 tabular-nums">{amountStr}</td>
-                              <td className="text-right py-1 px-2 tabular-nums">{p.entryPrice != null ? Number(p.entryPrice).toLocaleString('ru-RU') : '—'}</td>
-                              <td className="text-right py-1 px-2 tabular-nums">{p.notional != null ? `$${Number(p.notional).toFixed(2)}` : '—'}</td>
-                              <td className={`text-right py-1 px-2 tabular-nums ${(p.unrealizedPnl ?? 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                                {p.unrealizedPnl != null ? (p.unrealizedPnl >= 0 ? '+' : '') + p.unrealizedPnl.toFixed(2) : '—'}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
+                  {bitgetData.executionAvailable === false && (
+                    <p className="text-xs mb-2" style={{ color: 'var(--warning)' }}>
+                      Исполнение ордеров отключено на сервере. Включите AUTO_TRADING_EXECUTION_ENABLED=1 в .env на сервере.
+                    </p>
+                  )}
+                  {bitgetData.balanceError && (
+                    <p className="text-xs mb-2" style={{ color: 'var(--danger)' }} title={bitgetData.balanceError}>
+                      Ошибка Bitget: {bitgetData.balanceError}
+                    </p>
+                  )}
+                  {bitgetData.positionsError && !bitgetData.balanceError && (
+                    <p className="text-xs mb-2" style={{ color: 'var(--danger)' }} title={bitgetData.positionsError}>
+                      Позиции не загружены: {bitgetData.positionsError}. Нажмите «Обновить баланс».
+                    </p>
+                  )}
+                  {!bitgetData.balanceError && (bitgetData.balance ?? 0) === 0 && (
+                    <p className="text-xs mb-2" style={{ color: 'var(--warning)' }}>
+                      Для исполнения ордеров пополните реальный счёт Bitget: Finance → Transfer → USDT на Trading Account.
+                    </p>
+                  )}
+                  {bitgetData.positions && bitgetData.positions.length > 0 && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr style={{ borderColor: 'var(--border)' }}>
+                            <th className="text-left py-1 px-2">Символ</th>
+                            <th className="text-right py-1 px-2">Сторона</th>
+                            <th className="text-right py-1 px-2">Кол-во</th>
+                            <th className="text-right py-1 px-2">Вход</th>
+                            <th className="text-right py-1 px-2">Сумма</th>
+                            <th className="text-right py-1 px-2">P&L</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bitgetData.positions.map((p: any, i: number) => {
+                            const symNorm = normSymbol((p.symbol || '').replace(/:.*$/, ''));
+                            const base = symNorm ? symNorm.split('-')[0] : (p.symbol || '').split(/[/:-]/)[0] || '—';
+                            const amountStr = p.contracts != null ? `${Math.abs(Number(p.contracts)).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${base}` : '—';
+                            return (
+                              <tr key={i} className="border-t" style={{ borderColor: 'var(--border)' }}>
+                                <td className="py-1 px-2">{symNorm || p.symbol}</td>
+                                <td className="text-right py-1 px-2">{p.side === 'long' ? 'LONG' : 'SHORT'}</td>
+                                <td className="text-right py-1 px-2 tabular-nums">{amountStr}</td>
+                                <td className="text-right py-1 px-2 tabular-nums">{p.entryPrice != null ? Number(p.entryPrice).toLocaleString('ru-RU') : '—'}</td>
+                                <td className="text-right py-1 px-2 tabular-nums">{p.notional != null ? `$${Number(p.notional).toFixed(2)}` : '—'}</td>
+                                <td className={`text-right py-1 px-2 tabular-nums ${(p.unrealizedPnl ?? 0) >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                                  {p.unrealizedPnl != null ? (p.unrealizedPnl >= 0 ? '+' : '') + p.unrealizedPnl.toFixed(2) : '—'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )
+        }
 
         {/* Плечо — слайдер */}
-        {!settings.fullAuto && (
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-2">
-            <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Плечо</label>
-            <span className={`text-lg font-bold tabular-nums ${mode === 'spot' ? 'opacity-50' : 'text-[var(--accent)]'}`}>
-              {mode === 'spot' ? '1x' : `${settings.leverage}x`}
-            </span>
-          </div>
-          <input
-            type="range"
-            min={LEVERAGE_MIN}
-            max={LEVERAGE_MAX}
-            value={mode === 'spot' ? 1 : settings.leverage}
-            onChange={(e) => updateSetting('leverage', Math.max(1, parseInt(e.target.value) || 1))}
-            disabled={mode === 'spot'}
-            className="slider-track"
-          />
-          <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-            <span>1x</span>
-            <span>100x</span>
-          </div>
-        </div>
-        )}
+        {
+          !settings.fullAuto && (
+            <div className="mb-8">
+              <div className="flex justify-between items-center mb-2">
+                <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Плечо</label>
+                <span className={`text-lg font-bold tabular-nums ${mode === 'spot' ? 'opacity-50' : 'text-[var(--accent)]'}`}>
+                  {mode === 'spot' ? '1x' : `${settings.leverage}x`}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={LEVERAGE_MIN}
+                max={LEVERAGE_MAX}
+                value={mode === 'spot' ? 1 : settings.leverage}
+                onChange={(e) => updateSetting('leverage', Math.max(1, parseInt(e.target.value) || 1))}
+                disabled={mode === 'spot'}
+                className="slider-track"
+              />
+              <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                <span>1x</span>
+                <span>100x</span>
+              </div>
+            </div>
+          )
+        }
 
         {/* Слайдеры: Размер, Уверенность */}
-        {!settings.fullAuto && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Размер позиции, %</label>
-              <span className="text-lg font-bold tabular-nums text-[var(--accent)]">{settings.sizePercent}%</span>
+        {
+          !settings.fullAuto && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Размер позиции, %</label>
+                  <span className="text-lg font-bold tabular-nums text-[var(--accent)]">{settings.sizePercent}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={50}
+                  value={settings.sizePercent}
+                  onChange={(e) => updateSetting('sizePercent', Math.max(1, Math.min(50, parseInt(e.target.value) || 5)))}
+                  className="slider-track"
+                />
+              </div>
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Мин. уверенность, %</label>
+                  <span className="text-lg font-bold tabular-nums text-[var(--accent)]">{settings.minConfidence}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={50}
+                  max={95}
+                  value={settings.minConfidence}
+                  onChange={(e) => updateSetting('minConfidence', Math.max(50, Math.min(95, parseInt(e.target.value) || 60)))}
+                  className="slider-track"
+                />
+              </div>
             </div>
-            <input
-              type="range"
-              min={1}
-              max={50}
-              value={settings.sizePercent}
-              onChange={(e) => updateSetting('sizePercent', Math.max(1, Math.min(50, parseInt(e.target.value) || 5)))}
-              className="slider-track"
-            />
-          </div>
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Мин. уверенность, %</label>
-              <span className="text-lg font-bold tabular-nums text-[var(--accent)]">{settings.minConfidence}%</span>
-            </div>
-            <input
-              type="range"
-              min={50}
-              max={95}
-              value={settings.minConfidence}
-              onChange={(e) => updateSetting('minConfidence', Math.max(50, Math.min(95, parseInt(e.target.value) || 60)))}
-              className="slider-track"
-            />
-          </div>
-        </div>
-        )}
+          )
+        }
 
         {/* Опции и интервал */}
-        {!settings.fullAuto && (
-        <div className="flex flex-wrap gap-4 mb-6">
-          <label className="flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
-            <input type="checkbox" checked={settings.scalpingMode} onChange={(e) => { const on = e.target.checked; updateSetting('scalpingMode', on); if (on) { updateSetting('intervalMs', SCALPING_PRESET.intervalMs); updateSetting('sizePercent', SCALPING_PRESET.sizePercent); updateSetting('minConfidence', SCALPING_PRESET.minConfidence); updateSetting('autoCloseTp', SCALPING_PRESET.autoCloseTp); updateSetting('autoCloseSl', SCALPING_PRESET.autoCloseSl); updateSetting('tpMultiplier', SCALPING_PRESET.tpMultiplier); updateSetting('cooldownSec', SCALPING_PRESET.cooldownSec); updateSetting('maxPositions', SCALPING_PRESET.maxPositions); } }} className="rounded w-4 h-4 accent-[var(--accent)]" />
-            <div><span className="font-medium">Быстрый скальпинг</span><p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>15 сек цикл, TP 1.2%, SL 0.6%, быстрый выход</p></div>
-          </label>
-          <label className="flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
-            <input type="checkbox" checked={settings.useSignalSLTP} onChange={(e) => updateSetting('useSignalSLTP', e.target.checked)} className="rounded w-4 h-4 accent-[var(--accent)]" />
-            <div><span className="font-medium">SL/TP из сигнала</span><p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Цены из анализа</p></div>
-          </label>
-          <label className="flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
-            <input type="checkbox" checked={settings.autoClose} onChange={(e) => updateSetting('autoClose', e.target.checked)} className="rounded w-4 h-4 accent-[var(--accent)]" />
-            <div><span className="font-medium">Авто-закрытие %</span><p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>TP/SL в % после 1 мин</p></div>
-          </label>
-          <div className="flex items-center gap-3 p-4 rounded-lg border shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
-            <span className="text-sm font-medium whitespace-nowrap">Trailing Stop</span>
-            <input type="range" min={0} max={10} step={0.5} value={settings.trailingStopPercent} onChange={(e) => updateSetting('trailingStopPercent', Math.max(0, parseFloat(e.target.value) || 0))} className="slider-track w-24" />
-            <span className="text-sm font-bold tabular-nums w-10">{settings.trailingStopPercent}%</span>
-          </div>
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>Интервал</label>
-            <select value={settings.intervalMs} onChange={(e) => updateSetting('intervalMs', Number(e.target.value))} className="input-field w-32">
-              {INTERVALS.map((i) => <option key={i.ms} value={i.ms}>{i.label}</option>)}
-            </select>
-          </div>
-        </div>
-        )}
+        {
+          !settings.fullAuto && (
+            <div className="flex flex-wrap gap-4 mb-6">
+              <label className="flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+                <input type="checkbox" checked={settings.scalpingMode} onChange={(e) => { const on = e.target.checked; updateSetting('scalpingMode', on); if (on) { updateSetting('intervalMs', SCALPING_PRESET.intervalMs); updateSetting('sizePercent', SCALPING_PRESET.sizePercent); updateSetting('minConfidence', SCALPING_PRESET.minConfidence); updateSetting('autoCloseTp', SCALPING_PRESET.autoCloseTp); updateSetting('autoCloseSl', SCALPING_PRESET.autoCloseSl); updateSetting('tpMultiplier', SCALPING_PRESET.tpMultiplier); updateSetting('cooldownSec', SCALPING_PRESET.cooldownSec); updateSetting('maxPositions', SCALPING_PRESET.maxPositions); } }} className="rounded w-4 h-4 accent-[var(--accent)]" />
+                <div><span className="font-medium">Быстрый скальпинг</span><p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>15 сек цикл, TP 1.2%, SL 0.6%, быстрый выход</p></div>
+              </label>
+              <label className="flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+                <input type="checkbox" checked={settings.useSignalSLTP} onChange={(e) => updateSetting('useSignalSLTP', e.target.checked)} className="rounded w-4 h-4 accent-[var(--accent)]" />
+                <div><span className="font-medium">SL/TP из сигнала</span><p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Цены из анализа</p></div>
+              </label>
+              <label className="flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+                <input type="checkbox" checked={settings.autoClose} onChange={(e) => updateSetting('autoClose', e.target.checked)} className="rounded w-4 h-4 accent-[var(--accent)]" />
+                <div><span className="font-medium">Авто-закрытие %</span><p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>TP/SL в % после 1 мин</p></div>
+              </label>
+              <div className="flex items-center gap-3 p-4 rounded-lg border shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+                <span className="text-sm font-medium whitespace-nowrap">Trailing Stop</span>
+                <input type="range" min={0} max={10} step={0.5} value={settings.trailingStopPercent} onChange={(e) => updateSetting('trailingStopPercent', Math.max(0, parseFloat(e.target.value) || 0))} className="slider-track w-24" />
+                <span className="text-sm font-bold tabular-nums w-10">{settings.trailingStopPercent}%</span>
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>Интервал</label>
+                <select value={settings.intervalMs} onChange={(e) => updateSetting('intervalMs', Number(e.target.value))} className="input-field w-32">
+                  {INTERVALS.map((i) => <option key={i.ms} value={i.ms}>{i.label}</option>)}
+                </select>
+              </div>
+            </div>
+          )
+        }
 
-        {!settings.fullAuto && (
-        <div className="flex flex-wrap items-end gap-6 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>Направления</label>
-            <div className="flex gap-3">
-              {(['LONG', 'SHORT'] as const).map((d) => (
-                <label key={d} className="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-lg border transition hover:border-[var(--accent)]/50" style={{ borderColor: settings.allowedDirections.includes(d) ? 'var(--accent)' : 'var(--border)', background: settings.allowedDirections.includes(d) ? 'var(--accent-dim)' : 'transparent' }}>
-                  <input type="checkbox" checked={settings.allowedDirections.includes(d)} onChange={(e) => { const next = e.target.checked ? [...settings.allowedDirections, d] : settings.allowedDirections.filter((x) => x !== d); updateSetting('allowedDirections', next.length ? next : [d]); }} className="rounded w-4 h-4 accent-[var(--accent)]" />
-                  <span className="font-medium">{d}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-          <div className="w-40">
-            <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>Макс. позиций</label>
-            <input type="range" min={1} max={20} value={settings.maxPositions} onChange={(e) => updateSetting('maxPositions', Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))} className="slider-track" />
-            <p className="text-sm font-bold mt-1 text-[var(--accent)]">{settings.maxPositions}</p>
-          </div>
-          <div className="w-48">
-            <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>Кулдаун, сек</label>
-            <input type="range" min={0} max={900} step={15} value={Math.min(900, settings.cooldownSec)} onChange={(e) => updateSetting('cooldownSec', parseInt(e.target.value) || 0)} className="slider-track" />
-            <p className="text-sm font-bold mt-1 text-[var(--accent)]">{settings.cooldownSec}</p>
-          </div>
-          <div className="w-48">
-            <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>Макс. дневной убыток %</label>
-            <input type="range" min={0} max={50} step={1} value={settings.maxDailyLossPercent} onChange={(e) => updateSetting('maxDailyLossPercent', Math.max(0, Math.min(50, parseFloat(e.target.value) || 0)))} className="slider-track" />
-            <p className="text-sm font-bold mt-1 text-[var(--accent)]">{settings.maxDailyLossPercent}%</p>
-          </div>
-          {settings.autoClose && (
-            <div className="flex gap-6">
-              <div className="w-36">
-                <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>TP %</label>
-                <input type="range" min={0.5} max={20} step={0.5} value={settings.autoCloseTp} onChange={(e) => updateSetting('autoCloseTp', parseFloat(e.target.value) || 2)} className="slider-track" />
-                <p className="text-sm font-bold mt-1 text-[var(--success)]">{settings.autoCloseTp}%</p>
+        {
+          !settings.fullAuto && (
+            <div className="flex flex-wrap items-end gap-6 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>Направления</label>
+                <div className="flex gap-3">
+                  {(['LONG', 'SHORT'] as const).map((d) => (
+                    <label key={d} className="flex items-center gap-2 cursor-pointer px-4 py-2 rounded-lg border transition hover:border-[var(--accent)]/50" style={{ borderColor: settings.allowedDirections.includes(d) ? 'var(--accent)' : 'var(--border)', background: settings.allowedDirections.includes(d) ? 'var(--accent-dim)' : 'transparent' }}>
+                      <input type="checkbox" checked={settings.allowedDirections.includes(d)} onChange={(e) => { const next = e.target.checked ? [...settings.allowedDirections, d] : settings.allowedDirections.filter((x) => x !== d); updateSetting('allowedDirections', next.length ? next : [d]); }} className="rounded w-4 h-4 accent-[var(--accent)]" />
+                      <span className="font-medium">{d}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-              <div className="w-36">
-                <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>SL %</label>
-                <input type="range" min={0.5} max={10} step={0.5} value={settings.autoCloseSl} onChange={(e) => updateSetting('autoCloseSl', parseFloat(e.target.value) || 1.5)} className="slider-track" />
-                <p className="text-sm font-bold mt-1 text-[var(--danger)]">{settings.autoCloseSl}%</p>
+              <div className="w-40">
+                <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>Макс. позиций</label>
+                <input type="range" min={1} max={20} value={settings.maxPositions} onChange={(e) => updateSetting('maxPositions', Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))} className="slider-track" />
+                <p className="text-sm font-bold mt-1 text-[var(--accent)]">{settings.maxPositions}</p>
               </div>
+              <div className="w-48">
+                <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>Кулдаун, сек</label>
+                <input type="range" min={0} max={900} step={15} value={Math.min(900, settings.cooldownSec)} onChange={(e) => updateSetting('cooldownSec', parseInt(e.target.value) || 0)} className="slider-track" />
+                <p className="text-sm font-bold mt-1 text-[var(--accent)]">{settings.cooldownSec}</p>
+              </div>
+              <div className="w-48">
+                <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>Макс. дневной убыток %</label>
+                <input type="range" min={0} max={50} step={1} value={settings.maxDailyLossPercent} onChange={(e) => updateSetting('maxDailyLossPercent', Math.max(0, Math.min(50, parseFloat(e.target.value) || 0)))} className="slider-track" />
+                <p className="text-sm font-bold mt-1 text-[var(--accent)]">{settings.maxDailyLossPercent}%</p>
+              </div>
+              {settings.autoClose && (
+                <div className="flex gap-6">
+                  <div className="w-36">
+                    <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>TP %</label>
+                    <input type="range" min={0.5} max={20} step={0.5} value={settings.autoCloseTp} onChange={(e) => updateSetting('autoCloseTp', parseFloat(e.target.value) || 2)} className="slider-track" />
+                    <p className="text-sm font-bold mt-1 text-[var(--success)]">{settings.autoCloseTp}%</p>
+                  </div>
+                  <div className="w-36">
+                    <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: 'var(--text-muted)' }}>SL %</label>
+                    <input type="range" min={0.5} max={10} step={0.5} value={settings.autoCloseSl} onChange={(e) => updateSetting('autoCloseSl', parseFloat(e.target.value) || 1.5)} className="slider-track" />
+                    <p className="text-sm font-bold mt-1 text-[var(--danger)]">{settings.autoCloseSl}%</p>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        )}
-      </Card>
+          )
+        }
+      </Card >
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card variant="glass" padding="normal">
@@ -1896,6 +1819,6 @@ export default function AutoTradingPage() {
         title="История сделок"
         subtitle={`${displayHistory.length} записей · ${token ? 'закрытые сделки с сервера (Bitget)' : 'локальная демо-история'}`}
       />
-    </div>
+    </div >
   );
 }

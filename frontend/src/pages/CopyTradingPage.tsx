@@ -8,7 +8,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import { RiskDisclaimer } from '../components/RiskDisclaimer';
-import { PortfolioCard, TransactionHistory, DepositWithdraw } from '../components/CopyTrading';
+import { PortfolioCard, TransactionHistory, DepositWithdraw, PnlChart } from '../components/CopyTrading';
 import CopyTradingTerms from '../components/CopyTrading/CopyTradingTerms';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -105,7 +105,7 @@ export default function CopyTradingPage() {
 
   const refreshBalance = () => {
     if (!token) return;
-    api.get<Balance>('/copy-trading-api/balance', { headers }).then(setBalance).catch(() => {});
+    api.get<Balance>('/copy-trading-api/balance', { headers }).then(setBalance).catch(() => { });
   };
 
   const handleSubscribe = async (providerId: string, sizePercent: number, profitSharePercent: number) => {
@@ -252,29 +252,34 @@ export default function CopyTradingPage() {
         </div>
       </Card>
 
-      {/* Баланс и мои подписки */}
-      <PortfolioCard token={token} onDeposit={() => setModal('deposit')} onWithdraw={() => setModal('withdraw')} onHistory={() => setModal('history')} />
-      <section className="rounded-lg p-4 md:p-6" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Мои подписки ({subscriptions.length})</h2>
-        {subscriptions.length === 0 ? (
-          <div className="text-center py-8"><p style={{ color: 'var(--text-muted)' }}>Нет активных подписок</p></div>
-        ) : (
-          <div className="space-y-3">
-            {subscriptions.map(sub => (
-              <div key={sub.providerId} className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>{sub.username[0].toUpperCase()}</div>
-                  <div>
-                    <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{sub.username}</p>
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Доля: {sub.sizePercent}%</p>
+      {/* Баланс, мои подписки и PnL */}
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="space-y-6">
+          <PortfolioCard token={token} onDeposit={() => setModal('deposit')} onWithdraw={() => setModal('withdraw')} onHistory={() => setModal('history')} />
+          <PnlChart token={token} />
+        </div>
+        <section className="rounded-lg p-4 md:p-6" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>Мои подписки ({subscriptions.length})</h2>
+          {subscriptions.length === 0 ? (
+            <div className="text-center py-8"><p style={{ color: 'var(--text-muted)' }}>Нет активных подписок</p></div>
+          ) : (
+            <div className="space-y-3">
+              {subscriptions.map(sub => (
+                <div key={sub.providerId} className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>{sub.username[0].toUpperCase()}</div>
+                    <div>
+                      <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{sub.username}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Доля: {sub.sizePercent}%</p>
+                    </div>
                   </div>
+                  <button onClick={() => handleUnsubscribe(sub.providerId)} className="px-3 py-1.5 rounded-lg text-sm font-medium" style={{ background: 'var(--danger)', color: '#fff' }}>Отписаться</button>
                 </div>
-                <button onClick={() => handleUnsubscribe(sub.providerId)} className="px-3 py-1.5 rounded-lg text-sm font-medium" style={{ background: 'var(--danger)', color: '#fff' }}>Отписаться</button>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
 
       {/* Подбор трейдера */}
       <Card variant="glass" padding="spacious">
@@ -425,37 +430,37 @@ export default function CopyTradingPage() {
                 ))
               ) : (
                 tableProviders.map((p, index) => {
-                    const d = getProviderDisplayStats(p);
-                    const isSub = subscribedIds.has(p.userId);
-                    return (
-                      <tr key={p.userId} className="border-b" style={{ borderColor: 'var(--border)' }}>
-                        <td className="py-3 px-3" style={{ color: 'var(--text-secondary)' }}>{index + 1}</td>
-                        <td className="py-3 px-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>{(p.displayName || p.username)[0].toUpperCase()}</div>
-                            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{p.displayName || p.username}</span>
+                  const d = getProviderDisplayStats(p);
+                  const isSub = subscribedIds.has(p.userId);
+                  return (
+                    <tr key={p.userId} className="border-b" style={{ borderColor: 'var(--border)' }}>
+                      <td className="py-3 px-3" style={{ color: 'var(--text-secondary)' }}>{index + 1}</td>
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>{(p.displayName || p.username)[0].toUpperCase()}</div>
+                          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{p.displayName || p.username}</span>
+                        </div>
+                      </td>
+                      <td className={"py-3 px-3 text-right font-mono " + (d.pnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]')}>{d.pnl >= 0 ? '+' : ''}{d.pnl.toFixed(2)} $</td>
+                      <td className={"py-3 px-3 text-right font-mono " + (d.pnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]')}>{d.pnl >= 0 ? '+' : ''}{d.pnl.toFixed(2)} $</td>
+                      <td className="py-3 px-3 text-right" style={{ color: 'var(--text-muted)' }}>—</td>
+                      <td className="py-3 px-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{d.winRate.toFixed(2)}%</td>
+                      <td className="py-3 px-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{d.subscribers}/1000</td>
+                      <td className="py-3 px-3 text-right">
+                        {isSub ? (
+                          <button onClick={() => handleUnsubscribe(p.userId)} className="px-3 py-1.5 rounded-lg text-sm font-medium" style={{ background: 'var(--danger)', color: '#fff' }}>Отписаться</button>
+                        ) : (
+                          <div className="flex justify-end gap-2 items-center flex-wrap">
+                            <input type="number" min={5} max={100} value={subscribeSize[p.userId] ?? 25} onChange={e => setSubscribeSize(prev => ({ ...prev, [p.userId]: Number(e.target.value) }))} className="w-14 px-2 py-1 rounded text-right text-sm" style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>%</span>
+                            <input type="number" min={0} max={100} value={profitShare[p.userId] ?? 10} onChange={e => setProfitShare(prev => ({ ...prev, [p.userId]: Number(e.target.value) }))} className="w-12 px-2 py-1 rounded text-right text-sm" style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                            <button onClick={() => handleSubscribe(p.userId, subscribeSize[p.userId] ?? 25, profitShare[p.userId] ?? 10)} className="px-3 py-1.5 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>Подписаться</button>
                           </div>
-                        </td>
-                        <td className={"py-3 px-3 text-right font-mono " + (d.pnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]')}>{d.pnl >= 0 ? '+' : ''}{d.pnl.toFixed(2)} $</td>
-                        <td className={"py-3 px-3 text-right font-mono " + (d.pnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]')}>{d.pnl >= 0 ? '+' : ''}{d.pnl.toFixed(2)} $</td>
-                        <td className="py-3 px-3 text-right" style={{ color: 'var(--text-muted)' }}>—</td>
-                        <td className="py-3 px-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{d.winRate.toFixed(2)}%</td>
-                        <td className="py-3 px-3 text-right tabular-nums" style={{ color: 'var(--text-secondary)' }}>{d.subscribers}/1000</td>
-                        <td className="py-3 px-3 text-right">
-                          {isSub ? (
-                            <button onClick={() => handleUnsubscribe(p.userId)} className="px-3 py-1.5 rounded-lg text-sm font-medium" style={{ background: 'var(--danger)', color: '#fff' }}>Отписаться</button>
-                          ) : (
-                            <div className="flex justify-end gap-2 items-center flex-wrap">
-                              <input type="number" min={5} max={100} value={subscribeSize[p.userId] ?? 25} onChange={e => setSubscribeSize(prev => ({ ...prev, [p.userId]: Number(e.target.value) }))} className="w-14 px-2 py-1 rounded text-right text-sm" style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
-                              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>%</span>
-                              <input type="number" min={0} max={100} value={profitShare[p.userId] ?? 10} onChange={e => setProfitShare(prev => ({ ...prev, [p.userId]: Number(e.target.value) }))} className="w-12 px-2 py-1 rounded text-right text-sm" style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
-                              <button onClick={() => handleSubscribe(p.userId, subscribeSize[p.userId] ?? 25, profitShare[p.userId] ?? 10)} className="px-3 py-1.5 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>Подписаться</button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

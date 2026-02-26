@@ -949,7 +949,7 @@ async function runAutoTradingBestCycle(
     }
   }
 
-  let releaseLock: () => void = () => {};
+  let releaseLock: () => void = () => { };
   const lockPromise = new Promise<void>((resolve) => { releaseLock = resolve; });
   const cycleStartedAt = Date.now();
   userCycleLocks.set(lockKey, { promise: lockPromise, startedAt: cycleStartedAt });
@@ -1011,8 +1011,8 @@ async function runAutoTradingBestCycleInner(
   if (syms.length === 0) syms = ['BTC-USDT', 'ETH-USDT', 'SOL-USDT'];
   logger.info('runAutoTradingBestCycle', 'Symbols for cycle', { count: syms.length, symbols: syms.slice(0, 10) });
 
-  subscribeSymbols(syms.slice(0, 20)).catch(() => {});
-  subscribeMarketSymbols(syms.slice(0, 6)).catch(() => {}); // свечи + тикер WS (до 48 каналов)
+  subscribeSymbols(syms.slice(0, 20)).catch(() => { });
+  subscribeMarketSymbols(syms.slice(0, 6)).catch(() => { }); // свечи + тикер WS (до 48 каналов)
 
   const executeOrders = execOpts?.executeOrders ?? autoAnalyzeExecuteOrders;
   const useTestnet = execOpts?.useTestnet ?? autoAnalyzeUseTestnet;
@@ -1262,8 +1262,8 @@ async function runAutoTradingBestCycleInner(
     leverage
   });
 
-  subscribeSymbols([best.signal.symbol]).catch(() => {});
-  subscribeMarketSymbols([best.signal.symbol]).catch(() => {});
+  subscribeSymbols([best.signal.symbol]).catch(() => { });
+  subscribeMarketSymbols([best.signal.symbol]).catch(() => { });
   const volMult = (best.breakdown as any)?.volatilityMultiplier as number | undefined;
   executeSignal(best.signal, {
     sizePercent,
@@ -1293,10 +1293,10 @@ async function runAutoTradingBestCycleInner(
             openPrice: best.signal.entry_price ?? 0,
             stopLoss: best.signal.stop_loss ? Number(best.signal.stop_loss) : undefined,
             takeProfit: best.signal.take_profit != null
-            ? (Array.isArray(best.signal.take_profit)
-              ? (best.signal.take_profit as number[]).map(Number)
-              : [Number(best.signal.take_profit)])
-            : undefined,
+              ? (Array.isArray(best.signal.take_profit)
+                ? (best.signal.take_profit as number[]).map(Number)
+                : [Number(best.signal.take_profit)])
+              : undefined,
             openTime: new Date().toISOString(),
             status: 'open',
             autoOpened: true,
@@ -1451,11 +1451,11 @@ export function startAutoAnalyzeForUser(userId: string, body: Record<string, unk
   const densityBody = body?.density as Record<string, number> | undefined;
   const densityOpts: DensityOptions | undefined = densityBody
     ? {
-        maxSpreadPct: densityBody.maxSpreadPct,
-        minDepthUsd: densityBody.minDepthUsd,
-        maxPriceDeviationPct: densityBody.maxPriceDeviationPct,
-        maxSizeVsLiquidityPct: densityBody.maxSizeVsLiquidityPct
-      }
+      maxSpreadPct: densityBody.maxSpreadPct,
+      minDepthUsd: densityBody.minDepthUsd,
+      maxPriceDeviationPct: densityBody.maxPriceDeviationPct,
+      maxSizeVsLiquidityPct: densityBody.maxSizeVsLiquidityPct
+    }
     : undefined;
 
   autoAnalyzeExecuteOrders = executeOrders;
@@ -1681,84 +1681,6 @@ router.get('/auto-analyze/last-execution', requireAuth, (req, res) => {
     lastExternalAiScore: last.lastExternalAiScore,
     lastExternalAiUsed: last.lastExternalAiUsed
   });
-});
-
-/** POST /api/market/auto-start — запуск цикла авто-трейда через n8n. Ответ сразу, n8n работает в фоне (1–3 мин), результат — в Telegram и callback на сайт. */
-const autoStartLimit = rateLimit({ windowMs: 60 * 1000, max: 10 });
-router.post('/auto-start', autoStartLimit, requireAuth, (req, res) => {
-  const userId = (req as any).userId as string;
-  const webhookUrl = config.n8n?.webhookUrl || process.env.N8N_WEBHOOK_URL || 'http://188.127.230.83/webhook/auto-start';
-  fetch(webhookUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, source: 'clabx.ru/auto' })
-  }).catch((err) => logger.error('auto-start', (err as Error).message));
-  res.json({
-    status: 'started',
-    message: 'Цикл n8n запущен. Результат придёт в Telegram; при открытии позиции — в разделе авто-торговли. Ожидайте 1–3 мин.'
-  });
-});
-
-/** POST /api/market/trading-signal — callback от n8n с результатом цикла (открытие позиции BitGet по userId). Защита: X-API-Key. */
-router.post('/trading-signal', (req, res) => {
-  const apiKey = req.headers['x-api-key'] ?? req.body?.apiKey;
-  const expected = config.n8n?.tradingSignalApiKey || process.env.TRADING_SIGNAL_API_KEY;
-  if (expected && apiKey !== expected) {
-    return res.status(401).json({ error: 'Invalid or missing X-API-Key' });
-  }
-  try {
-    const body = req.body || {};
-    const userId = body.userId as string | undefined;
-    const aiDecision = body.aiDecision as string | undefined;
-    const topSignal = body.topSignal as { symbol?: string; direction?: string; confidence?: number; currentPrice?: number } | undefined;
-    if (!topSignal?.symbol || !topSignal?.direction) {
-      return res.status(400).json({ error: 'Missing topSignal.symbol or topSignal.direction' });
-    }
-    if (aiDecision !== 'OPEN_LONG' && aiDecision !== 'OPEN_SHORT') {
-      return res.json({ received: true, executed: false, reason: 'aiDecision is not OPEN_LONG/OPEN_SHORT' });
-    }
-    const direction = (topSignal.direction === 'LONG' ? 'LONG' : 'SHORT') as 'LONG' | 'SHORT';
-    const entryPrice = Number(topSignal.currentPrice) || 0;
-    if (entryPrice <= 0) {
-      return res.status(400).json({ error: 'topSignal.currentPrice required and must be > 0' });
-    }
-    const slPct = 0.01;
-    const tpPct = 0.02;
-    const stopLoss = direction === 'LONG' ? entryPrice * (1 - slPct) : entryPrice * (1 + slPct);
-    const takeProfit1 = direction === 'LONG' ? entryPrice * (1 + tpPct) : entryPrice * (1 - tpPct);
-    const rawSym = String(topSignal.symbol || '').replace(/_/g, '-');
-    const symbol = rawSym.endsWith('USDT') ? rawSym.replace(/USDT$/, '-USDT') : rawSym ? `${rawSym}-USDT` : 'BTC-USDT';
-    const signal: import('../types/signal').TradingSignal = {
-      id: `n8n_${Date.now()}`,
-      timestamp: body.timestamp || new Date().toISOString(),
-      symbol,
-      exchange: 'Bitget',
-      direction,
-      entry_price: entryPrice,
-      stop_loss: stopLoss,
-      take_profit: [takeProfit1],
-      risk_reward: 2,
-      confidence: Number(topSignal.confidence) || 0.7,
-      timeframe: '5m',
-      triggers: ['n8n_auto'],
-      expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString()
-    };
-    const creds = userId ? getBitgetCredentials(userId) : null;
-    if (!userId || !creds) {
-      return res.json({ received: true, executed: false, reason: 'No userId or Bitget credentials for user' });
-    }
-    const opts = {
-      sizePercent: 5,
-      leverage: 25,
-      maxPositions: 5,
-      useTestnet: false
-    };
-    executeSignal(signal, opts, creds)
-      .then((result) => res.json({ received: true, executed: result.ok, orderId: result.orderId, error: result.error }))
-      .catch((e) => res.status(500).json({ received: true, executed: false, error: (e as Error).message }));
-  } catch (e) {
-    res.status(500).json({ error: (e as Error).message });
-  }
 });
 
 /** Тестовый сигнал для проверки потока (демо). Не исполняется на OKX. */

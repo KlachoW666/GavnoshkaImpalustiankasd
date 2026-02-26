@@ -92,6 +92,48 @@ export class CoinScanner {
   }
 
   /**
+   * Sniper Mode: Сканирует ВСЕ доступные фьючерсы батчами
+   */
+  async scanAllFutures(criteria: Partial<ScanCriteria> = {}): Promise<CoinScore[]> {
+    const config = { ...DEFAULT_CRITERIA, ...criteria };
+    const allSymbols = await this.dataAgg.getAvailableSymbols();
+
+    // Batch processing to avoid rate limits
+    const batchSize = 25;
+    const results: CoinScore[] = [];
+
+    logger.info('CoinScanner', `Starting full market scan for ${allSymbols.length} pairs`);
+
+    for (let i = 0; i < allSymbols.length; i += batchSize) {
+      const batch = allSymbols.slice(i, i + batchSize);
+      logger.debug('CoinScanner', `Scanning batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(allSymbols.length / batchSize)}`);
+
+      const batchPromises = batch.map(symbol => this.scoreSymbol(symbol, config).catch(e => {
+        logger.warn('CoinScanner', `Error scoring ${symbol}`, { error: (e as Error).message });
+        return null; // continue on error
+      }));
+
+      const batchResults = await Promise.all(batchPromises);
+      for (const res of batchResults) {
+        if (res) results.push(res);
+      }
+
+      // Delay between batches to respect rate limits
+      if (i + batchSize < allSymbols.length) {
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+
+    // Sort by score
+    results.sort((a, b) => b.score - a.score);
+    results.forEach((r, i) => r.rank = i + 1);
+
+    const topSymbols = results.slice(0, 5).map((r) => r.symbol.replace('/USDT:USDT', '')).join(', ');
+    logger.info('CoinScanner', `Full market scan complete: ${results.length} valid candidates. Top 5: ${topSymbols}`);
+    return results;
+  }
+
+  /**
    * Получить топ N кандидатов
    */
   async getTopCandidates(

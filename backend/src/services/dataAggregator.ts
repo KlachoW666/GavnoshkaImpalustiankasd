@@ -106,6 +106,25 @@ export class DataAggregator {
     }
   }
 
+  /**
+   * Получает все доступные USDT-M фьючерсы (active && linear && quote === USDT)
+   */
+  async getAvailableSymbols(): Promise<string[]> {
+    try {
+      await this.exchange.loadMarkets();
+      const markets = Object.values(this.exchange.markets);
+      const symbols = markets
+        .filter((m) => m !== undefined && m.active && m.linear && m.quote === 'USDT')
+        .map((m) => m.symbol);
+
+      logger.info('DataAggregator', `Fetched ${symbols.length} active USDT-M futures pairs`);
+      return symbols;
+    } catch (err) {
+      logger.error('DataAggregator', 'Failed to fetch available symbols', { error: (err as Error).message });
+      return ['BTC/USDT:USDT', 'ETH/USDT:USDT', 'SOL/USDT:USDT']; // Safe fallback
+    }
+  }
+
   private isTimeout(err: unknown): boolean {
     const msg = err instanceof Error ? err.message : String(err);
     return /timed out|timeout|ETIMEDOUT/i.test(msg);

@@ -16,6 +16,9 @@ export interface BtcTrendResult {
   confidencePenalty: number;
   /** Рекомендация: снизить confidence для SHORT при bullish BTC */
   confidencePenaltyShort: number;
+  /** Sniper Mode: Жесткий блок для сделки (отклонение) */
+  blockLong: boolean;
+  blockShort: boolean;
 }
 
 const btcTrendCache = new TtlCache<BtcTrendResult>(60_000); // 1 мин кэш
@@ -61,12 +64,15 @@ export function analyzeBtcTrend(
   let trend: 'bullish' | 'bearish' | 'neutral' = 'neutral';
   let confidencePenalty = 0;
   let confidencePenaltyShort = 0;
+  let blockLong = false;
+  let blockShort = false;
 
   // Сильный медвежий тренд BTC
   if (change1h < -1.5 || (change4h < -3 && change1h < -0.5)) {
     trend = 'bearish';
     confidencePenalty = 0.12; // -12% для LONG на альткоинах
     confidencePenaltyShort = 0; // SHORT на альткоинах OK
+    blockLong = true; // Sniper Mode block
   }
   // Умеренный медвежий
   else if (change1h < -0.5 && ema1hBearish) {
@@ -79,6 +85,7 @@ export function analyzeBtcTrend(
     trend = 'bullish';
     confidencePenalty = 0;
     confidencePenaltyShort = 0.10; // -10% для SHORT на альткоинах
+    blockShort = true; // Sniper Mode block
   }
   // Умеренный бычий
   else if (change1h > 0.5 && ema1hBullish) {
@@ -87,7 +94,7 @@ export function analyzeBtcTrend(
     confidencePenaltyShort = 0.05;
   }
 
-  const result: BtcTrendResult = { trend, change1h, change4h, confidencePenalty, confidencePenaltyShort };
+  const result: BtcTrendResult = { trend, change1h, change4h, confidencePenalty, confidencePenaltyShort, blockLong, blockShort };
   btcTrendCache.set('btc_trend', result);
   return result;
 }

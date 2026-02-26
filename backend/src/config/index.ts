@@ -136,6 +136,12 @@ export const config = {
     apiKey: envStr('ANTHROPIC_API_KEY')
   },
 
+  /** CoinGlass API (Market Sentiment, Funding, Liquidations) */
+  coinglass: {
+    apiKey: envStr('COINGLASS_API_KEY'),
+    baseUrl: 'https://open-api.coinglass.com/public/v2'
+  },
+
   /** Timeframes and 48h bar counts */
   timeframes: {
     '1m': 2880,
@@ -164,13 +170,6 @@ export const config = {
     minDepthUsd: envNum('DENSITY_MIN_DEPTH_USD', 1000),
     maxPriceDeviationPct: envNum('DENSITY_MAX_PRICE_DEVIATION_PCT', 0.5),
     maxSizeVsLiquidityPct: envNum('DENSITY_MAX_SIZE_VS_LIQUIDITY_PCT', 20)
-  },
-
-  /** n8n: webhook для запуска цикла авто-трейда (кнопка «Запустить» на /auto) */
-  n8n: {
-    webhookUrl: envStr('N8N_WEBHOOK_URL', 'http://188.127.230.83/webhook/auto-start'),
-    /** Ключ для приёма callback POST /api/market/trading-signal от n8n (должен совпадать с заголовком X-API-Key в n8n) */
-    tradingSignalApiKey: envStr('TRADING_SIGNAL_API_KEY', '')
   }
 };
 

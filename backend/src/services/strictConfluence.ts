@@ -65,7 +65,7 @@ export function checkStrictConfluence(
 
   const longMatches = Object.entries(longConditions).filter(([_, v]) => v).map(([k]) => k);
   const longMismatches = Object.entries(longConditions).filter(([_, v]) => !v).map(([k]) => k);
-  
+
   const shortMatches = Object.entries(shortConditions).filter(([_, v]) => v).map(([k]) => k);
   const shortMismatches = Object.entries(shortConditions).filter(([_, v]) => !v).map(([k]) => k);
 
@@ -134,7 +134,7 @@ export function checkRelaxedConfluence(
   structureData: SMCResult
 ): ConfluenceResult {
   const strictResult = checkStrictConfluence('', indicators, volumeData, domData, structureData);
-  
+
   if (strictResult.passed) return strictResult;
 
   const trendScore = indicators.trendScore;
@@ -193,6 +193,80 @@ export function checkRelaxedConfluence(
     mismatchedFactors: [],
     score: Math.max(longScore, shortScore)
   };
+}
+
+/**
+ * Уровень 3 & 4 Sniper Mode: Максимально жесткие фильтры стакана и ленты
+ */
+export function checkSniperConfluence(
+  pair: string,
+  indicators: TechnicalResult,
+  volumeData: VolumeData,
+  domData: DOMData,
+  structureData: SMCResult
+): ConfluenceResult {
+  const strict = checkStrictConfluence(pair, indicators, volumeData, domData, structureData);
+
+  if (!strict.passed || !strict.direction) {
+    return strict;
+  }
+
+  const isLong = strict.direction === 'LONG';
+  const isShort = strict.direction === 'SHORT';
+
+  // Sniper DOM/Tape Rules
+  let sniperPassed = true;
+  const failReasons: string[] = [];
+
+  if (isLong) {
+    if (domData.askWalls > 0) {
+      sniperPassed = false;
+      failReasons.push('Ask walls detected blocking LONG');
+    }
+    if (domData.imbalance < 0.6 && domData.pressureScore < 2) {
+      sniperPassed = false;
+      failReasons.push(`Weak Bid Imbalance: ${(domData.imbalance * 100).toFixed(0)}%`);
+    }
+    if (volumeData.cvdDirection !== 'bullish') {
+      sniperPassed = false;
+      failReasons.push('CVD is not Bullish');
+    }
+    if (!volumeData.volumeSpike) {
+      sniperPassed = false;
+      failReasons.push('No Volume Spike detected');
+    }
+  }
+
+  if (isShort) {
+    if (domData.bidWalls > 0) {
+      sniperPassed = false;
+      failReasons.push('Bid walls detected blocking SHORT');
+    }
+    if (domData.imbalance > -0.6 && domData.pressureScore > -2) {
+      sniperPassed = false;
+      failReasons.push(`Weak Ask Imbalance: ${(domData.imbalance * 100).toFixed(0)}%`);
+    }
+    if (volumeData.cvdDirection !== 'bearish') {
+      sniperPassed = false;
+      failReasons.push('CVD is not Bearish');
+    }
+    if (!volumeData.volumeSpike) {
+      sniperPassed = false;
+      failReasons.push('No Volume Spike detected');
+    }
+  }
+
+  if (!sniperPassed) {
+    return {
+      passed: false,
+      direction: null,
+      matchedFactors: strict.matchedFactors,
+      mismatchedFactors: [...strict.mismatchedFactors, ...failReasons],
+      score: strict.score
+    };
+  }
+
+  return strict;
 }
 
 export type { ConfluenceResult as StrictConfluenceResult };
