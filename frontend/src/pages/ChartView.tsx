@@ -69,20 +69,20 @@ function StableOrderbookList({
           return (
             <div
               key={`ask-${i}`}
-              className="flex justify-between items-center gap-3 py-1 h-7 box-border"
-              style={{ color: 'var(--danger)', minHeight: '28px' }}
+              className="flex justify-between items-center gap-2 py-[1px] h-[22px] hover:bg-[var(--bg-hover)] cursor-pointer"
+              style={{ color: 'var(--danger)', minHeight: '22px' }}
             >
-              <span className="min-w-0 flex-1 truncate">
+              <span className="text-left font-mono tabular-nums shrink-0 flex-1">
                 {row ? Number(row[0]).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
               </span>
-              <span className="text-right min-w-[4rem] shrink-0" style={{ color: 'var(--text-muted)' }}>
+              <span className="text-right font-mono tabular-nums min-w-0 flex-1" style={{ color: 'var(--text-muted)' }}>
                 {row ? Number(row[1]).toFixed(4) : '—'}
               </span>
             </div>
           );
         })}
       </div>
-      <div className="border-t py-2 my-1 font-bold text-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--warning)' }}>Спред</div>
+      <div className="border-t border-b py-0.5 my-[2px] font-bold text-center text-xs bg-[var(--bg-hover)]" style={{ borderColor: 'var(--border)', color: 'var(--warning)' }}>Спред</div>
       <div className="text-[10px] uppercase tracking-wider py-1.5" style={{ color: 'var(--success)' }}>ПОКУПКИ (BID)</div>
       <div className="space-y-0">
         {Array.from({ length: OB_ROWS }, (_, i) => {
@@ -90,13 +90,13 @@ function StableOrderbookList({
           return (
             <div
               key={`bid-${i}`}
-              className="flex justify-between items-center gap-3 py-1 h-7 box-border"
-              style={{ color: 'var(--success)', minHeight: '28px' }}
+              className="flex justify-between items-center gap-2 py-[1px] h-[22px] hover:bg-[var(--bg-hover)] cursor-pointer"
+              style={{ color: 'var(--success)', minHeight: '22px' }}
             >
-              <span className="min-w-0 flex-1 truncate">
+              <span className="text-left font-mono tabular-nums shrink-0 flex-1">
                 {row ? Number(row[0]).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
               </span>
-              <span className="text-right min-w-[4rem] shrink-0" style={{ color: 'var(--text-muted)' }}>
+              <span className="text-right font-mono tabular-nums min-w-0 flex-1" style={{ color: 'var(--text-muted)' }}>
                 {row ? Number(row[1]).toFixed(4) : '—'}
               </span>
             </div>
@@ -123,40 +123,30 @@ function OrderbookDepthChart({ bids, asks }: { bids: [number, number][]; asks: [
         const [price, amt] = row ?? [0, 0];
         const pct = row ? Math.min(100, (amt / maxVol) * 100) : 0;
         return (
-          <div key={`ask-${i}`} className="flex items-center gap-3 py-0.5 h-6" style={{ minHeight: '24px' }}>
-            <div className="min-w-[4.5rem] flex-shrink-0" style={{ color: 'var(--danger)' }}>
+          <div key={`ask-${i}`} className="flex items-center justify-between py-[1px] h-[22px] hover:bg-[var(--bg-hover)] cursor-pointer relative" style={{ minHeight: '22px' }}>
+            <div className="absolute right-0 top-0 bottom-0 pointer-events-none transition-[width] duration-150" style={{ width: `${pct}%`, background: 'var(--danger)', opacity: 0.15 }} />
+            <span className="text-left tabular-nums z-10" style={{ color: 'var(--danger)' }}>
               {row ? Number(price).toLocaleString('ru-RU', { minimumFractionDigits: 2 }) : '—'}
-            </div>
-            <div className="flex-1 h-4 rounded overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
-              <div
-                className="h-full rounded transition-[width] duration-150"
-                style={{ width: `${pct}%`, background: 'var(--danger)', opacity: 0.7 }}
-              />
-            </div>
-            <span className="min-w-[3.5rem] text-right text-[var(--text-muted)]">
+            </span>
+            <span className="text-right tabular-nums z-10" style={{ color: 'var(--text-muted)' }}>
               {row ? Number(amt).toFixed(2) : '—'}
             </span>
           </div>
         );
       })}
-      <div className="border-t py-2 my-1 font-bold text-center text-[10px]" style={{ borderColor: 'var(--border)', color: 'var(--warning)' }}>Спред</div>
+      <div className="border-t border-b py-0.5 my-[2px] font-bold text-center text-[10px] bg-[var(--bg-hover)]" style={{ borderColor: 'var(--border)', color: 'var(--warning)' }}>Спред</div>
       <div className="text-[10px] uppercase tracking-wider py-1" style={{ color: 'var(--success)' }}>Bid</div>
       {Array.from({ length: OB_ROWS }, (_, i) => {
         const row = bidRows[i];
         const [price, amt] = row ?? [0, 0];
         const pct = row ? Math.min(100, (amt / maxVol) * 100) : 0;
         return (
-          <div key={`bid-${i}`} className="flex items-center gap-3 py-0.5 h-6" style={{ minHeight: '24px' }}>
-            <div className="min-w-[4.5rem] flex-shrink-0" style={{ color: 'var(--primary)' }}>
+          <div key={`bid-${i}`} className="flex items-center justify-between py-[1px] h-[22px] hover:bg-[var(--bg-hover)] cursor-pointer relative" style={{ minHeight: '22px' }}>
+            <div className="absolute right-0 top-0 bottom-0 pointer-events-none transition-[width] duration-150" style={{ width: `${pct}%`, background: 'var(--success)', opacity: 0.15 }} />
+            <span className="text-left tabular-nums z-10" style={{ color: 'var(--success)' }}>
               {row ? Number(price).toLocaleString('ru-RU', { minimumFractionDigits: 2 }) : '—'}
-            </div>
-            <div className="flex-1 h-4 rounded overflow-hidden" style={{ background: 'var(--bg-elevated)' }}>
-              <div
-                className="h-full rounded transition-[width] duration-150"
-                style={{ width: `${pct}%`, background: 'var(--success)', opacity: 0.7 }}
-              />
-            </div>
-            <span className="min-w-[3.5rem] text-right text-[var(--text-muted)]">
+            </span>
+            <span className="text-right tabular-nums z-10" style={{ color: 'var(--text-muted)' }}>
               {row ? Number(amt).toFixed(2) : '—'}
             </span>
           </div>
@@ -234,30 +224,30 @@ export default function ChartView() {
     if (!chartRef.current) return;
     const el = chartRef.current;
     const chart = createChart(el, {
-      layout: { background: { color: '#000' }, textColor: '#71757A' },
-      grid: { vertLines: { color: '#1E2023' }, horzLines: { color: '#1E2023' } },
-      rightPriceScale: { scaleMargins: { top: 0.05, bottom: 0.15 }, borderColor: '#25282C' },
+      layout: { background: { color: 'transparent' }, textColor: '#848E9C' }, // Muted text
+      grid: { vertLines: { color: 'rgba(132, 142, 156, 0.1)' }, horzLines: { color: 'rgba(132, 142, 156, 0.1)' } }, // Lighter grid
+      rightPriceScale: { scaleMargins: { top: 0.05, bottom: 0.15 }, borderColor: 'rgba(132, 142, 156, 0.2)' },
       timeScale: {
         visible: true,
         rightOffset: 12,
         timeVisible: true,
-        borderColor: '#25282C'
+        borderColor: 'rgba(132, 142, 156, 0.2)'
       },
-      crosshair: { vertLine: { color: 'rgba(255,156,46,0.2)' }, horzLine: { color: 'rgba(255,156,46,0.2)' } },
+      crosshair: { vertLine: { color: 'rgba(247, 147, 26, 0.4)' }, horzLine: { color: 'rgba(247, 147, 26, 0.4)' } }, // accent ghost
       handleScale: { axisPressedMouseMove: true, pinch: true },
       handleScroll: { vertTouchDrag: true, horzTouchDrag: true }
     });
     const isLine = chartStyle === 'line';
     const series = isLine
-      ? chart.addLineSeries({ color: '#FF9C2E', lineWidth: 2 })
+      ? chart.addLineSeries({ color: 'rgba(247, 147, 26, 1)', lineWidth: 2 }) // use accent
       : chart.addCandlestickSeries({
-          upColor: '#20B26C',
-          downColor: '#EF454A',
-          borderUpColor: '#20B26C',
-          borderDownColor: '#EF454A',
-          wickUpColor: '#20B26C',
-          wickDownColor: '#EF454A'
-        });
+        upColor: '#0ECB81', // new success
+        downColor: '#F6465D', // new danger
+        borderUpColor: '#0ECB81',
+        borderDownColor: '#F6465D',
+        wickUpColor: '#0ECB81',
+        wickDownColor: '#F6465D'
+      });
     if (!isLine) series.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.15 } });
     const volumeSeries = chart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' });
     volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 }, borderVisible: false });
@@ -335,12 +325,12 @@ export default function ChartView() {
             style === 'heikin-ashi'
               ? ohlcToHeikinAshi(candles, timeframe)
               : candles.map((c: OHLCVCandle) => ({
-                  time: toChartTime(c.timestamp, timeframe) as any,
-                  open: c.open,
-                  high: c.high,
-                  low: c.low,
-                  close: c.close
-                }));
+                time: toChartTime(c.timestamp, timeframe) as any,
+                open: c.open,
+                high: c.high,
+                low: c.low,
+                close: c.close
+              }));
           if (isInitial || lastCandleTimeRef.current === null) {
             seriesRef.current.setData(candleData);
             volumeRef.current?.setData(volData);
@@ -369,7 +359,7 @@ export default function ChartView() {
           }
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   };
 
   useEffect(() => {
@@ -378,7 +368,7 @@ export default function ChartView() {
       .then((data: { source?: string }) => {
         if (data.source === 'massive' || data.source === 'bitget') setDataSource(data.source);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -459,13 +449,13 @@ export default function ChartView() {
         }
         else if (msg.type === 'trade' && msg.data) setTrades((prev) => [{ ...msg.data }, ...prev.slice(0, 29)]);
         else if (msg.type === 'signal') setLastSignal(msg.data);
-      } catch {}
+      } catch { }
     };
     return () => {
       try {
         ws.send(JSON.stringify({ type: 'unsubscribe_candle', symbol: sym, timeframe }));
         ws.send(JSON.stringify({ type: 'unsubscribe_market' }));
-      } catch {}
+      } catch { }
       ws.close();
     };
   }, [symbol, timeframe, live, token]);
@@ -500,7 +490,7 @@ export default function ChartView() {
       fetch(`${API}/market/orderbook/${encodeURIComponent(sym)}?limit=15&exchange=${exchangeId}`)
         .then((r) => r.json())
         .then(applyOrderbook)
-        .catch(() => {});
+        .catch(() => { });
     }, live ? 1000 : 5000);
     return () => clearInterval(tid);
   }, [symbol, live, platform]);
@@ -528,7 +518,7 @@ export default function ChartView() {
         .then((data) => {
           if (Array.isArray(data) && data.length) setTrades(data);
         })
-        .catch(() => {});
+        .catch(() => { });
     };
     loadTrades();
     const tid = setInterval(loadTrades, 3000);
@@ -545,7 +535,7 @@ export default function ChartView() {
           list.find((s: any) => s.symbol?.replace('/', '-') === symbol || s.symbol === sym);
         if (match) setLastSignal(match);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [symbol]);
 
   return (

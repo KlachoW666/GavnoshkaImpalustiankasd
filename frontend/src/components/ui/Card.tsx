@@ -21,33 +21,44 @@ const paddingMap: Record<CardPadding, string> = {
 
 const variantStyles: Record<CardVariant, React.CSSProperties> = {
   default: {
-    background: 'var(--bg-card-solid)',
-    border: '1px solid var(--border)',
+    background: 'var(--bg-glass)',
+    border: 'var(--border-input)',
+    backdropFilter: 'blur(var(--glass-blur))',
+    WebkitBackdropFilter: 'blur(var(--glass-blur))',
   },
   glass: {
-    background: 'rgba(255, 255, 255, 0.03)',
-    backdropFilter: 'blur(20px)',
-    WebkitBackdropFilter: 'blur(20px)',
-    border: '1px solid var(--border)',
+    background: 'var(--bg-glass-strong)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    backdropFilter: 'blur(var(--glass-blur-strong))',
+    WebkitBackdropFilter: 'blur(var(--glass-blur-strong))',
+    boxShadow: 'var(--shadow-sm)',
   },
   accent: {
-    background: 'linear-gradient(145deg, var(--accent-dim) 0%, var(--bg-card-solid) 50%)',
-    border: '1px solid var(--border-accent)',
-    borderLeft: '3px solid var(--accent)',
+    background: 'linear-gradient(145deg, rgba(255, 199, 0, 0.05) 0%, var(--bg-card) 100%)',
+    border: '1px solid var(--border)',
+    borderTop: '2px solid var(--accent)',
+    backdropFilter: 'blur(var(--glass-blur))',
+    WebkitBackdropFilter: 'blur(var(--glass-blur))',
   },
   danger: {
-    background: 'linear-gradient(145deg, var(--danger-dim) 0%, var(--bg-card-solid) 50%)',
-    border: '1px solid rgba(255, 71, 87, 0.3)',
-    borderLeft: '3px solid var(--danger)',
+    background: 'linear-gradient(145deg, rgba(255, 23, 68, 0.05) 0%, var(--bg-card) 100%)',
+    border: '1px solid var(--border)',
+    borderTop: '2px solid var(--danger)',
+    backdropFilter: 'blur(var(--glass-blur))',
+    WebkitBackdropFilter: 'blur(var(--glass-blur))',
   },
   success: {
-    background: 'linear-gradient(145deg, var(--success-dim) 0%, var(--bg-card-solid) 50%)',
-    border: '1px solid rgba(0, 214, 143, 0.3)',
-    borderLeft: '3px solid var(--success)',
+    background: 'linear-gradient(145deg, rgba(0, 230, 118, 0.05) 0%, var(--bg-card) 100%)',
+    border: '1px solid var(--border)',
+    borderTop: '2px solid var(--success)',
+    backdropFilter: 'blur(var(--glass-blur))',
+    WebkitBackdropFilter: 'blur(var(--glass-blur))',
   },
   premium: {
-    background: 'linear-gradient(145deg, rgba(247, 147, 26, 0.08) 0%, rgba(255, 215, 0, 0.04) 100%)',
+    background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%)',
     border: '1px solid var(--border-accent)',
+    backdropFilter: 'blur(var(--glass-blur-strong))',
+    WebkitBackdropFilter: 'blur(var(--glass-blur-strong))',
     boxShadow: 'var(--shadow-glow)',
   },
 };
@@ -55,8 +66,8 @@ const variantStyles: Record<CardVariant, React.CSSProperties> = {
 export const Card = forwardRef<HTMLDivElement, CardProps>(
   ({ variant = 'default', padding = 'normal', hoverable = false, glow = false, header, footer, className = '', children, style, ...rest }, ref) => {
     const baseStyle: React.CSSProperties = {
-      borderRadius: 'var(--radius-xl)',
-      transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+      borderRadius: 'var(--radius)',
+      transition: 'all 0.15s ease-in-out',
       position: 'relative',
       overflow: 'hidden',
       ...variantStyles[variant],
@@ -93,16 +104,16 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
 );
 Card.displayName = 'Card';
 
-export function StatCard({ 
-  label, 
-  value, 
-  change, 
-  icon, 
-  variant = 'default' 
-}: { 
-  label: string; 
-  value: string | number; 
-  change?: number; 
+export function StatCard({
+  label,
+  value,
+  change,
+  icon,
+  variant = 'default'
+}: {
+  label: string;
+  value: string | number;
+  change?: number;
   icon?: ReactNode;
   variant?: CardVariant;
 }) {

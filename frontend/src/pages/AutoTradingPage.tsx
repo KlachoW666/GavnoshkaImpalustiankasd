@@ -1559,17 +1559,26 @@ export default function AutoTradingPage() {
         {
           !settings.fullAuto && (
             <div className="flex flex-wrap gap-4 mb-6">
-              <label className="flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
-                <input type="checkbox" checked={settings.scalpingMode} onChange={(e) => { const on = e.target.checked; updateSetting('scalpingMode', on); if (on) { updateSetting('intervalMs', SCALPING_PRESET.intervalMs); updateSetting('sizePercent', SCALPING_PRESET.sizePercent); updateSetting('minConfidence', SCALPING_PRESET.minConfidence); updateSetting('autoCloseTp', SCALPING_PRESET.autoCloseTp); updateSetting('autoCloseSl', SCALPING_PRESET.autoCloseSl); updateSetting('tpMultiplier', SCALPING_PRESET.tpMultiplier); updateSetting('cooldownSec', SCALPING_PRESET.cooldownSec); updateSetting('maxPositions', SCALPING_PRESET.maxPositions); } }} className="rounded w-4 h-4 accent-[var(--accent)]" />
-                <div><span className="font-medium">Быстрый скальпинг</span><p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>15 сек цикл, TP 1.2%, SL 0.6%, быстрый выход</p></div>
+              <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all duration-200 hover:border-[var(--accent)]" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+                <div className="relative inline-flex h-5 w-9 shrink-0 items-center justify-center rounded-full cursor-pointer transition-colors duration-200 ease-in-out focus:outline-none" style={{ background: settings.scalpingMode ? 'var(--accent)' : 'var(--bg-elevated)' }}>
+                  <input type="checkbox" checked={settings.scalpingMode} onChange={(e) => { const on = e.target.checked; updateSetting('scalpingMode', on); if (on) { updateSetting('intervalMs', SCALPING_PRESET.intervalMs); updateSetting('sizePercent', SCALPING_PRESET.sizePercent); updateSetting('minConfidence', SCALPING_PRESET.minConfidence); updateSetting('autoCloseTp', SCALPING_PRESET.autoCloseTp); updateSetting('autoCloseSl', SCALPING_PRESET.autoCloseSl); updateSetting('tpMultiplier', SCALPING_PRESET.tpMultiplier); updateSetting('cooldownSec', SCALPING_PRESET.cooldownSec); updateSetting('maxPositions', SCALPING_PRESET.maxPositions); } }} className="sr-only" />
+                  <span aria-hidden="true" className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out" style={{ transform: settings.scalpingMode ? 'translateX(100%)' : 'translateX(0)' }}></span>
+                </div>
+                <div><span className="font-semibold text-sm">Быстрый скальпинг</span><p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>15 сек цикл, TP 1.2%, SL 0.6%, быстрый выход</p></div>
               </label>
-              <label className="flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
-                <input type="checkbox" checked={settings.useSignalSLTP} onChange={(e) => updateSetting('useSignalSLTP', e.target.checked)} className="rounded w-4 h-4 accent-[var(--accent)]" />
-                <div><span className="font-medium">SL/TP из сигнала</span><p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Цены из анализа</p></div>
+              <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all duration-200 hover:border-[var(--accent)]" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+                <div className="relative inline-flex h-5 w-9 shrink-0 items-center justify-center rounded-full cursor-pointer transition-colors duration-200 ease-in-out focus:outline-none" style={{ background: settings.useSignalSLTP ? 'var(--accent)' : 'var(--bg-elevated)' }}>
+                  <input type="checkbox" checked={settings.useSignalSLTP} onChange={(e) => updateSetting('useSignalSLTP', e.target.checked)} className="sr-only" />
+                  <span aria-hidden="true" className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out" style={{ transform: settings.useSignalSLTP ? 'translateX(100%)' : 'translateX(0)' }}></span>
+                </div>
+                <div><span className="font-semibold text-sm">SL/TP из сигнала</span><p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Цены из анализа</p></div>
               </label>
-              <label className="flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition hover:border-[var(--accent)]/50" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
-                <input type="checkbox" checked={settings.autoClose} onChange={(e) => updateSetting('autoClose', e.target.checked)} className="rounded w-4 h-4 accent-[var(--accent)]" />
-                <div><span className="font-medium">Авто-закрытие %</span><p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>TP/SL в % после 1 мин</p></div>
+              <label className="flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all duration-200 hover:border-[var(--accent)]" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
+                <div className="relative inline-flex h-5 w-9 shrink-0 items-center justify-center rounded-full cursor-pointer transition-colors duration-200 ease-in-out focus:outline-none" style={{ background: settings.autoClose ? 'var(--accent)' : 'var(--bg-elevated)' }}>
+                  <input type="checkbox" checked={settings.autoClose} onChange={(e) => updateSetting('autoClose', e.target.checked)} className="sr-only" />
+                  <span aria-hidden="true" className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out" style={{ transform: settings.autoClose ? 'translateX(100%)' : 'translateX(0)' }}></span>
+                </div>
+                <div><span className="font-semibold text-sm">Авто-закрытие %</span><p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>TP/SL в % после 1 мин</p></div>
               </label>
               <div className="flex items-center gap-3 p-4 rounded-lg border shrink-0" style={{ borderColor: 'var(--border)', background: 'var(--bg-card-solid)' }}>
                 <span className="text-sm font-medium whitespace-nowrap">Trailing Stop</span>

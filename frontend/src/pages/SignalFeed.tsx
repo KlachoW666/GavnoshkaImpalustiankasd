@@ -40,9 +40,9 @@ function ConfidenceBar({ value }: { value: number }) {
   const color = value >= 0.8 ? 'var(--success)' : value >= 0.6 ? 'var(--warning)' : 'var(--danger)';
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-hover-strong)' }}>
+      <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
         <div
-          className="h-full rounded-full transition-all duration-500"
+          className="h-full rounded-full transition-all duration-500 shadow-glow"
           style={{ width: `${pct}%`, background: color }}
         />
       </div>
@@ -53,18 +53,18 @@ function ConfidenceBar({ value }: { value: number }) {
 
 function SignalSkeleton() {
   return (
-    <Card variant="glass" padding="normal">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="animate-shimmer h-5 w-24 rounded" />
-        <div className="animate-shimmer h-5 w-14 rounded" />
+    <Card variant="default" padding="compact">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="animate-shimmer h-4 w-24 rounded" />
+        <div className="animate-shimmer h-4 w-14 rounded" />
       </div>
-      <div className="grid grid-cols-4 gap-3 mb-3">
-        <div className="animate-shimmer h-12 rounded-lg" />
-        <div className="animate-shimmer h-12 rounded-lg" />
-        <div className="animate-shimmer h-12 rounded-lg" />
-        <div className="animate-shimmer h-12 rounded-lg" />
+      <div className="grid grid-cols-4 gap-2 mb-2">
+        <div className="animate-shimmer h-10 rounded" />
+        <div className="animate-shimmer h-10 rounded" />
+        <div className="animate-shimmer h-10 rounded" />
+        <div className="animate-shimmer h-10 rounded" />
       </div>
-      <div className="animate-shimmer h-2 w-full rounded" />
+      <div className="animate-shimmer h-1.5 w-full rounded" />
     </Card>
   );
 }
@@ -104,7 +104,7 @@ export default function SignalFeed() {
           const sig = payload.signal ?? payload;
           if (sig?.symbol != null) setSignals((prev) => [sig as TradingSignal, ...prev]);
         }
-      } catch {}
+      } catch { }
     };
     return () => ws.close();
   }, [token]);
@@ -147,7 +147,7 @@ export default function SignalFeed() {
       </div>
 
       {/* Stats + Filters */}
-      <Card variant="glass" padding="compact">
+      <Card variant="default" padding="none" className="p-2 border-none" style={{ background: 'var(--bg-surface)' }}>
         <div className="flex flex-wrap items-center gap-3">
           {/* Direction tabs */}
           <Tabs
@@ -200,23 +200,20 @@ export default function SignalFeed() {
       </Card>
 
       {/* Signal list */}
-      {loading && signals.length === 0 ? (
+      {loading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map((i) => <SignalSkeleton key={i} />)}
+          {Array.from({ length: 5 }).map((_, i) => <SignalSkeleton key={`skel-${i}`} />)}
         </div>
       ) : filteredAndSorted.length === 0 ? (
-        <Card variant="glass" padding="spacious" className="text-center">
-          <svg className="w-10 h-10 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: 'var(--text-muted)' }}>
-            <path d="M13 10V3L4 14h7v7l9-11h-7z" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <p className="text-base font-medium mb-1">Нет сигналов</p>
-          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-            {signals.length === 0 ? 'Сигналы появятся после анализа рынка.' : 'Попробуйте ослабить фильтры.'}
-          </p>
-          <Button variant="primary" size="sm" onClick={() => navigateTo('chart')}>
-            Перейти к Графику
-          </Button>
-        </Card>
+        <div className="text-center py-12">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <p className="font-medium" style={{ color: 'var(--text-primary)' }}>Нет активных сигналов</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Измените фильтры или подождите новые идеи</p>
+        </div>
       ) : (
         <div className="space-y-3">
           {filteredAndSorted.map((s, idx) => {
@@ -224,16 +221,17 @@ export default function SignalFeed() {
             return (
               <Card
                 key={s.id ?? `sig-${idx}`}
-                variant="glass"
+                variant="default"
                 padding="none"
                 hoverable
-                className="overflow-hidden"
+                className="overflow-hidden border-b last:border-b-0 rounded-none sm:rounded"
+                style={{ border: 'none', borderBottom: '1px solid var(--border)' }}
               >
                 <div
-                  className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+                  className="absolute left-0 top-0 bottom-0 w-1 opacity-100"
                   style={{ background: isLong ? 'var(--success)' : 'var(--danger)' }}
                 />
-                <div className="p-4 sm:p-5 pl-5">
+                <div className="p-3 sm:p-4 pl-4">
                   {/* Top row */}
                   <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                     <div className="flex flex-wrap items-center gap-2">
@@ -261,24 +259,24 @@ export default function SignalFeed() {
                   </div>
 
                   {/* Price grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                    <div className="rounded-lg px-3 py-2" style={{ background: 'var(--bg-hover)' }}>
-                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>Вход</p>
-                      <p className="font-mono text-sm font-semibold tabular-nums">{formatPrice(s.entry_price)}</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 mt-1">
+                    <div className="rounded px-3 py-2 border" style={{ background: 'var(--bg-base)', border: '1px solid var(--border)' }}>
+                      <p className="text-[10px] uppercase tracking-wider mb-0.5 font-semibold" style={{ color: 'var(--text-muted)' }}>Вход</p>
+                      <p className="font-mono text-sm font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{formatPrice(s.entry_price)}</p>
                     </div>
-                    <div className="rounded-lg px-3 py-2" style={{ background: 'var(--danger-dim)' }}>
-                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--danger)' }}>SL</p>
-                      <p className="font-mono text-sm font-semibold tabular-nums" style={{ color: 'var(--danger)' }}>{formatPrice(s.stop_loss)}</p>
+                    <div className="rounded px-3 py-2 border" style={{ background: 'var(--bg-base)', border: '1px solid rgba(246, 70, 93, 0.2)' }}>
+                      <p className="text-[10px] uppercase tracking-wider mb-0.5 font-semibold" style={{ color: 'var(--danger)' }}>Stop Loss</p>
+                      <p className="font-mono text-sm font-bold tabular-nums" style={{ color: 'var(--danger)' }}>{formatPrice(s.stop_loss)}</p>
                     </div>
-                    <div className="rounded-lg px-3 py-2" style={{ background: 'var(--success-dim)' }}>
-                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--success)' }}>TP</p>
-                      <p className="font-mono text-sm tabular-nums" style={{ color: 'var(--success)' }}>
+                    <div className="rounded px-3 py-2 border" style={{ background: 'var(--bg-base)', border: '1px solid rgba(14, 203, 129, 0.2)' }}>
+                      <p className="text-[10px] uppercase tracking-wider mb-0.5 font-semibold" style={{ color: 'var(--success)' }}>Take Profit</p>
+                      <p className="font-mono text-sm font-medium tabular-nums" style={{ color: 'var(--success)' }}>
                         {(Array.isArray(s.take_profit) ? s.take_profit : []).map((t) => formatPrice(t)).join(' / ') || '—'}
                       </p>
                     </div>
-                    <div className="rounded-lg px-3 py-2" style={{ background: 'var(--bg-hover)' }}>
-                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>R:R</p>
-                      <p className="font-mono text-sm font-semibold tabular-nums" style={{ color: 'var(--warning)' }}>
+                    <div className="rounded px-3 py-2 border" style={{ background: 'var(--bg-base)', border: '1px solid var(--border)' }}>
+                      <p className="text-[10px] uppercase tracking-wider mb-0.5 font-semibold" style={{ color: 'var(--text-muted)' }}>Risk:Reward</p>
+                      <p className="font-mono text-sm font-bold tabular-nums" style={{ color: 'var(--accent)' }}>
                         {typeof s.risk_reward === 'number' ? s.risk_reward.toFixed(1) : '—'}
                       </p>
                     </div>

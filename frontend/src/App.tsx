@@ -215,7 +215,7 @@ function useSignalToasts() {
               g.gain.exponentialRampToValueAtTime(0.01, ac.currentTime + 0.15);
               o.start(ac.currentTime);
               o.stop(ac.currentTime + 0.15);
-            } catch {}
+            } catch { }
           }
           if (cfg?.desktop && 'Notification' in window && Notification.permission === 'granted') {
             new Notification(`${s.symbol ?? '?'} ${s.direction ?? '?'}`, {
@@ -224,7 +224,7 @@ function useSignalToasts() {
             });
           }
         }
-      } catch {}
+      } catch { }
     };
     return () => ws.close();
   }, [addToast, token]);
@@ -266,11 +266,10 @@ function NavDropdown({
       <button
         type="button"
         onClick={onToggle}
-        className="flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors rounded"
-        style={{ color: hasActive ? 'var(--accent)' : 'var(--text-secondary)' }}
+        className={`flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-bold uppercase tracking-wide transition-all duration-200 rounded-lg ${hasActive ? 'text-[var(--accent)] bg-[var(--accent-dim)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'}`}
       >
         {label}
-        <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
@@ -282,7 +281,7 @@ function NavDropdown({
             style={{
               background: 'var(--bg-card-solid)',
               border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-lg)',
+              borderRadius: 'var(--radius)',
               boxShadow: 'var(--shadow-lg)',
             }}
           >
@@ -293,13 +292,8 @@ function NavDropdown({
                   key={item.id}
                   type="button"
                   onClick={() => { onSelect(item.id); onToggle(); }}
-                  className="w-full px-4 py-2 text-left text-sm flex items-center gap-2.5 transition-colors"
-                  style={{
-                    color: active ? 'var(--accent)' : 'var(--text-secondary)',
-                    background: active ? 'var(--accent-dim)' : 'transparent',
-                  }}
-                  onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--bg-hover)'; }}
-                  onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+                  className={`w-full px-4 py-2.5 text-left text-sm font-medium flex items-center gap-3 transition-all duration-200 ${active ? 'bg-[var(--accent-dim)] text-[var(--accent)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'}`}
+                  style={{ borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent' }}
                 >
                   <NavIcon name={item.id} className="w-4 h-4 shrink-0" />
                   {item.label}
@@ -359,7 +353,7 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const { toasts, clearAll } = useNotifications();
 
-  
+
   // Load user mode on auth
   useEffect(() => {
     if (!user?.id || !token) return;
@@ -393,7 +387,7 @@ export default function App() {
           }
           return;
         }
-      } catch {}
+      } catch { }
       setPage((prev) => {
         const fromLoc = getPageFromLocation(allowedSet);
         const candidate = allowedSet.has(prev) ? prev : fromLoc;
@@ -465,8 +459,8 @@ export default function App() {
       if (e.ctrlKey || e.metaKey) {
         const target: Page | null =
           e.key === '1' ? 'dashboard' : e.key === '2' ? 'signals' : e.key === '3' ? 'chart' :
-          e.key === '4' ? 'demo' : e.key === '5' ? 'autotrade' : e.key === '6' ? 'scanner' :
-          e.key === '7' ? 'pnl' : e.key === ',' ? 'settings' : e.key === '9' ? 'activate' : e.key === '8' ? 'admin' : null;
+            e.key === '4' ? 'demo' : e.key === '5' ? 'autotrade' : e.key === '6' ? 'scanner' :
+              e.key === '7' ? 'pnl' : e.key === ',' ? 'settings' : e.key === '9' ? 'activate' : e.key === '8' ? 'admin' : null;
         if (target && allowedSet.has(target)) {
           setPage(target);
           e.preventDefault();
@@ -500,333 +494,332 @@ export default function App() {
 
   return (
     <NavigationProvider onNavigate={stableNavigateTo} onNavigateToTrader={stableNavigateToTrader}>
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+      <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
 
-      {/* ══ Bitget-style Horizontal Top Nav ═══════════════════════════ */}
-      <header
-        className="h-12 shrink-0 flex items-center justify-between px-4 lg:px-6 border-b sticky top-0 z-30"
-        style={{ background: 'var(--bg-topbar)', borderColor: 'var(--border)' }}
-      >
-        {/* Left: Logo + Nav groups (desktop) */}
-        <div className="flex items-center gap-1">
-          {/* Mobile hamburger */}
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(true)}
-            className="lg:hidden p-2 -ml-2 rounded transition-colors hover:bg-[var(--bg-hover)]"
-            style={{ color: 'var(--text-secondary)' }}
-            aria-label="Меню"
-          >
-            <NavIcon name="menu" className="w-5 h-5" />
-          </button>
-
-          {/* Logo */}
-          <div className="flex items-center gap-2 mr-4 cursor-pointer" onClick={() => setPageSafe('dashboard')}>
-            <img src="/logo.svg" alt="CLABX" className="h-6 w-6 object-contain" />
-            <span className="font-bold text-sm tracking-tight hidden sm:block" style={{ color: 'var(--accent)' }}>CLABX</span>
-          </div>
-
-          {/* Desktop dropdown nav groups */}
-          <nav className="hidden lg:flex items-center gap-0.5">
-            {(['trading', 'analytics', 'account'] as const).map((group) => {
-              const items = PAGES.filter((p) => p.group === group);
-              if (items.length === 0) return null;
-              return (
-                <NavDropdown
-                  key={group}
-                  label={GROUP_LABELS[group]}
-                  items={items}
-                  activePage={safePage}
-                  onSelect={setPageSafe}
-                  open={openDropdown === group}
-                  onToggle={() => setOpenDropdown(openDropdown === group ? null : group)}
-                />
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Right: Notifications + User */}
-        <div className="flex items-center gap-1">
-          {/* Notifications */}
-          <button
-            type="button"
-            onClick={() => { setNotifOpen(!notifOpen); setUserMenuOpen(false); setOpenDropdown(null); }}
-            className="relative p-2 rounded transition-colors hover:bg-[var(--bg-hover)]"
-            aria-label="Уведомления"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} style={{ color: 'var(--text-secondary)' }}>
-              <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            {toasts.length > 0 && (
-              <span
-                className="absolute top-1 right-1 min-w-[14px] h-[14px] rounded-full flex items-center justify-center text-[9px] font-bold"
-                style={{ background: 'var(--danger)', color: '#fff' }}
-              >
-                {Math.min(toasts.length, 99)}
-              </span>
-            )}
-          </button>
-
-          {/* User menu */}
-          <div className="relative">
+        {/* ══ Bitget-style Horizontal Top Nav ═══════════════════════════ */}
+        <header
+          className="h-12 shrink-0 flex items-center justify-between px-4 lg:px-6 border-b sticky top-0 z-30"
+          style={{ background: 'var(--bg-topbar)', borderColor: 'var(--border)' }}
+        >
+          {/* Left: Logo + Nav groups (desktop) */}
+          <div className="flex items-center gap-1">
+            {/* Mobile hamburger */}
             <button
               type="button"
-              onClick={() => { setUserMenuOpen(!userMenuOpen); setNotifOpen(false); setOpenDropdown(null); }}
-              className="flex items-center gap-2 p-1.5 rounded transition-colors hover:bg-[var(--bg-hover)]"
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden p-2 -ml-2 rounded transition-colors hover:bg-[var(--bg-hover)]"
+              style={{ color: 'var(--text-secondary)' }}
+              aria-label="Меню"
             >
-              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>
-                {(user.username || '?')[0].toUpperCase()}
-              </div>
-              <span className="hidden sm:block text-sm font-medium max-w-[100px] truncate" style={{ color: 'var(--text-secondary)' }}>{user.username}</span>
-              <svg className="w-3 h-3 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} style={{ color: 'var(--text-muted)' }}>
-                <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <NavIcon name="menu" className="w-5 h-5" />
             </button>
-            {userMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
-                <div
-                  className="absolute right-0 top-full mt-1 py-1 min-w-[180px] z-50 animate-fade-in"
-                  style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)' }}
-                >
-                  <div className="px-4 py-2.5 border-b" style={{ borderColor: 'var(--border)' }}>
-                    <p className="text-sm font-medium truncate">{user.username}</p>
-                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                      {user.allowedTabs?.includes('admin') ? 'Администратор' : 'Трейдер'}
-                    </p>
-                  </div>
-                  {[
-                    { id: 'profile' as Page, label: 'Профиль', icon: 'profile' },
-                    { id: 'wallet' as Page, label: 'Кошелёк', icon: 'wallet' },
-                    { id: 'settings' as Page, label: 'Настройки', icon: 'settings' },
-                    { id: 'help' as Page, label: 'Помощь', icon: 'help' },
-                  ].map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => { setPageSafe(item.id); setUserMenuOpen(false); }}
-                      className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2.5"
-                    >
-                      <NavIcon name={item.icon} className="w-4 h-4" />
-                      {item.label}
-                    </button>
-                  ))}
-                  <div className="border-t my-1" style={{ borderColor: 'var(--border)' }} />
-                  <div className="px-4 py-2 flex items-center justify-between">
-                    <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Тема</span>
-                    <ThemeToggle />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => { setUserMenuOpen(false); logout(); }}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2.5"
-                    style={{ color: 'var(--danger)' }}
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    Выйти
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
 
-      {/* ── Notifications dropdown ────────────────────────────────────── */}
-      {notifOpen && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
-          <div
-            className="fixed right-4 sm:right-6 top-14 w-80 z-50 overflow-hidden animate-fade-in"
-            style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)' }}
-          >
-            <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border)' }}>
-              <span className="font-semibold text-sm">Уведомления</span>
-              {toasts.length > 0 && (
-                <button type="button" onClick={clearAll} className="text-xs font-medium hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
-                  Очистить
-                </button>
-              )}
+            {/* Logo */}
+            <div className="flex items-center gap-2 mr-4 cursor-pointer" onClick={() => setPageSafe('dashboard')}>
+              <img src="/logo.svg" alt="CLABX" className="h-6 w-6 object-contain" />
+              <span className="font-bold text-sm tracking-tight hidden sm:block" style={{ color: 'var(--accent)' }}>CLABX</span>
             </div>
-            <div className="max-h-72 overflow-y-auto custom-scrollbar">
-              {toasts.length === 0 ? (
-                <div className="px-5 py-8 text-center">
-                  <svg className="w-8 h-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: 'var(--text-muted)' }}>
-                    <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Нет уведомлений</p>
-                </div>
-              ) : (
-                toasts.slice().reverse().map((t) => (
-                  <div
-                    key={t.id}
-                    className="px-4 py-3 border-b hover:bg-[var(--bg-hover)] transition-colors"
-                    style={{ borderColor: 'var(--border)' }}
-                  >
-                    <p className="font-medium text-sm leading-snug">{t.title}</p>
-                    {t.message && <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>{t.message}</p>}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </>
-      )}
 
-      {/* ── Mobile drawer overlay ──────────────────────────────────────── */}
-      {mobileMenuOpen && (
-        <>
-          <div className="fixed inset-0 z-40 lg:hidden animate-fade-in" style={{ background: 'var(--bds-trans-mask)' }} onClick={() => setMobileMenuOpen(false)} />
-          <div
-            className="fixed top-0 left-0 z-50 w-72 max-w-[85vw] h-full overflow-y-auto lg:hidden animate-slide-up custom-scrollbar"
-            style={{ background: 'var(--bg-card-solid)', borderRight: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}
-          >
-            <div className="h-12 px-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)' }}>
-              <div className="flex items-center gap-2">
-                <img src="/logo.svg" alt="CLABX" className="h-5 w-5" />
-                <span className="font-bold text-sm" style={{ color: 'var(--accent)' }}>CLABX</span>
-              </div>
-              <button type="button" onClick={() => setMobileMenuOpen(false)} className="p-2 rounded hover:bg-[var(--bg-hover)]" style={{ color: 'var(--text-muted)' }}>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-            <nav className="p-2 flex flex-col gap-0.5">
+            {/* Desktop dropdown nav groups */}
+            <nav className="hidden lg:flex items-center gap-0.5">
               {(['trading', 'analytics', 'account'] as const).map((group) => {
                 const items = PAGES.filter((p) => p.group === group);
                 if (items.length === 0) return null;
                 return (
-                  <div key={group} className="mb-2">
-                    <p className="text-[11px] font-medium uppercase tracking-wider px-3 mb-1 mt-2" style={{ color: 'var(--text-muted)' }}>
-                      {GROUP_LABELS[group]}
-                    </p>
-                    {items.map((p) => {
-                      const active = safePage === p.id;
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => setPageSafe(p.id)}
-                          className="w-full px-3 py-2.5 text-left text-sm font-medium flex items-center gap-3 min-h-[40px] transition-colors"
-                          style={{
-                            color: active ? 'var(--accent)' : 'var(--text-secondary)',
-                            background: active ? 'var(--accent-dim)' : 'transparent',
-                            borderRadius: 'var(--radius)',
-                          }}
-                        >
-                          <NavIcon name={p.id} className="w-[18px] h-[18px] shrink-0" />
-                          {p.label}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <NavDropdown
+                    key={group}
+                    label={GROUP_LABELS[group]}
+                    items={items}
+                    activePage={safePage}
+                    onSelect={setPageSafe}
+                    open={openDropdown === group}
+                    onToggle={() => setOpenDropdown(openDropdown === group ? null : group)}
+                  />
                 );
               })}
             </nav>
           </div>
-        </>
-      )}
 
-      {/* ══ Main content ═══════════════════════════════════════════════ */}
-      <main className="flex-1 min-h-0 overflow-auto px-4 sm:px-6 lg:px-8 py-5 pb-32 lg:pb-5">
-        <Suspense fallback={
-          <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin-slow" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }} />
-          </div>
-        }>
-          <div key={safePage} className="animate-page-in max-w-7xl mx-auto">
-            {safePage === 'dashboard' && <Dashboard />}
-            {safePage === 'signals' && <SignalFeed />}
-            {safePage === 'trade' && <TradePage />}
-            {safePage === 'chart' && <ChartView />}
-            {safePage === 'demo' && <DemoPage />}
-            {safePage === 'autotrade' && <AutoTradingPage />}
-            {safePage === 'scanner' && <ScannerPage />}
-            {safePage === 'pnl' && <PnlCalculatorPage />}
-            {safePage === 'analytics' && <MyAnalyticsPage />}
-            {safePage === 'backtest' && <BacktestPage />}
-            {safePage === 'copy' && <CopyTradingPage />}
-            {safePage === 'social' && <SocialPage />}
-            {safePage === 'trader' && (
-              <TraderProfilePage
-                traderId={getTraderIdFromPath()}
-                onBackToSocial={() => setPageSafe('social')}
-              />
-            )}
-            {safePage === 'settings' && <SettingsPage />}
-            {safePage === 'activate' && <ActivatePage />}
-            {safePage === 'admin' && <AdminPanel />}
-            {safePage === 'profile' && <ProfilePage />}
-            {safePage === 'wallet' && <WalletPage />}
-            {safePage === 'help' && <HelpPage />}
-            {safePage === 'privacy' && <PrivacyPage />}
-            {safePage === 'terms' && <TermsPage />}
-          </div>
-        </Suspense>
-      </main>
-
-      {/* ══ Footer ═══════════════════════════════════════════════════ */}
-      <footer
-        className="hidden lg:block shrink-0 border-t px-6 py-2.5"
-        style={{ borderColor: 'var(--border)', background: 'var(--bg-topbar)', color: 'var(--text-muted)' }}
-      >
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[11px]">
-          <p>
-            © {year} <span style={{ color: 'var(--accent)' }}>CLABX</span> — Crypto Trading Platform
-          </p>
-          <div className="flex flex-wrap gap-4">
-            <a href="https://clabx.ru" target="_blank" rel="noreferrer" className="hover:text-[var(--text-secondary)] transition-colors">clabx.ru</a>
-            <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" className="hover:text-[var(--text-secondary)] transition-colors">@clabx_bot</a>
-            <a href="/help" onClick={(e) => { e.preventDefault(); setPageSafe('help'); }} className="hover:text-[var(--text-secondary)] transition-colors">Помощь</a>
-            <a href="/privacy" onClick={(e) => { e.preventDefault(); setPageSafe('privacy'); }} className="hover:text-[var(--text-secondary)] transition-colors">Конфиденциальность</a>
-            <a href="/terms" onClick={(e) => { e.preventDefault(); setPageSafe('terms'); }} className="hover:text-[var(--text-secondary)] transition-colors">Условия</a>
-          </div>
-        </div>
-      </footer>
-
-      {/* ══ Mobile bottom tab bar ═══════════════════════════════════ */}
-      <nav
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around border-t"
-        style={{
-          background: 'var(--bg-topbar)',
-          borderColor: 'var(--border)',
-          minHeight: '5.5rem',
-          paddingTop: '0.75rem',
-          paddingBottom: 'env(safe-area-inset-bottom, 0.5rem)'
-        }}
-      >
-        {MOBILE_TABS.filter((id) => allowedSet.has(id)).map((id) => {
-          const active = safePage === id;
-          const info = ALL_PAGES.find((p) => p.id === id);
-          return (
+          {/* Right: Notifications + User */}
+          <div className="flex items-center gap-1">
+            {/* Notifications */}
             <button
-              key={id}
               type="button"
-              onClick={() => setPageSafe(id)}
-              className="flex flex-col items-center justify-center gap-1.5 flex-1 py-2 transition-colors relative"
-              style={{ color: active ? 'var(--accent)' : 'var(--text-muted)' }}
+              onClick={() => { setNotifOpen(!notifOpen); setUserMenuOpen(false); setOpenDropdown(null); }}
+              className="relative p-2 rounded transition-colors hover:bg-[var(--bg-hover)]"
+              aria-label="Уведомления"
             >
-              <NavIcon name={id} className="w-7 h-7" />
-              <span className="text-xs font-medium">{info?.label ?? id}</span>
-              {active && (
-                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full" style={{ background: 'var(--accent)' }} />
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} style={{ color: 'var(--text-secondary)' }}>
+                <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {toasts.length > 0 && (
+                <span
+                  className="absolute top-1 right-1 min-w-[14px] h-[14px] rounded-full flex items-center justify-center text-[9px] font-bold"
+                  style={{ background: 'var(--danger)', color: '#fff' }}
+                >
+                  {Math.min(toasts.length, 99)}
+                </span>
               )}
             </button>
-          );
-        })}
-        <button
-          type="button"
-          onClick={() => setMobileMenuOpen(true)}
-          className="flex flex-col items-center justify-center gap-1.5 flex-1 py-2 transition-colors"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          <NavIcon name="menu" className="w-7 h-7" />
-          <span className="text-xs font-medium">Ещё</span>
-        </button>
-      </nav>
 
-      {!online && <OfflineBanner />}
-    </div>
+            {/* User menu */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => { setUserMenuOpen(!userMenuOpen); setNotifOpen(false); setOpenDropdown(null); }}
+                className="flex items-center gap-2 p-1.5 rounded transition-colors hover:bg-[var(--bg-hover)]"
+              >
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>
+                  {(user.username || '?')[0].toUpperCase()}
+                </div>
+                <span className="hidden sm:block text-sm font-medium max-w-[100px] truncate" style={{ color: 'var(--text-secondary)' }}>{user.username}</span>
+                <svg className="w-3 h-3 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} style={{ color: 'var(--text-muted)' }}>
+                  <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              {userMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                  <div
+                    className="absolute right-0 top-full mt-1 py-1 min-w-[180px] z-50 animate-fade-in"
+                    style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)' }}
+                  >
+                    <div className="px-4 py-2.5 border-b" style={{ borderColor: 'var(--border)' }}>
+                      <p className="text-sm font-medium truncate">{user.username}</p>
+                      <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                        {user.allowedTabs?.includes('admin') ? 'Администратор' : 'Трейдер'}
+                      </p>
+                    </div>
+                    {[
+                      { id: 'profile' as Page, label: 'Профиль', icon: 'profile' },
+                      { id: 'wallet' as Page, label: 'Кошелёк', icon: 'wallet' },
+                      { id: 'settings' as Page, label: 'Настройки', icon: 'settings' },
+                      { id: 'help' as Page, label: 'Помощь', icon: 'help' },
+                    ].map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => { setPageSafe(item.id); setUserMenuOpen(false); }}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2.5"
+                      >
+                        <NavIcon name={item.icon} className="w-4 h-4" />
+                        {item.label}
+                      </button>
+                    ))}
+                    <div className="border-t my-1" style={{ borderColor: 'var(--border)' }} />
+                    <div className="px-4 py-2 flex items-center justify-between">
+                      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Тема</span>
+                      <ThemeToggle />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setUserMenuOpen(false); logout(); }}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--bg-hover)] transition-colors flex items-center gap-2.5"
+                      style={{ color: 'var(--danger)' }}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      Выйти
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* ── Notifications dropdown ────────────────────────────────────── */}
+        {notifOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+            <div
+              className="fixed right-4 sm:right-6 top-14 w-80 z-50 overflow-hidden animate-fade-in"
+              style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)' }}
+            >
+              <div className="px-4 py-3 border-b flex justify-between items-center" style={{ borderColor: 'var(--border)' }}>
+                <span className="font-semibold text-sm">Уведомления</span>
+                {toasts.length > 0 && (
+                  <button type="button" onClick={clearAll} className="text-xs font-medium hover:opacity-80 transition-opacity" style={{ color: 'var(--accent)' }}>
+                    Очистить
+                  </button>
+                )}
+              </div>
+              <div className="max-h-72 overflow-y-auto custom-scrollbar">
+                {toasts.length === 0 ? (
+                  <div className="px-5 py-8 text-center">
+                    <svg className="w-8 h-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: 'var(--text-muted)' }}>
+                      <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Нет уведомлений</p>
+                  </div>
+                ) : (
+                  toasts.slice().reverse().map((t) => (
+                    <div
+                      key={t.id}
+                      className="px-4 py-3 border-b hover:bg-[var(--bg-hover)] transition-colors"
+                      style={{ borderColor: 'var(--border)' }}
+                    >
+                      <p className="font-medium text-sm leading-snug">{t.title}</p>
+                      {t.message && <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>{t.message}</p>}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── Mobile drawer overlay ──────────────────────────────────────── */}
+        {mobileMenuOpen && (
+          <>
+            <div className="fixed inset-0 z-40 lg:hidden animate-fade-in" style={{ background: 'var(--bds-trans-mask)' }} onClick={() => setMobileMenuOpen(false)} />
+            <div
+              className="fixed top-0 left-0 z-50 w-72 max-w-[85vw] h-full overflow-y-auto lg:hidden animate-slide-up custom-scrollbar"
+              style={{ background: 'var(--bg-card-solid)', borderRight: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}
+            >
+              <div className="h-12 px-4 flex items-center justify-between border-b" style={{ borderColor: 'var(--border)' }}>
+                <div className="flex items-center gap-2">
+                  <img src="/logo.svg" alt="CLABX" className="h-5 w-5" />
+                  <span className="font-bold text-sm" style={{ color: 'var(--accent)' }}>CLABX</span>
+                </div>
+                <button type="button" onClick={() => setMobileMenuOpen(false)} className="p-2 rounded hover:bg-[var(--bg-hover)]" style={{ color: 'var(--text-muted)' }}>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <nav className="p-2 flex flex-col gap-0.5">
+                {(['trading', 'analytics', 'account'] as const).map((group) => {
+                  const items = PAGES.filter((p) => p.group === group);
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={group} className="mb-2">
+                      <p className="text-[11px] font-medium uppercase tracking-wider px-3 mb-1 mt-2" style={{ color: 'var(--text-muted)' }}>
+                        {GROUP_LABELS[group]}
+                      </p>
+                      {items.map((p) => {
+                        const active = safePage === p.id;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => setPageSafe(p.id)}
+                            className={`w-full px-4 py-3 text-left text-sm font-medium flex items-center gap-3 min-h-[44px] transition-all duration-200 ${active ? 'bg-[var(--accent-dim)] text-[var(--accent)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'}`}
+                            style={{
+                              borderRadius: 'var(--radius)',
+                              borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent'
+                            }}
+                          >
+                            <NavIcon name={p.id} className="w-[18px] h-[18px] shrink-0" />
+                            {p.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </nav>
+            </div>
+          </>
+        )}
+
+        {/* ══ Main content ═══════════════════════════════════════════════ */}
+        <main className="flex-1 min-h-0 overflow-auto px-2 sm:px-4 lg:px-6 py-4 pb-32 lg:pb-8">
+          <Suspense fallback={
+            <div className="flex items-center justify-center py-20">
+              <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin-slow" style={{ borderColor: 'var(--border)', borderTopColor: 'var(--accent)' }} />
+            </div>
+          }>
+            <div key={safePage} className="animate-page-in max-w-[1440px] mx-auto flex flex-col gap-3">
+              {safePage === 'dashboard' && <Dashboard />}
+              {safePage === 'signals' && <SignalFeed />}
+              {safePage === 'trade' && <TradePage />}
+              {safePage === 'chart' && <ChartView />}
+              {safePage === 'demo' && <DemoPage />}
+              {safePage === 'autotrade' && <AutoTradingPage />}
+              {safePage === 'scanner' && <ScannerPage />}
+              {safePage === 'pnl' && <PnlCalculatorPage />}
+              {safePage === 'analytics' && <MyAnalyticsPage />}
+              {safePage === 'backtest' && <BacktestPage />}
+              {safePage === 'copy' && <CopyTradingPage />}
+              {safePage === 'social' && <SocialPage />}
+              {safePage === 'trader' && (
+                <TraderProfilePage
+                  traderId={getTraderIdFromPath()}
+                  onBackToSocial={() => setPageSafe('social')}
+                />
+              )}
+              {safePage === 'settings' && <SettingsPage />}
+              {safePage === 'activate' && <ActivatePage />}
+              {safePage === 'admin' && <AdminPanel />}
+              {safePage === 'profile' && <ProfilePage />}
+              {safePage === 'wallet' && <WalletPage />}
+              {safePage === 'help' && <HelpPage />}
+              {safePage === 'privacy' && <PrivacyPage />}
+              {safePage === 'terms' && <TermsPage />}
+            </div>
+          </Suspense>
+        </main>
+
+        {/* ══ Footer ═══════════════════════════════════════════════════ */}
+        <footer
+          className="hidden lg:block shrink-0 border-t px-6 py-2.5"
+          style={{ borderColor: 'var(--border)', background: 'var(--bg-topbar)', color: 'var(--text-muted)' }}
+        >
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[11px]">
+            <p>
+              © {year} <span style={{ color: 'var(--accent)' }}>CLABX</span> — Crypto Trading Platform
+            </p>
+            <div className="flex flex-wrap gap-4">
+              <a href="https://clabx.ru" target="_blank" rel="noreferrer" className="hover:text-[var(--text-secondary)] transition-colors">clabx.ru</a>
+              <a href="https://t.me/clabx_bot" target="_blank" rel="noreferrer" className="hover:text-[var(--text-secondary)] transition-colors">@clabx_bot</a>
+              <a href="/help" onClick={(e) => { e.preventDefault(); setPageSafe('help'); }} className="hover:text-[var(--text-secondary)] transition-colors">Помощь</a>
+              <a href="/privacy" onClick={(e) => { e.preventDefault(); setPageSafe('privacy'); }} className="hover:text-[var(--text-secondary)] transition-colors">Конфиденциальность</a>
+              <a href="/terms" onClick={(e) => { e.preventDefault(); setPageSafe('terms'); }} className="hover:text-[var(--text-secondary)] transition-colors">Условия</a>
+            </div>
+          </div>
+        </footer>
+
+        {/* ══ Mobile bottom tab bar ═══════════════════════════════════ */}
+        <nav
+          className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around border-t"
+          style={{
+            background: 'var(--bg-topbar)',
+            borderColor: 'var(--border)',
+            minHeight: '5.5rem',
+            paddingTop: '0.75rem',
+            paddingBottom: 'env(safe-area-inset-bottom, 0.5rem)'
+          }}
+        >
+          {MOBILE_TABS.filter((id) => allowedSet.has(id)).map((id) => {
+            const active = safePage === id;
+            const info = ALL_PAGES.find((p) => p.id === id);
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setPageSafe(id)}
+                className="flex flex-col items-center justify-center gap-1.5 flex-1 py-2 transition-colors relative"
+                style={{ color: active ? 'var(--accent)' : 'var(--text-muted)' }}
+              >
+                <NavIcon name={id} className="w-7 h-7" />
+                <span className="text-xs font-medium">{info?.label ?? id}</span>
+                {active && (
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full" style={{ background: 'var(--accent)' }} />
+                )}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex flex-col items-center justify-center gap-1.5 flex-1 py-2 transition-colors"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <NavIcon name="menu" className="w-7 h-7" />
+            <span className="text-xs font-medium">Ещё</span>
+          </button>
+        </nav>
+
+        {!online && <OfflineBanner />}
+      </div>
     </NavigationProvider>
   );
 }

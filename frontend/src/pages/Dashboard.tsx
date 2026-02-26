@@ -46,7 +46,7 @@ export interface NewsItem {
 
 function StatSkeleton() {
   return (
-    <div className="rounded-2xl p-5" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+    <div className="rounded p-5" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
       <div className="animate-shimmer h-3 w-20 rounded mb-3" />
       <div className="animate-shimmer h-8 w-32 rounded" />
     </div>
@@ -75,15 +75,15 @@ export default function Dashboard() {
   const display = stats?.displayEnabled && stats?.display
     ? { ...stats.display, signalsCount: stats.display.signalsCount + signals.length }
     : stats ? {
-        volumeEarned: stats.volumeEarned,
-        ordersTotal: stats.orders.total,
-        ordersWins: stats.orders.wins,
-        ordersLosses: stats.orders.losses,
-        ordersWinRate: stats.orders.winRate,
-        usersCount: stats.usersCount,
-        onlineUsersCount: stats.onlineUsersCount,
-        signalsCount: signals.length
-      } : null;
+      volumeEarned: stats.volumeEarned,
+      ordersTotal: stats.orders.total,
+      ordersWins: stats.orders.wins,
+      ordersLosses: stats.orders.losses,
+      ordersWinRate: stats.orders.winRate,
+      usersCount: stats.usersCount,
+      onlineUsersCount: stats.onlineUsersCount,
+      signalsCount: signals.length
+    } : null;
 
   useEffect(() => {
     const fetchStats = () => {
@@ -97,7 +97,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-    api.get<TradingSignal[]>('/signals?limit=10', { headers }).then(setSignals).catch(() => {});
+    api.get<TradingSignal[]>('/signals?limit=10', { headers }).then(setSignals).catch(() => { });
     api.get<{ news: NewsItem[] }>('/news').then((d) => setNews(d.news || [])).catch(() => setNews([]));
     const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
     const ws = new WebSocket(wsUrl);
@@ -110,7 +110,7 @@ export default function Dashboard() {
           const sig = payload.signal ?? payload;
           if (sig?.symbol != null) setSignals((prev) => [sig as TradingSignal, ...prev.slice(0, 9)]);
         }
-      } catch {}
+      } catch { }
     };
     return () => ws.close();
   }, [token]);
@@ -145,9 +145,23 @@ export default function Dashboard() {
     );
   }
 
+  if (statsLoading && !stats) {
+    return (
+      <div className="space-y-6 animate-page-in">
+        <h1 className="text-2xl font-bold tracking-tight mb-2">Обзор</h1>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatSkeleton />
+          <StatSkeleton />
+          <StatSkeleton />
+          <StatSkeleton />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 animate-page-in">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="space-y-8 animate-page-in">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         {statsLoading ? (
           [1, 2, 3, 4].map((i) => <StatSkeleton key={i} />)
         ) : (
@@ -160,8 +174,8 @@ export default function Dashboard() {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Объём PnL</p>
-                  <p className={`text-2xl font-bold tabular-nums ${display && display.volumeEarned >= 0 ? 'text-gradient-success' : 'text-gradient-danger'}`}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Объём PnL</p>
+                  <p className="text-3xl font-extrabold tabular-nums tracking-tight text-white mb-1" style={{ textShadow: 'var(--shadow-glow)' }}>
                     {display ? formatNum4Signed(display.volumeEarned) : '—'} $
                   </p>
                 </div>
@@ -169,14 +183,14 @@ export default function Dashboard() {
             </Card>
 
             <Card variant="glass" hoverable>
-              <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Ордера</p>
-              <p className="text-2xl font-bold tabular-nums mt-1">{display ? display.ordersTotal : '—'}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Ордера</p>
+              <p className="text-3xl font-extrabold tabular-nums tracking-tight text-white mt-1">{display ? display.ordersTotal : '—'}</p>
               {display && <div className="flex gap-2 mt-2"><Badge variant="success">{display.ordersWins}W</Badge><Badge variant="danger">{display.ordersLosses}L</Badge></div>}
             </Card>
 
             <Card variant="glass" hoverable>
-              <p className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Пользователи</p>
-              <p className="text-2xl font-bold tabular-nums mt-1" style={{ color: 'var(--accent)' }}>{display ? display.usersCount : '—'}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Пользователи</p>
+              <p className="text-3xl font-extrabold tabular-nums tracking-tight mt-1" style={{ color: 'var(--accent)', textShadow: 'var(--shadow-glow)' }}>{display ? display.usersCount : '—'}</p>
               {display && <p className="text-xs mt-2 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: 'var(--success)' }} /><span style={{ color: 'var(--success)' }}>онлайн {display.onlineUsersCount}</span></p>}
             </Card>
 
@@ -205,7 +219,7 @@ export default function Dashboard() {
             { n: 3, title: 'Авто-трейд', desc: 'Запустите автоматические сделки' },
           ].map((s) => (
             <div key={s.n} className="flex gap-4">
-              <span className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0" style={{ background: 'var(--accent-gradient)', color: '#000' }}>{s.n}</span>
+              <span className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0" style={{ background: 'var(--accent-gradient)', color: '#000', boxShadow: 'var(--shadow-glow)' }}>{s.n}</span>
               <div>
                 <p className="font-semibold">{s.title}</p>
                 <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{s.desc}</p>
@@ -315,6 +329,6 @@ export default function Dashboard() {
           </div>
         )}
       </Modal>
-    </div>
+    </div >
   );
 }

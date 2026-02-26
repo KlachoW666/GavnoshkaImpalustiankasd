@@ -17,24 +17,24 @@ const variantStyles: Record<ButtonVariant, React.CSSProperties> = {
     background: 'var(--accent-gradient)',
     color: '#000',
     border: 'none',
-    boxShadow: '0 4px 14px var(--accent-glow)',
+    boxShadow: 'var(--shadow-glow)',
   },
   secondary: {
-    background: 'var(--bg-hover)',
+    background: 'var(--bg-glass-strong)',
     color: 'var(--text-primary)',
-    border: '1px solid var(--border)',
+    border: '1px solid var(--border-strong)',
   },
   danger: {
-    background: 'var(--gradient-danger)',
+    background: 'var(--danger)',
     color: '#fff',
     border: 'none',
-    boxShadow: '0 4px 14px var(--danger-glow)',
+    boxShadow: 'var(--shadow-glow-danger)',
   },
   success: {
-    background: 'var(--gradient-success)',
-    color: '#fff',
+    background: 'var(--success)',
+    color: '#000',
     border: 'none',
-    boxShadow: '0 4px 14px var(--success-glow)',
+    boxShadow: 'var(--shadow-glow-success)',
   },
   ghost: {
     background: 'transparent',
@@ -49,11 +49,13 @@ const variantStyles: Record<ButtonVariant, React.CSSProperties> = {
 };
 
 const sizeStyles: Record<ButtonSize, React.CSSProperties> = {
-  sm: { padding: '6px 12px', fontSize: '12px', borderRadius: 'var(--radius)' },
-  md: { padding: '10px 18px', fontSize: '14px', borderRadius: 'var(--radius-md)' },
-  lg: { padding: '12px 24px', fontSize: '15px', borderRadius: 'var(--radius-lg)' },
-  xl: { padding: '14px 32px', fontSize: '16px', borderRadius: 'var(--radius-xl)' },
+  sm: { padding: '6px 12px', fontSize: '12px', borderRadius: 'var(--radius-sm)' },
+  md: { padding: '10px 18px', fontSize: '14px', borderRadius: 'var(--radius)' },
+  lg: { padding: '12px 24px', fontSize: '15px', borderRadius: 'var(--radius)' },
+  xl: { padding: '14px 28px', fontSize: '16px', borderRadius: 'var(--radius-md)' },
 };
+
+
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = 'primary', size = 'md', loading, fullWidth, icon, iconPosition = 'left', className = '', children, disabled, style, ...rest }, ref) => {

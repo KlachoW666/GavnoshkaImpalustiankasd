@@ -86,27 +86,29 @@ function ohlcToHeikinAshi(candles: OHLCVCandle[], timeframe: string): Candlestic
   return out;
 }
 
+
+
 function StableOrderbookList({ bids, asks }: { bids: [number, number][]; asks: [number, number][] }) {
   const askRows = [...(asks || [])].reverse().slice(0, OB_ROWS);
   const bidRows = (bids || []).slice(0, OB_ROWS);
   return (
-    <div className="text-sm font-mono">
+    <div className="text-[11px] font-mono">
       <div className="text-[10px] uppercase tracking-wider py-1" style={{ color: 'var(--danger)' }}>Ask</div>
       {Array.from({ length: OB_ROWS }, (_, i) => {
         const row = askRows[i];
         return (
-          <div key={`a-${i}`} className="flex justify-between py-0.5 h-6" style={{ color: 'var(--danger)', minHeight: '24px' }}>
+          <div key={`a-${i}`} className="flex justify-between py-[1px] h-[22px] min-h-[22px] hover:bg-[var(--bg-hover)] cursor-pointer transition-colors" style={{ color: 'var(--danger)' }}>
             <span className="truncate">{row ? Number(row[0]).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</span>
             <span className="text-right min-w-[4rem] shrink-0" style={{ color: 'var(--text-muted)' }}>{row ? Number(row[1]).toFixed(4) : '—'}</span>
           </div>
         );
       })}
-      <div className="border-t py-1 my-0.5 text-center text-[10px]" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>—</div>
+      <div className="border-t border-b py-0.5 my-[2px] font-bold text-center text-[10px] bg-[var(--bg-hover)]" style={{ borderColor: 'var(--border)', color: 'var(--warning)' }}>Спред</div>
       <div className="text-[10px] uppercase tracking-wider py-1" style={{ color: 'var(--success)' }}>Bid</div>
       {Array.from({ length: OB_ROWS }, (_, i) => {
         const row = bidRows[i];
         return (
-          <div key={`b-${i}`} className="flex justify-between py-0.5 h-6" style={{ color: 'var(--success)', minHeight: '24px' }}>
+          <div key={`b-${i}`} className="flex justify-between py-[1px] h-[22px] min-h-[22px] hover:bg-[var(--bg-hover)] cursor-pointer transition-colors" style={{ color: 'var(--success)' }}>
             <span className="truncate">{row ? Number(row[0]).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</span>
             <span className="text-right min-w-[4rem] shrink-0" style={{ color: 'var(--text-muted)' }}>{row ? Number(row[1]).toFixed(4) : '—'}</span>
           </div>
@@ -189,7 +191,7 @@ export default function TradePage() {
       .then(setTickers)
       .catch(() => setTickers([]));
     const id = setInterval(() => {
-      api.get<TickerRow[]>('/market/tickers').then(setTickers).catch(() => {});
+      api.get<TickerRow[]>('/market/tickers').then(setTickers).catch(() => { });
     }, 15000);
     return () => clearInterval(id);
   }, []);
@@ -202,7 +204,7 @@ export default function TradePage() {
     const id = setInterval(() => {
       api.get<{ balance: number }>('/wallet/balance', { headers: { Authorization: `Bearer ${token}` } as HeadersInit })
         .then((r) => setBalance(r.balance))
-        .catch(() => {});
+        .catch(() => { });
     }, 15000);
     return () => clearInterval(id);
   }, [token]);
@@ -261,7 +263,7 @@ export default function TradePage() {
     const id = setInterval(() => {
       api.get<{ ratePct?: string; rate?: number }>(`/market/funding?symbol=${encodeURIComponent(sym)}`)
         .then((r) => setFundingRatePct(r.ratePct ?? (r.rate != null ? (r.rate * 100).toFixed(4) + '%' : null)))
-        .catch(() => {});
+        .catch(() => { });
     }, 30000);
     return () => clearInterval(id);
   }, [symbol]);
@@ -300,12 +302,12 @@ export default function TradePage() {
             chartStyle === 'heikin-ashi'
               ? ohlcToHeikinAshi(candles, timeframe)
               : candles.map((c: OHLCVCandle) => ({
-                  time: toChartTime(c.timestamp, timeframe) as any,
-                  open: c.open,
-                  high: c.high,
-                  low: c.low,
-                  close: c.close
-                }));
+                time: toChartTime(c.timestamp, timeframe) as any,
+                open: c.open,
+                high: c.high,
+                low: c.low,
+                close: c.close
+              }));
           if (isInitial || lastCandleTimeRef.current === null) {
             seriesRef.current!.setData(candleData);
             volumeRef.current?.setData(volData);
@@ -322,32 +324,32 @@ export default function TradePage() {
           }
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [symbol, timeframe, chartStyle]);
 
   useEffect(() => {
     if (!chartRef.current) return;
     const el = chartRef.current;
     const chart = createChart(el, {
-      layout: { background: { color: '#000' }, textColor: '#71757A' },
-      grid: { vertLines: { color: '#1E2023' }, horzLines: { color: '#1E2023' } },
-      rightPriceScale: { scaleMargins: { top: 0.05, bottom: 0.15 }, borderColor: '#25282C' },
-      timeScale: { visible: true, rightOffset: 12, timeVisible: true, borderColor: '#25282C' },
-      crosshair: { vertLine: { color: 'rgba(255,156,46,0.2)' }, horzLine: { color: 'rgba(255,156,46,0.2)' } },
+      layout: { background: { color: 'transparent' }, textColor: '#A1A1AA' },
+      grid: { vertLines: { color: 'rgba(255,255,255,0.03)' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
+      rightPriceScale: { scaleMargins: { top: 0.05, bottom: 0.15 }, borderColor: 'rgba(255,255,255,0.08)' },
+      timeScale: { visible: true, rightOffset: 12, timeVisible: true, borderColor: 'rgba(255,255,255,0.08)' },
+      crosshair: { vertLine: { color: 'rgba(255,199,0,0.3)' }, horzLine: { color: 'rgba(255,199,0,0.3)' } },
       handleScale: { axisPressedMouseMove: true, pinch: true },
       handleScroll: { vertTouchDrag: true, horzTouchDrag: true }
     });
     const isLine = chartStyle === 'line';
     const series = isLine
-      ? chart.addLineSeries({ color: '#FF9C2E', lineWidth: 2 })
+      ? chart.addLineSeries({ color: '#FFC700', lineWidth: 2 })
       : chart.addCandlestickSeries({
-          upColor: '#20B26C',
-          downColor: '#EF454A',
-          borderUpColor: '#20B26C',
-          borderDownColor: '#EF454A',
-          wickUpColor: '#20B26C',
-          wickDownColor: '#EF454A'
-        });
+        upColor: '#00E676',
+        downColor: '#FF1744',
+        borderUpColor: '#00E676',
+        borderDownColor: '#FF1744',
+        wickUpColor: '#00E676',
+        wickDownColor: '#FF1744'
+      });
     if (!isLine) series.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.15 } });
     const volumeSeries = chart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '' });
     volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 }, borderVisible: false });
@@ -394,7 +396,7 @@ export default function TradePage() {
       fetch(`${API}/market/orderbook/${encodeURIComponent(sym)}?limit=15`)
         .then((r) => r.json())
         .then((data) => setOrderbook(data?.bids?.length || data?.asks?.length ? { bids: data.bids || [], asks: data.asks || [] } : null))
-        .catch(() => {});
+        .catch(() => { });
     }, 2000);
     return () => clearInterval(tid);
   }, [symbol]);
@@ -405,7 +407,7 @@ export default function TradePage() {
       fetch(`${API}/market/trades/${encodeURIComponent(sym)}?limit=30`)
         .then((r) => r.json())
         .then((data) => Array.isArray(data) && data.length && setTrades(data))
-        .catch(() => {});
+        .catch(() => { });
     };
     load();
     const tid = setInterval(load, 3000);
@@ -656,14 +658,14 @@ export default function TradePage() {
               <select
                 value={timeframe}
                 onChange={(e) => setTimeframe(e.target.value)}
-                className="input-field py-1 px-2 text-sm rounded"
+                className="input-field py-1 px-2 text-[11px] rounded-sm"
               >
                 {TIMEFRAMES.map((tf) => (
                   <option key={tf} value={tf}>{tf}</option>
                 ))}
               </select>
             </div>
-            <div ref={chartRef} className="flex-1 min-h-[280px]" style={{ height: '100%' }} />
+            <div ref={chartRef} className="flex-1 min-h-[280px]" style={{ height: '100%', background: '#0b0e11' }} />
           </div>
           {mainTab === 'overview' && (
             <div className="absolute inset-0 flex flex-col overflow-y-auto p-4" style={{ background: 'var(--bg)' }}>
@@ -762,10 +764,10 @@ export default function TradePage() {
               </div>
             )}
             {rightTab === 'trades' && (
-              <div className="space-y-0 text-sm font-mono">
+              <div className="space-y-0 text-[11px] font-mono">
                 {trades.length ? (
-                  trades.slice(0, 12).map((t, i) => (
-                    <div key={i} className="flex justify-between py-1.5 border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
+                  trades.slice(0, 16).map((t, i) => (
+                    <div key={i} className="flex justify-between py-1 border-b last:border-0 hover:bg-[var(--bg-hover)] cursor-pointer" style={{ borderColor: 'var(--border)' }}>
                       <span style={{ color: t.isBuy ? 'var(--success)' : 'var(--danger)' }}>
                         {t.price.toLocaleString('ru-RU', { minimumFractionDigits: 2 })}
                       </span>
@@ -808,163 +810,165 @@ export default function TradePage() {
                 {orderType === 'conditional' && (
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Цена срабатывания</label>
+                      <label className="block text-[10px] mb-1" style={{ color: 'var(--text-muted)' }}>Цена срабатывания</label>
                       <input
                         type="number"
                         value={triggerPrice}
                         onChange={(e) => setTriggerPrice(e.target.value)}
                         placeholder="0"
-                        className="input-field w-full rounded py-1.5 text-sm"
+                        className="input-field w-full rounded-sm py-1.5 text-xs font-mono"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>К-во (USDT)</label>
+                      <label className="block text-[10px] mb-1" style={{ color: 'var(--text-muted)' }}>К-во (USDT)</label>
                       <input
                         type="number"
                         value={sizeUsdt}
                         onChange={(e) => setSizeUsdt(e.target.value)}
                         placeholder="0"
                         min={1}
-                        className="input-field w-full rounded py-1.5 text-sm"
+                        className="input-field w-full rounded-sm py-1.5 text-xs font-mono"
                       />
                     </div>
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => setDirection('LONG')} className="flex-1 py-2 text-sm font-medium rounded" style={{ background: direction === 'LONG' ? 'var(--success)' : 'var(--bg)', color: direction === 'LONG' ? '#fff' : 'var(--text-muted)' }}>Лонг</button>
-                      <button type="button" onClick={() => setDirection('SHORT')} className="flex-1 py-2 text-sm font-medium rounded" style={{ background: direction === 'SHORT' ? 'var(--danger)' : 'var(--bg)', color: direction === 'SHORT' ? '#fff' : 'var(--text-muted)' }}>Шорт</button>
+                      <button type="button" onClick={() => setDirection('LONG')} className="flex-1 py-2 text-sm font-medium rounded" style={{ background: direction === 'LONG' ? 'var(--success)' : 'var(--bg)', color: direction === 'LONG' ? '#000' : 'var(--text-muted)', boxShadow: direction === 'LONG' ? 'var(--shadow-glow-success)' : 'none' }}>Лонг</button>
+                      <button type="button" onClick={() => setDirection('SHORT')} className="flex-1 py-2 text-sm font-medium rounded" style={{ background: direction === 'SHORT' ? 'var(--danger)' : 'var(--bg)', color: direction === 'SHORT' ? '#000' : 'var(--text-muted)', boxShadow: direction === 'SHORT' ? 'var(--shadow-glow-danger)' : 'none' }}>Шорт</button>
                     </div>
                     {tradeError && <p className="text-xs" style={{ color: 'var(--danger)' }}>{tradeError}</p>}
-                    <button type="button" onClick={handlePlaceTriggerOrder} disabled={loadingTrigger || !triggerPrice || !sizeUsdt} className="w-full py-2 rounded font-medium disabled:opacity-50 text-sm" style={{ background: 'var(--accent)', color: '#fff' }}>
+                    <button type="button" onClick={handlePlaceTriggerOrder} disabled={loadingTrigger || !triggerPrice || !sizeUsdt} className="w-full py-2 rounded font-medium disabled:opacity-50 text-sm" style={{ background: 'var(--accent-gradient)', color: '#000', boxShadow: 'var(--shadow-glow)' }}>
                       {loadingTrigger ? '…' : 'Разместить условный ордер'}
                     </button>
                   </div>
                 )}
                 {(orderType === 'limit' || orderType === 'market') && (
-                <>
-                {orderType === 'limit' && (
-                  <div>
-                    <div className="flex items-center gap-1 mb-1">
-                      <label className="block text-xs flex-1" style={{ color: 'var(--text-muted)' }}>Цена</label>
+                  <div className="space-y-3">
+                    {orderType === 'limit' && (
+                      <div>
+                        <div className="flex items-center gap-1 mb-1">
+                          <label className="block text-[10px] flex-1" style={{ color: 'var(--text-muted)' }}>Цена</label>
+                          <button
+                            type="button"
+                            onClick={setLastPrice}
+                            className="text-[10px] px-1.5 py-0.5 rounded-sm transition-colors hover:bg-[var(--bg-hover)]"
+                            style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+                          >
+                            Последняя
+                          </button>
+                        </div>
+                        <input
+                          type="number"
+                          value={limitPrice}
+                          onChange={(e) => setLimitPrice(e.target.value)}
+                          placeholder="0"
+                          className="input-field w-full rounded-sm py-1.5 text-xs font-mono"
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-[10px] mb-1" style={{ color: 'var(--text-muted)' }}>К-во (USDT)</label>
+                      <input
+                        type="number"
+                        value={sizeUsdt}
+                        onChange={(e) => { setSizeUsdt(e.target.value); setOrderPercent(0); }}
+                        placeholder="0"
+                        min={1}
+                        step={1}
+                        className="input-field w-full rounded-sm py-1.5 text-xs font-mono"
+                      />
+                      <div className="flex items-center gap-2 mt-2">
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          value={orderPercent}
+                          onChange={(e) => setSizeFromPercent(parseInt(e.target.value, 10))}
+                          className="flex-1 h-1 rounded slider-track"
+                        />
+                        <span className="text-[10px] tabular-nums w-8 text-right font-medium" style={{ color: 'var(--text-muted)' }}>{orderPercent}%</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span style={{ color: 'var(--text-muted)' }}>Стоим.</span>
+                        <span className="block font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                          {displaySize > 0 ? displaySize.toFixed(2) : '—'}
+                        </span>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)' }}>Цена ликвид.</span>
+                        <span className="block font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                          {lastPrice > 0 && displaySize > 0 ? lastPrice.toFixed(2) : '—'}
+                        </span>
+                      </div>
+                    </div>
+                    <button type="button" className="text-[10px] px-2 py-1 rounded" style={{ background: 'var(--bg)', color: 'var(--text-muted)' }}>
+                      Рассчитать
+                    </button>
+                    <div className="space-y-1.5">
+                      <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                        <input type="checkbox" checked={showTpSl} onChange={(e) => setShowTpSl(e.target.checked)} className="rounded-sm bg-[var(--bg)] border-[var(--border)]" />
+                        TP/SL
+                      </label>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                        <input type="checkbox" checked={postOnly} onChange={(e) => setPostOnly(e.target.checked)} className="rounded-sm bg-[var(--bg)] border-[var(--border)]" />
+                        Post-Only
+                      </label>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                        <input type="checkbox" checked={reduceOnly} onChange={(e) => setReduceOnly(e.target.checked)} className="rounded-sm bg-[var(--bg)] border-[var(--border)]" />
+                        Только сокращение
+                      </label>
+                    </div>
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Годен до отмены</p>
+                      <div className="flex gap-2 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                        <button type="button" className="hover:text-[var(--text-secondary)] transition-colors">Комиссия</button>
+                        <button type="button" className="hover:text-[var(--text-secondary)] transition-colors">Калькулятор</button>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={setLastPrice}
-                        className="text-[10px] px-1.5 py-0.5 rounded"
-                        style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}
+                        onClick={() => setDirection('LONG')}
+                        className="flex-1 py-2 text-sm font-semibold rounded-sm transition-opacity hover:opacity-90"
+                        style={{
+                          background: direction === 'LONG' ? 'var(--success)' : 'var(--bg-hover)',
+                          color: direction === 'LONG' ? '#fff' : 'var(--text-muted)',
+                        }}
                       >
-                        Последняя
+                        Лонг
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDirection('SHORT')}
+                        className="flex-1 py-2 text-sm font-semibold rounded-sm transition-opacity hover:opacity-90"
+                        style={{
+                          background: direction === 'SHORT' ? 'var(--danger)' : 'var(--bg-hover)',
+                          color: direction === 'SHORT' ? '#fff' : 'var(--text-muted)',
+                        }}
+                      >
+                        Шорт
                       </button>
                     </div>
-                    <input
-                      type="number"
-                      value={limitPrice}
-                      onChange={(e) => setLimitPrice(e.target.value)}
-                      placeholder="0"
-                      className="input-field w-full rounded py-1.5 text-sm"
-                    />
+                    {balance != null && (
+                      <div className="flex justify-between items-center mt-2">
+                        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Доступно</p>
+                        <p className="text-[10px] font-mono" style={{ color: 'var(--text-primary)' }}>{balance.toFixed(2)} USDT</p>
+                      </div>
+                    )}
+                    {tradeError && <p className="text-xs mt-1" style={{ color: 'var(--danger)' }}>{tradeError}</p>}
+                    <button
+                      type="button"
+                      onClick={handleOpenPosition}
+                      disabled={loadingOpen || !sizeUsdt || balance == null || balance < 1}
+                      className="w-full mt-2 py-2.5 rounded-sm font-bold disabled:opacity-50 text-sm transition-opacity hover:opacity-90"
+                      style={{
+                        background: direction === 'LONG' ? 'var(--success)' : 'var(--danger)',
+                        color: '#fff',
+                      }}
+                    >
+                      {loadingOpen ? 'Открытие…' : direction === 'LONG' ? 'Открыть Лонг' : 'Открыть Шорт'}
+                    </button>
                   </div>
-                )}
-                <div>
-                  <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>К-во (USDT)</label>
-                  <input
-                    type="number"
-                    value={sizeUsdt}
-                    onChange={(e) => { setSizeUsdt(e.target.value); setOrderPercent(0); }}
-                    placeholder="0"
-                    min={1}
-                    step={1}
-                    className="input-field w-full rounded py-1.5 text-sm"
-                  />
-                  <div className="flex items-center gap-2 mt-1">
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      value={orderPercent}
-                      onChange={(e) => setSizeFromPercent(parseInt(e.target.value, 10))}
-                      className="flex-1 h-1 rounded"
-                      style={{ accentColor: 'var(--accent)' }}
-                    />
-                    <span className="text-[10px] tabular-nums w-8" style={{ color: 'var(--text-muted)' }}>{orderPercent}%</span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Стоим.</span>
-                    <span className="block font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-                      {displaySize > 0 ? displaySize.toFixed(2) : '—'}
-                    </span>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Цена ликвид.</span>
-                    <span className="block font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-                      {lastPrice > 0 && displaySize > 0 ? lastPrice.toFixed(2) : '—'}
-                    </span>
-                  </div>
-                </div>
-                <button type="button" className="text-[10px] px-2 py-1 rounded" style={{ background: 'var(--bg)', color: 'var(--text-muted)' }}>
-                  Рассчитать
-                </button>
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
-                    <input type="checkbox" checked={showTpSl} onChange={(e) => setShowTpSl(e.target.checked)} className="rounded" />
-                    TP/SL
-                  </label>
-                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
-                    <input type="checkbox" checked={postOnly} onChange={(e) => setPostOnly(e.target.checked)} className="rounded" />
-                    Post-Only
-                  </label>
-                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
-                    <input type="checkbox" checked={reduceOnly} onChange={(e) => setReduceOnly(e.target.checked)} className="rounded" />
-                    Только сокращение
-                  </label>
-                </div>
-                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Годен до отмены</p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDirection('LONG')}
-                    className="flex-1 py-2.5 text-sm font-semibold rounded"
-                    style={{
-                      background: direction === 'LONG' ? 'var(--success)' : 'var(--bg)',
-                      color: direction === 'LONG' ? '#fff' : 'var(--text-muted)',
-                      border: `2px solid ${direction === 'LONG' ? 'var(--success)' : 'var(--border)'}`,
-                    }}
-                  >
-                    Лонг
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDirection('SHORT')}
-                    className="flex-1 py-2.5 text-sm font-semibold rounded"
-                    style={{
-                      background: direction === 'SHORT' ? 'var(--danger)' : 'var(--bg)',
-                      color: direction === 'SHORT' ? '#fff' : 'var(--text-muted)',
-                      border: `2px solid ${direction === 'SHORT' ? 'var(--danger)' : 'var(--border)'}`,
-                    }}
-                  >
-                    Шорт
-                  </button>
-                </div>
-                <div className="flex gap-2 text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                  <button type="button" className="underline">Ставка комиссии</button>
-                  <button type="button" className="underline">Калькулятор</button>
-                </div>
-                {balance != null && (
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Баланс: {balance.toFixed(2)} USDT</p>
-                )}
-                {tradeError && <p className="text-xs" style={{ color: 'var(--danger)' }}>{tradeError}</p>}
-                <button
-                  type="button"
-                  onClick={handleOpenPosition}
-                  disabled={loadingOpen || !sizeUsdt || balance == null || balance < 1}
-                  className="w-full py-2.5 rounded font-semibold disabled:opacity-50 text-sm"
-                  style={{
-                    background: direction === 'LONG' ? 'var(--success)' : 'var(--danger)',
-                    color: '#fff',
-                  }}
-                >
-                  {loadingOpen ? 'Открытие…' : direction === 'LONG' ? 'Лонг' : 'Шорт'}
-                </button>
-                </>
                 )}
               </div>
             )}
@@ -993,7 +997,7 @@ export default function TradePage() {
                         onClick={() => handleClosePosition(pos)}
                         disabled={loadingClose === pos.id}
                         className="px-2 py-1 text-xs font-medium rounded"
-                        style={{ background: 'var(--accent)', color: '#fff' }}
+                        style={{ background: 'var(--accent-gradient)', color: '#000', boxShadow: 'var(--shadow-glow)' }}
                       >
                         {loadingClose === pos.id ? '…' : 'Закрыть'}
                       </button>
@@ -1083,7 +1087,7 @@ export default function TradePage() {
                               onClick={() => handleClosePosition(pos)}
                               disabled={loadingClose === pos.id}
                               className="px-1.5 py-0.5 text-[10px] font-medium rounded"
-                              style={{ background: 'var(--accent)', color: '#fff' }}
+                              style={{ background: 'var(--accent-gradient)', color: '#000', boxShadow: 'var(--shadow-glow)' }}
                             >
                               {loadingClose === pos.id ? '…' : 'Закрыть'}
                             </button>
