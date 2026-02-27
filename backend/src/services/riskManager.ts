@@ -34,22 +34,38 @@ export function suggestLeverage(atrPct: number): number {
   return 20;
 }
 
-export function assessRisk(indicators: TechnicalResult): RiskAssessment {
+/**
+ * Phase 3: Dynamic Risk Sizing per Trade.
+ * Если сигнал супер уверенный (>85%), можно рисковать 3-4% капитала.
+ * Если сомнительный (60-70%), макс 1% капитала.
+ */
+export function calculateDynamicRiskPct(confidence: number): number {
+  // Базовый риск (Default)
+  if (confidence >= 0.90) return 4.0; // "Верняк"
+  if (confidence >= 0.85) return 3.0;
+  if (confidence >= 0.75) return 2.0;
+  if (confidence >= 0.65) return 1.0;
+  return 0.5; // Микро-риск для слабых сетапов
+}
+
+export function assessRisk(indicators: TechnicalResult, confidence: number = 0.70): RiskAssessment {
   const atrPct = indicators.atr.pct;
   const recommendedLeverage = suggestLeverage(atrPct);
-  
+
   let volatilityLevel: 'low' | 'moderate' | 'high' = 'low';
   if (atrPct > 2) volatilityLevel = 'high';
   else if (atrPct > 1) volatilityLevel = 'moderate';
 
   const maxPositionSizePct = volatilityLevel === 'high' ? 10 : volatilityLevel === 'moderate' ? 20 : 30;
 
+  const riskPerTrade = calculateDynamicRiskPct(confidence);
+
   return {
     recommendedLeverage,
     maxLeverage: Math.min(recommendedLeverage, MAX_LEVERAGE_LIMIT),
     atrPct,
     volatilityLevel,
-    riskPerTrade: DEFAULT_RISK_PCT,
+    riskPerTrade, // Динамичный профит/риск-скор
     maxPositionSizePct
   };
 }
@@ -73,7 +89,7 @@ export function calculatePositionSize(
   const marginUsdt = positionValue / leverage;
 
   const liqDistance = entryPrice * (1 / leverage);
-  const liquidationPrice = entryPrice > stopLoss 
+  const liquidationPrice = entryPrice > stopLoss
     ? entryPrice - liqDistance * 0.9
     : entryPrice + liqDistance * 0.9;
 
@@ -144,7 +160,7 @@ export function validateSignalRisk(
   const maxTP = Math.max(...takeProfits);
 
   const direction = stopLoss < entryPrice ? 'LONG' : 'SHORT';
-  
+
   if (direction === 'LONG') {
     if (minTP <= entryPrice) {
       errors.push('Take profit must be above entry for LONG');
@@ -163,7 +179,7 @@ export function validateSignalRisk(
 
   const avgTP = takeProfits.reduce((a, b) => a + b, 0) / takeProfits.length;
   const rr = Math.abs(avgTP - entryPrice) / risk;
-  
+
   if (rr < 1.5) {
     warnings.push(`Risk:Reward ratio ${rr.toFixed(2)} is below 1.5`);
   }
@@ -180,7 +196,8 @@ export function getRiskSummary(
   entryPrice: number,
   stopLoss: number,
   takeProfits: number[],
-  leverage: number
+  leverage: number,
+  confidence: number = 0.70
 ): {
   riskPct: number;
   rrRatio: number;
@@ -191,14 +208,16 @@ export function getRiskSummary(
 } {
   const risk = Math.abs(entryPrice - stopLoss);
   const riskPct = (risk / entryPrice) * 100;
-  
+
   const rr = calculateRiskReward(entryPrice, stopLoss, takeProfits.map((p, i) => ({
     price: p,
     percentage: i === 0 ? 40 : i === 1 ? 35 : 25
   })));
 
-  const position = calculatePositionSize(balance, DEFAULT_RISK_PCT, entryPrice, stopLoss, leverage);
-  const maxLossUsdt = balance * 0.01;
+  const dynamicRiskPct = calculateDynamicRiskPct(confidence);
+  const position = calculatePositionSize(balance, dynamicRiskPct, entryPrice, stopLoss, leverage);
+
+  const maxLossUsdt = balance * (dynamicRiskPct / 100);
   const maxProfitUsdt = maxLossUsdt * rr;
 
   return {

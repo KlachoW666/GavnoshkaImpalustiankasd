@@ -50,6 +50,10 @@ export default function PositionChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const loadingHistoryRef = useRef(false);
+  const hasMoreHistoryRef = useRef(true);
+  const rawCandlesRef = useRef<OHLCVCandle[]>([]);
+  const loadCandlesRef = useRef<any>(null);
 
   useEffect(() => {
     if (!containerRef.current || !symbol) return;
@@ -85,46 +89,89 @@ export default function PositionChart({
     chartRef.current = chart;
     seriesRef.current = candlestickSeries as ISeriesApi<'Candlestick'>;
 
-    const loadCandles = (isInitial: boolean) => {
+    const handleRangeChange = (logicalRange: any) => {
+      if (!logicalRange) return;
+      if (logicalRange.from < 20 && !loadingHistoryRef.current && hasMoreHistoryRef.current) {
+        const oldestCandle = rawCandlesRef.current[0];
+        if (oldestCandle && loadCandlesRef.current) {
+          loadCandlesRef.current(false, oldestCandle.timestamp - 1);
+        }
+      }
+    };
+    chart.timeScale().subscribeVisibleLogicalRangeChange(handleRangeChange);
+
+    const loadCandles = (isInitial: boolean, endTime?: number) => {
+      if (endTime) loadingHistoryRef.current = true;
       const sym = requestedSymbol || chartSymbol(symbol);
-      fetch(`${API}/market/candles/${encodeURIComponent(sym)}?timeframe=${timeframe}&limit=100&exchange=bitget`)
+      const limit = endTime ? 500 : 100;
+      fetch(`${API}/market/candles/${encodeURIComponent(sym)}?timeframe=${timeframe}&limit=${limit}&exchange=bitget${endTime ? `&endTime=${endTime}` : ''}`)
         .then((r) => r.json())
         .then((data) => {
           if (cancelled) return;
           const candles = Array.isArray(data) ? data : [];
-          if (!candles.length || !seriesRef.current) return;
+          if (!candles.length || !seriesRef.current) {
+            if (endTime) { hasMoreHistoryRef.current = false; loadingHistoryRef.current = false; }
+            return;
+          }
 
+          if (endTime) {
+            const firstExistingTs = rawCandlesRef.current[0]?.timestamp;
+            const freshCandles = firstExistingTs ? candles.filter((c: any) => c.timestamp < firstExistingTs) : candles;
+            if (freshCandles.length === 0) {
+              hasMoreHistoryRef.current = false;
+              loadingHistoryRef.current = false;
+              return;
+            }
+            rawCandlesRef.current = [...freshCandles, ...rawCandlesRef.current];
+          } else if (isInitial) {
+            rawCandlesRef.current = candles;
+            hasMoreHistoryRef.current = true;
+          } else {
+            const lastC = candles[candles.length - 1];
+            if (lastC) {
+              const existingLast = rawCandlesRef.current[rawCandlesRef.current.length - 1];
+              if (existingLast && existingLast.timestamp === lastC.timestamp) {
+                rawCandlesRef.current[rawCandlesRef.current.length - 1] = lastC;
+              } else {
+                rawCandlesRef.current.push(lastC);
+              }
+            }
+          }
+
+          const allCandles = rawCandlesRef.current;
           if (chartStyle === 'line') {
-            const lineData: LineData[] = candles.map((c: OHLCVCandle) => ({
+            const lineData: LineData[] = allCandles.map((c: OHLCVCandle) => ({
               time: toChartTime(c.timestamp, timeframe) as any,
               value: c.close
             }));
-            if (isInitial) {
+            if (isInitial || endTime) {
               (seriesRef.current as any).setData(lineData);
-              chart.timeScale().fitContent();
+              if (isInitial) chart.timeScale().fitContent();
             } else {
               const last = lineData[lineData.length - 1];
               if (last) (seriesRef.current as any).update(last);
             }
           } else {
-            const candleData: CandlestickData[] = candles.map((c: OHLCVCandle) => ({
+            const candleData: CandlestickData[] = allCandles.map((c: OHLCVCandle) => ({
               time: toChartTime(c.timestamp, timeframe) as any,
               open: c.open,
               high: c.high,
               low: c.low,
               close: c.close
             }));
-            if (isInitial) {
+            if (isInitial || endTime) {
               seriesRef.current.setData(candleData);
-              chart.timeScale().fitContent();
+              if (isInitial) chart.timeScale().fitContent();
             } else {
               const last = candleData[candleData.length - 1];
               if (last) seriesRef.current.update(last);
             }
           }
+          if (endTime) loadingHistoryRef.current = false;
         })
-        .catch(() => {});
+        .catch(() => { if (endTime) loadingHistoryRef.current = false; });
     };
+    loadCandlesRef.current = loadCandles;
 
     loadCandles(true);
 
@@ -154,7 +201,7 @@ export default function PositionChart({
               });
             }
           }
-        } catch {}
+        } catch { }
       };
     }
 
@@ -173,9 +220,10 @@ export default function PositionChart({
       if (ws) {
         try {
           ws.send(JSON.stringify({ type: 'unsubscribe_candle', symbol: requestedSymbol, timeframe }));
-        } catch {}
+        } catch { }
         ws.close();
       }
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleRangeChange);
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;

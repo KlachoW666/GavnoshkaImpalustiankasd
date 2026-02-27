@@ -165,6 +165,11 @@ export default function ChartView() {
   const lastCandleTimeRef = useRef<number | null>(null);
   const lastHaOpenRef = useRef<number | null>(null);
   const lastHaCloseRef = useRef<number | null>(null);
+  const loadingHistoryRef = useRef(false);
+  const hasMoreHistoryRef = useRef(true);
+  const rawCandlesRef = useRef<OHLCVCandle[]>([]);
+  const loadCandlesRef = useRef<any>(null);
+
   const [platform, setPlatform] = useState('bitget');
   const initialSymbol = (() => {
     if (typeof window === 'undefined') return 'BTC-USDT';
@@ -255,6 +260,17 @@ export default function ChartView() {
     seriesRef.current = series as ISeriesApi<'Candlestick'>;
     volumeRef.current = volumeSeries;
 
+    const handleRangeChange = (logicalRange: any) => {
+      if (!logicalRange) return;
+      if (logicalRange.from < 20 && !loadingHistoryRef.current && hasMoreHistoryRef.current) {
+        const oldestCandle = rawCandlesRef.current[0];
+        if (oldestCandle && loadCandlesRef.current) {
+          loadCandlesRef.current(false, oldestCandle.timestamp - 1);
+        }
+      }
+    };
+    chart.timeScale().subscribeVisibleLogicalRangeChange(handleRangeChange);
+
     const resize = () => {
       const w = el.offsetWidth;
       const h = el.offsetHeight;
@@ -278,6 +294,7 @@ export default function ChartView() {
     return () => {
       io.disconnect();
       ro.disconnect();
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleRangeChange);
       chart.remove();
       chartInstance.current = null;
       seriesRef.current = null;

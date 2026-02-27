@@ -52,7 +52,8 @@ export function checkStrictConfluence(
     supertrend: supertrend === 'bullish',
     volume: ['buying', 'strong_buying'].includes(volumePressure),
     dom: ['moderate_buy_pressure', 'strong_buy_pressure'].includes(domSignal),
-    structure: structureBias.includes('bullish')
+    structure: structureBias.includes('bullish'),
+    cvd: ['bullish', 'neutral'].includes(volumeData.cvdDirection) // Phase 4: Cluster Analysis Filter
   };
 
   const shortConditions = {
@@ -60,7 +61,8 @@ export function checkStrictConfluence(
     supertrend: supertrend === 'bearish',
     volume: ['selling', 'strong_selling'].includes(volumePressure),
     dom: ['moderate_sell_pressure', 'strong_sell_pressure'].includes(domSignal),
-    structure: structureBias.includes('bearish')
+    structure: structureBias.includes('bearish'),
+    cvd: ['bearish', 'neutral'].includes(volumeData.cvdDirection) // Phase 4: Cluster Analysis Filter
   };
 
   const longMatches = Object.entries(longConditions).filter(([_, v]) => v).map(([k]) => k);
@@ -72,28 +74,35 @@ export function checkStrictConfluence(
   const longScore = longMatches.length;
   const shortScore = shortMatches.length;
 
-  if (longScore >= 4 && longMismatches.length <= 1) {
-    return {
-      passed: true,
-      direction: 'LONG',
-      matchedFactors: longMatches,
-      mismatchedFactors: longMismatches,
-      score: longScore
-    };
+  // Теперь у нас 6 условий. Для "Строгого" прохода нужно минимум 5/6 совпадений
+  if (longScore >= 5 && longMismatches.length <= 1) {
+    // В строгом режиме мы не прощаем дивергенцию CVD на LONG
+    if (!longMismatches.includes('cvd')) {
+      return {
+        passed: true,
+        direction: 'LONG',
+        matchedFactors: longMatches,
+        mismatchedFactors: longMismatches,
+        score: Math.min(5, longScore) // Нормализуем счет для совместимости (макс 5 в оценках)
+      };
+    }
   }
 
-  if (shortScore >= 4 && shortMismatches.length <= 1) {
-    return {
-      passed: true,
-      direction: 'SHORT',
-      matchedFactors: shortMatches,
-      mismatchedFactors: shortMismatches,
-      score: shortScore
-    };
+  if (shortScore >= 5 && shortMismatches.length <= 1) {
+    if (!shortMismatches.includes('cvd')) {
+      return {
+        passed: true,
+        direction: 'SHORT',
+        matchedFactors: shortMatches,
+        mismatchedFactors: shortMismatches,
+        score: Math.min(5, shortScore)
+      };
+    }
   }
 
-  if (longScore === 3 && longMismatches.length === 2) {
-    const criticalMismatch = longMismatches.includes('structure') || longMismatches.includes('volume');
+  if (longScore >= 4 && longMismatches.length <= 2) {
+    // Обязательно структура и CVD должны совпадать для надежности
+    const criticalMismatch = longMismatches.includes('structure') || longMismatches.includes('cvd');
     if (!criticalMismatch) {
       return {
         passed: true,

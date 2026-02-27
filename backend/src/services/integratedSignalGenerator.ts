@@ -102,10 +102,6 @@ export function generateIntegratedSignal(params: IntegratedSignalParams): Integr
   const direction = confluence.direction;
   const currentPrice = candles[candles.length - 1].close;
   const atrValue = indicators.atr.value ?? currentPrice * 0.01;
-
-  const riskAssessment = assessRisk(indicators);
-  const recommendedLeverage = riskAssessment.recommendedLeverage;
-
   const slPct = indicators.atr.volatility === 'high' ? 0.006 : indicators.atr.volatility === 'moderate' ? 0.008 : 0.01;
   const slDistance = Math.min(atrValue * 1.5, currentPrice * slPct);
 
@@ -141,6 +137,9 @@ export function generateIntegratedSignal(params: IntegratedSignalParams): Integr
     confluence,
     rr
   );
+
+  const riskAssessment = assessRisk(indicators, adjustedConfidence);
+  const recommendedLeverage = riskAssessment.recommendedLeverage;
 
   if (adjustedConfidence < 0.65) {
     return { ...emptyResult(`Confidence слишком низкий: ${(adjustedConfidence * 100).toFixed(0)}%`), confluence, triggers, indicators, structure, riskAssessment };

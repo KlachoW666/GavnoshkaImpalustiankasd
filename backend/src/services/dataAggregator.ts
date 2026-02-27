@@ -177,12 +177,12 @@ export class DataAggregator {
     return s || 'BTC/USDT:USDT';
   }
 
-  async getOHLCV(symbol: string, timeframe = '15m', limit = 100, _exchangeId?: string): Promise<OHLCVCandle[]> {
-    return this.getOHLCVByExchange(symbol, timeframe, limit);
+  async getOHLCV(symbol: string, timeframe = '15m', limit = 100, _exchangeId?: string, endTime?: number): Promise<OHLCVCandle[]> {
+    return this.getOHLCVByExchange(symbol, timeframe, limit, endTime);
   }
 
-  async getOHLCVByExchange(symbol: string, timeframe: string, limit: number): Promise<OHLCVCandle[]> {
-    const cacheKey = `${symbol}:${timeframe}:${limit}`;
+  async getOHLCVByExchange(symbol: string, timeframe: string, limit: number, endTime?: number): Promise<OHLCVCandle[]> {
+    const cacheKey = `${symbol}:${timeframe}:${limit}${endTime ? `:${endTime}` : ''}`;
     const cached = this.ohlcvCache.get(cacheKey);
     if (cached) return cached;
 
@@ -190,23 +190,25 @@ export class DataAggregator {
     const ttlKey = `candles_${timeframe}` as keyof typeof config.marketDataCacheTtl;
     const ttlMs = (config.marketDataCacheTtl && ttlKey in config.marketDataCacheTtl ? config.marketDataCacheTtl[ttlKey] : 60_000) as number;
 
-    if (!config.useBinanceForMarketData) {
-      const fromStream = getCandlesFromStream(symbol, timeframe, ttlMs);
-      const minCandlesFromStream = 50;
-      if (fromStream && fromStream.length >= Math.min(limit, minCandlesFromStream)) {
-        const candles = fromStream.slice(-limit);
-        this.ohlcvCache.set(cacheKey, candles);
-        setMarketDataCache(symbol, dataType, candles);
-        return candles;
+    if (!endTime) {
+      if (!config.useBinanceForMarketData) {
+        const fromStream = getCandlesFromStream(symbol, timeframe, ttlMs);
+        const minCandlesFromStream = 50;
+        if (fromStream && fromStream.length >= Math.min(limit, minCandlesFromStream)) {
+          const candles = fromStream.slice(-limit);
+          this.ohlcvCache.set(cacheKey, candles);
+          setMarketDataCache(symbol, dataType, candles);
+          return candles;
+        }
       }
-    }
 
-    const fromDb = getMarketDataCache(symbol, dataType, ttlMs);
-    if (fromDb?.data && Array.isArray(fromDb.data) && fromDb.data.length > 0) {
-      const candles = fromDb.data as OHLCVCandle[];
-      if (candles.every((c) => typeof c?.timestamp === 'number' && typeof c?.close === 'number')) {
-        this.ohlcvCache.set(cacheKey, candles);
-        return candles;
+      const fromDb = getMarketDataCache(symbol, dataType, ttlMs);
+      if (fromDb?.data && Array.isArray(fromDb.data) && fromDb.data.length > 0) {
+        const candles = fromDb.data as OHLCVCandle[];
+        if (candles.every((c) => typeof c?.timestamp === 'number' && typeof c?.close === 'number')) {
+          this.ohlcvCache.set(cacheKey, candles);
+          return candles;
+        }
       }
     }
 
@@ -218,7 +220,8 @@ export class DataAggregator {
         const ccxtSymbol = this.toCcxtSymbol(symbol);
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
-            const data = await this.exchange.fetchOHLCV(ccxtSymbol, timeframe, undefined, limit);
+            const since = endTime ? endTime - limit * this.timeframeToMs(timeframe) : undefined;
+            const data = await this.exchange.fetchOHLCV(ccxtSymbol, timeframe, since, limit);
             if (data?.length) {
               const candles = data.map((row) => ({
                 timestamp: Number(row[0]),
@@ -229,7 +232,7 @@ export class DataAggregator {
                 volume: Number(row[5] ?? 0)
               }));
               this.ohlcvCache.set(cacheKey, candles);
-              setMarketDataCache(symbol, dataType, candles);
+              if (!endTime) setMarketDataCache(symbol, dataType, candles);
               return candles;
             }
           } catch (e) {
@@ -253,14 +256,14 @@ export class DataAggregator {
       if (config.useMassiveForMarketData && !useBitget) {
         try {
           const ticker = toMassiveTicker(symbol);
-          const toMs = Date.now();
+          const toMs = endTime || Date.now();
           const tfMs = this.timeframeToMs(timeframe);
           const fromMs = toMs - limit * tfMs;
           const data = await getAggs(ticker, timeframe, fromMs, toMs, limit);
           if (data?.length) {
             const candles = data.slice(-limit);
             this.ohlcvCache.set(cacheKey, candles);
-            setMarketDataCache(symbol, dataType, candles);
+            if (!endTime) setMarketDataCache(symbol, dataType, candles);
             return candles;
           }
         } catch (e) {
@@ -276,8 +279,9 @@ export class DataAggregator {
         const ccxtSymbol = this.toCcxtSymbol(symbol);
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
+            const since = endTime ? endTime - limit * this.timeframeToMs(timeframe) : undefined;
             await bitgetRateLimitAcquire();
-            const data = await this.exchange.fetchOHLCV(ccxtSymbol, timeframe, undefined, limit);
+            const data = await this.exchange.fetchOHLCV(ccxtSymbol, timeframe, since, limit);
             if (data?.length) {
               const candles = data.map((row) => ({
                 timestamp: Number(row[0]),
@@ -288,7 +292,7 @@ export class DataAggregator {
                 volume: Number(row[5] ?? 0)
               }));
               this.ohlcvCache.set(cacheKey, candles);
-              setMarketDataCache(symbol, dataType, candles);
+              if (!endTime) setMarketDataCache(symbol, dataType, candles);
               return candles;
             }
           } catch (e) {

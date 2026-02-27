@@ -14,6 +14,7 @@ import { toOkxCcxtSymbol } from '../lib/symbol';
 import { normalizeSymbol } from '../lib/symbol';
 import { MIN_TP_DISTANCE_PCT } from '../lib/tradingPrinciples';
 import { TradingSignal } from '../types/signal';
+import { updateTrailingStop, shouldExitByTrailingStop, DEFAULT_TRAILING_CONFIG } from '../lib/trailingStop';
 import { emotionalFilterInstance } from './emotionalFilter';
 import { logger } from '../lib/logger';
 import { getPositionSize } from '../lib/positionSizing';
@@ -443,7 +444,17 @@ export async function executeSignal(
     if (takeProfit1 > 0 && takeProfit1 !== entryPrice) {
       params.takeProfit = { triggerPrice: takeProfit1, type: 'market' };
     }
-    const order = await exchange.createOrder(ccxtSymbol, 'market', orderSide, amount, undefined, params);
+
+    // Внедрение Limit-ордера (Phase 1)
+    // Лимитка ставится по `entryPrice`, который берется из сгенерированного сигнала.
+    // Если цена ушла, лимитка останется висеть в стакане, спасая от проскальзывания.
+    const orderType = options.useTestnet ? 'market' : 'limit'; // В Testnet для тестов можно оставить market, в бою - limit
+    // const orderType = 'limit'; // Форсировано используем limit
+
+    // В ccxt price = entryPrice для limit ордеров. Для market оно игнорируется.
+    const orderPrice = orderType === 'limit' ? entryPrice : undefined;
+
+    const order = await exchange.createOrder(ccxtSymbol, orderType, orderSide, amount, orderPrice, params);
     return order;
   };
 
@@ -601,7 +612,7 @@ export async function syncClosedOrdersFromBitget(
         closeTime
       });
       feedOrderToML(row, pnl);
-      
+
       if (pnl > 0) {
         if (closedOrder?.client_id === ADMIN_POOL_CLIENT_ID) {
           distributePoolPnLToCopyTrading(pnl);
@@ -609,7 +620,7 @@ export async function syncClosedOrdersFromBitget(
           handleCopyOrderPnL(closedOrder.client_id, closedOrder.copy_provider_id, pnl);
         }
       }
-      
+
       synced++;
       logger.info('AutoTrader', 'Synced closed order from Bitget', { id: row.id, pair: row.pair, pnl });
     } catch (e) {
@@ -735,6 +746,206 @@ export async function syncBitgetClosedOrdersForML(
     logger.warn('AutoTrader', 'syncBitgetClosedOrdersForML failed', { error: (e as Error).message });
   }
   return { fed };
+}
+
+/**
+ * Отмена зависших Limit-ордеров (Phase 1).
+ * Проверяет открытые ордера на бирже и отменяет те, которые висят дольше 15 минут.
+ */
+export async function cancelExpiredLimitOrders(
+  useTestnet: boolean,
+  userCreds?: UserBitgetCreds | null
+): Promise<{ canceled: number }> {
+  const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
+  if (!useUserCreds && !config.bitget.hasCredentials) return { canceled: 0 };
+
+  const exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
+  let canceled = 0;
+
+  try {
+    for (const sym of SYMBOLS_FOR_ML_SYNC) {
+      const ccxtSym = toOkxCcxtSymbol(sym) || `${sym.replace('-', '/')}:USDT`;
+      try {
+        const openOrders = await exchange.fetchOpenOrders(ccxtSym);
+        const now = Date.now();
+        const EXPIRY_MS = 15 * 60 * 1000; // 15 минут
+
+        for (const o of openOrders) {
+          if (o.type !== 'limit') continue;
+
+          const orderTime = o.timestamp || (o.datetime ? new Date(o.datetime).getTime() : now);
+          if (now - orderTime > EXPIRY_MS) {
+            await exchange.cancelOrder(o.id, ccxtSym);
+            canceled++;
+            logger.info('AutoTrader', `Canceled expired limit order ${o.id} on ${sym} (open for >15m)`);
+          }
+        }
+      } catch (e) {
+        logger.debug('AutoTrader', 'fetchOpenOrders skip in cancelExpiredLimitOrders', { symbol: sym, error: (e as Error).message });
+      }
+    }
+  } catch (e) {
+    logger.warn('AutoTrader', 'cancelExpiredLimitOrders failed', { error: (e as Error).message });
+  }
+
+  return { canceled };
+}
+
+/**
+ * Phase 2: Trailing Stop & Breakeven Monitor
+ * Периодически сканирует открытые позиции пользователя на Bitget.
+ * Если прибыль превысила порог активации (например 1%), двигает Stop-Loss в безубыток
+ * и далее трейлит его за ценой.
+ */
+export async function processTrailingStops(
+  useTestnet: boolean,
+  userCreds?: UserBitgetCreds | null
+): Promise<{ processedConfigs: number }> {
+  const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
+  if (!useUserCreds && !config.bitget.hasCredentials) return { processedConfigs: 0 };
+
+  const exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
+  let processedConfigs = 0;
+
+  try {
+    const { positions } = await getPositionsAndBalanceForApi(useTestnet, userCreds);
+    if (!positions || positions.length === 0) return { processedConfigs: 0 };
+
+    for (const pos of positions) {
+      if (!pos.markPrice || !pos.entryPrice || !pos.stopLoss) continue;
+
+      const direction = pos.side.toLowerCase() === 'long' ? 'LONG' : 'SHORT';
+      const config = DEFAULT_TRAILING_CONFIG;
+
+      // Считаем % прибыли
+      const profitPct = direction === 'LONG'
+        ? (pos.markPrice - pos.entryPrice) / pos.entryPrice
+        : (pos.entryPrice - pos.markPrice) / pos.entryPrice;
+
+      if (profitPct < config.activationProfitPct) continue;
+
+      const newStopPrice = updateTrailingStop(
+        pos.entryPrice,
+        pos.markPrice,
+        direction,
+        pos.stopLoss,
+        config
+      );
+
+      // Если новый рассчитанный стоп лучше старого (выше для лонга, ниже для шорта), обновляем ордер на бирже
+      const shouldUpdate = direction === 'LONG'
+        ? newStopPrice > pos.stopLoss
+        : newStopPrice < pos.stopLoss;
+
+      if (shouldUpdate) {
+        // Чтобы обновить стоп на Bitget через ccxt, мы должны найти ID текущего stop ордера и отменить его, 
+        // затем поставить новый, или использовать editOrder, если биржа поддерживает.
+        // Безопаснее: отменить все стоп-лоссы по символу и поставить новый.
+        const ccxtSym = toOkxCcxtSymbol(pos.symbol) || `${pos.symbol.replace('-', '/')}:USDT`;
+
+        try {
+          // Получаем открытые ордера для отмены текущего SL
+          const openOrders = await exchange.fetchOpenOrders(ccxtSym);
+          const stopOrders = openOrders.filter(o =>
+            o.type === 'market' && // SL обычно market-trigger
+            o.info?.planType === 'loss_plan' || o.info?.orderType === 'stop' || (o.stopPrice || o.info?.triggerPrice)
+          );
+
+          for (const o of stopOrders) {
+            await exchange.cancelOrder(o.id, ccxtSym);
+          }
+
+          // Ставим новый SL
+          const orderSide = direction === 'LONG' ? 'sell' : 'buy';
+          // Исользуем createMarketOrder с параметром triggerPrice для стопа
+          await exchange.createOrder(ccxtSym, 'market', orderSide, pos.contracts, undefined, {
+            stopLoss: { triggerPrice: newStopPrice, type: 'market' }
+          });
+
+          processedConfigs++;
+          logger.info('AutoTrader', `Trailing stop updated for ${ccxtSym} to ${newStopPrice}`, { direction, profitPct });
+
+        } catch (e) {
+          logger.warn('AutoTrader', `Failed to update trailing stop for ${ccxtSym}`, { error: (e as Error).message });
+        }
+      }
+    }
+  } catch (e) {
+    logger.warn('AutoTrader', 'processTrailingStops error', { error: (e as Error).message });
+  }
+
+  return { processedConfigs };
+}
+
+/**
+ * Phase 4: Smart Exit (DOM Walls Detector)
+ * Проверяет открытые прибыльные позиции. Если до TP осталось немного,
+ * но в стакане появилась непробиваемая стена (х5 от обычного объема),
+ * превентивно закрывает сделку по рынку.
+ */
+export async function processSmartDOMExits(
+  useTestnet: boolean,
+  userCreds?: UserBitgetCreds | null
+): Promise<{ smartExits: number }> {
+  const useUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
+  if (!useUserCreds && !config.bitget.hasCredentials) return { smartExits: 0 };
+
+  const exchange = useUserCreds ? buildExchangeFromCreds(userCreds!, useTestnet) : buildExchange(useTestnet);
+  let smartExits = 0;
+
+  try {
+    const { positions } = await getPositionsAndBalanceForApi(useTestnet, userCreds);
+    if (!positions || positions.length === 0) return { smartExits: 0 };
+
+    for (const pos of positions) {
+      if (!pos.markPrice || !pos.entryPrice || !pos.takeProfit) continue;
+
+      const direction = pos.side.toLowerCase() === 'long' ? 'LONG' : 'SHORT';
+
+      // Считаем % прибыли
+      const profitPct = direction === 'LONG'
+        ? (pos.markPrice - pos.entryPrice) / pos.entryPrice
+        : (pos.entryPrice - pos.markPrice) / pos.entryPrice;
+
+      // Smart exit имеет смысл только если мы в хорошем плюсе (напр. > 0.8% профита)
+      if (profitPct < 0.008) continue;
+
+      // Дистанция до TP
+      const distToTp = Math.abs(pos.takeProfit - pos.markPrice) / pos.markPrice;
+      if (distToTp > 0.01) continue; // TP еще далеко (больше 1%)
+
+      const ob = getOrderBookFromStream(pos.symbol);
+      if (!ob) continue;
+
+      const density = computeDensity(ob, direction);
+
+      // Если мы в LONG, мы боимся Ask Walls (стен на продажу)
+      // Если мы в SHORT, мы боимся Bid Walls (стен на покупку)
+      const isBlocked = direction === 'LONG'
+        ? density.depthAskUsd > density.depthBidUsd * 5
+        : density.depthBidUsd > density.depthAskUsd * 5;
+
+      if (isBlocked) {
+        // Мы уперлись в стену, закрываем по рынку немедленно
+        const ccxtSym = toOkxCcxtSymbol(pos.symbol) || `${pos.symbol.replace('-', '/')}:USDT`;
+        const orderSide = direction === 'LONG' ? 'sell' : 'buy';
+
+        try {
+          // Закрываем позицию Market-ордером Reduce-Only
+          await exchange.createOrder(ccxtSym, 'market', orderSide, pos.contracts, undefined, { reduceOnly: true });
+
+          smartExits++;
+          logger.info('AutoTrader', `Smart DOM Exit triggered for ${ccxtSym}`, { direction, profitPct, askDepth: density.depthAskUsd, bidDepth: density.depthBidUsd });
+        } catch (e) {
+          logger.warn('AutoTrader', `Failed to Smart Close ${ccxtSym}`, { error: (e as Error).message });
+        }
+      }
+    }
+  } catch (e) {
+    logger.warn('AutoTrader', 'processSmartDOMExits error', { error: (e as Error).message });
+  }
+
+  return { smartExits };
 }
 
 /**

@@ -119,7 +119,8 @@ router.get('/candles/:symbol', async (req, res) => {
     const symbol = normalizeSymbol(decodeURIComponent(req.params.symbol || 'BTC-USDT')) || 'BTC-USDT';
     const timeframe = (req.query.timeframe as string) || '5m';
     const limit = Math.min(parseInt(req.query.limit as string) || candlesFor48h(timeframe), config.limits.candlesMax);
-    const candles = await aggregator.getOHLCVByExchange(symbol, timeframe, limit);
+    const endTime = req.query.endTime ? parseInt(req.query.endTime as string) : undefined;
+    const candles = await aggregator.getOHLCVByExchange(symbol, timeframe, limit, endTime);
     res.json(candles);
   } catch (e) {
     res.status(500).json({ error: (e as Error).message });
