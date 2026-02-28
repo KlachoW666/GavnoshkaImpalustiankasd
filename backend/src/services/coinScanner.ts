@@ -73,12 +73,19 @@ export class CoinScanner {
 
     logger.debug('CoinScanner', `Scanning ${symbols.length} coins...`);
 
-    for (const symbol of symbols) {
-      try {
-        const score = await this.scoreSymbol(symbol, config);
+    // Parallelize with smaller batches to prevent timeout
+    const batchSize = 5;
+    for (let i = 0; i < symbols.length; i += batchSize) {
+      const batch = symbols.slice(i, i + batchSize);
+      const batchPromises = batch.map(symbol =>
+        this.scoreSymbol(symbol, config).catch(e => {
+          logger.warn('CoinScanner', `Failed to scan ${symbol}`, { error: e });
+          return null;
+        })
+      );
+      const batchResults = await Promise.all(batchPromises);
+      for (const score of batchResults) {
         if (score) results.push(score);
-      } catch (e) {
-        logger.warn('CoinScanner', `Failed to scan ${symbol}`, { error: e });
       }
     }
 
