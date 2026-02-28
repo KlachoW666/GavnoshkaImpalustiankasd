@@ -4,7 +4,7 @@
 
 import ccxt from 'ccxt';
 import { HttpsProxyAgent } from 'https-proxy-agent';
-import { TronWeb, TronWebOptions } from 'tronweb';
+import { TronWeb } from 'tronweb';
 import { config } from '../config';
 import { getProxy } from '../db/proxies';
 import { logger } from '../lib/logger';
