@@ -1021,62 +1021,108 @@ export default function AutoDemoPage() {
   const sectionTitleStyle = { color: 'var(--text-muted)' };
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="max-w-[1440px] mx-auto p-4 md:p-6 lg:p-8 space-y-8 pb-24">
       <RiskDisclaimer storageKey="trading" />
-      {/* Hero — Status hero with glow */}
-      <Card variant="glass" padding="normal">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <div className={`w-14 h-14 rounded-lg flex items-center justify-center shrink-0 ${enabled ? 'animate-pulse-glow' : ''}`} style={{ background: 'var(--accent-dim)' }}>
-              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} style={{ color: 'var(--accent)' }}>
-                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap mb-1">
-                <h1 className="text-xl font-bold tracking-tight">Авто-торговля</h1>
-                <Badge variant="success" dot={enabled} pulse={enabled}>
-                  {enabled ? 'Активно' : 'Выключено'}
-                </Badge>
-                <Badge variant="info">Bitget Торговый счёт</Badge>
+
+      {/* Spectacular Hero Dashboard */}
+      <div className="relative rounded-3xl overflow-hidden mb-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] border" style={{ borderColor: 'var(--border-accent)', background: 'var(--bg-glass-strong)' }}>
+        <div className="absolute inset-0 z-0">
+          <div className="absolute top-0 right-[-10%] w-[600px] h-[600px] bg-[var(--accent)] rounded-full blur-[120px] opacity-[0.15] animate-pulse pointer-events-none"></div>
+          <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-[var(--success)] rounded-full blur-[100px] opacity-10 animate-pulse pointer-events-none" style={{ animationDelay: '2s' }}></div>
+          <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ background: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '30px 30px', maskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%, #000 20%, transparent 100%)', WebkitMaskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%, #000 20%, transparent 100%)' }}></div>
+        </div>
+
+        <div className="relative z-10 flex flex-col lg:flex-row min-h-[340px]">
+          {/* Main Action Area */}
+          <div className="lg:w-[55%] p-8 lg:p-12 border-b lg:border-b-0 lg:border-r flex flex-col justify-center relative" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+            <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg-card)] to-transparent opacity-50 pointer-events-none"></div>
+
+            <div className="relative z-10">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6 border backdrop-blur-md" style={{ borderColor: enabled ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.1)', background: enabled ? 'rgba(34,197,94,0.05)' : 'rgba(0,0,0,0.2)' }}>
+                <span className={`w-2 h-2 rounded-full ${enabled ? 'bg-[var(--success)] shadow-[0_0_10px_var(--success)] animate-pulse' : 'bg-gray-500'}`}></span>
+                <span className="text-xs font-bold tracking-widest uppercase" style={{ color: enabled ? 'var(--success)' : 'var(--text-muted)' }}>
+                  {enabled ? 'Нейросеть активна' : 'Система в ожидании сигнала'}
+                </span>
               </div>
-              <p className="text-sm max-w-xl" style={{ color: 'var(--text-muted)' }}>
+
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter mb-5 leading-[1.1]" style={{ color: 'var(--text-primary)' }}>
+                Авто-Торговля <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(90deg, var(--accent), #ff9900)' }}>Pro</span>
+              </h1>
+              <p className="text-base sm:text-lg mb-8 max-w-lg leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
                 {settings.fullAuto
-                  ? 'Полный автомат: система выбирает лучший сигнал и исполняет ордера на бирже.'
-                  : 'Анализ выбранных пар по сигналам. Настройте пары, плечо и порог уверенности ниже.'}
+                  ? 'Скрининг сотен активов, глубокий нейроанализ и автоматическое выставление ордеров на вашем счету за доли секунды.'
+                  : 'Снайперский режим: анализ выбранных пар по сигналам с гибкой подстройкой SL/TP и плеча.'}
               </p>
+
+              <div className="flex flex-wrap items-center gap-4">
+                <Button
+                  variant={enabled ? 'danger' : 'primary'}
+                  size="xl"
+                  className={`min-w-[200px] h-14 text-base font-bold shadow-xl overflow-hidden relative group ${!enabled && 'shadow-[0_0_20px_rgba(255,199,0,0.3)] hover:shadow-[0_0_30px_rgba(255,199,0,0.5)] transition-all duration-300'}`}
+                  style={!enabled ? { background: 'linear-gradient(90deg, var(--accent), #ff9900)', color: '#000', border: 'none' } : {}}
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    if (enabled) {
+                      try {
+                        await fetch(`${API}/market/auto-analyze/stop`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+                        });
+                      } catch { }
+                    }
+                    setEnabled(!enabled);
+                  }}
+                  disabled={status === 'running' && !enabled}
+                >
+                  {!enabled && <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>}
+                  {enabled ? 'Остановить систему' : 'Запустить ИИ-Трейдинг'}
+                </Button>
+                <div className="h-14 px-5 rounded-xl border flex flex-col justify-center backdrop-blur-md" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}>
+                  <span className="text-[10px] uppercase font-bold tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>Режим</span>
+                  <span className="text-sm font-black flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                    {mode === 'spot' ? '🔵 SPOT 1x' : `⚡ Фьючерсы ${leverage}x`}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:shrink-0">
-            <Button
-              variant={enabled ? 'danger' : 'primary'}
-              size="lg"
-              onClick={async (e) => {
-                e.preventDefault();
-                if (enabled) {
-                  try {
-                    await fetch(`${API}/market/auto-analyze/stop`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
-                    });
-                  } catch { }
-                }
-                setEnabled(!enabled);
-              }}
-              disabled={status === 'running' && !enabled}
-              className="min-w-[140px]"
-            >
-              {enabled ? 'Остановить' : 'Запустить'}
-            </Button>
-            <span className="text-sm font-medium px-3 py-1.5 rounded-lg" style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
-              {mode === 'spot' ? 'SPOT 1x' : `${leverage}x`}
-            </span>
+
+          {/* Stats & Features Area */}
+          <div className="lg:w-[45%] p-8 lg:p-12 flex flex-col justify-center relative bg-gradient-to-br from-transparent to-[var(--bg-card)]/50">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-5 rounded-2xl border transition duration-300 hover:-translate-y-1 hover:shadow-lg" style={{ background: 'var(--bg-glass)', borderColor: 'rgba(255,255,255,0.05)' }}>
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 shadow-inner" style={{ background: 'linear-gradient(135deg, rgba(255,199,0,0.15) 0%, rgba(255,199,0,0.02) 100%)', color: 'var(--accent)', border: '1px solid rgba(255,199,0,0.2)' }}>
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                </div>
+                <h3 className="font-bold text-base mb-1" style={{ color: 'var(--text-primary)' }}>ИИ-Скринер</h3>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Отбор лучшего сетапа из 30+ монет в реальном времени</p>
+              </div>
+              <div className="p-5 rounded-2xl border transition duration-300 hover:-translate-y-1 hover:shadow-lg" style={{ background: 'var(--bg-glass)', borderColor: 'rgba(255,255,255,0.05)' }}>
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 shadow-inner" style={{ background: 'linear-gradient(135deg, rgba(0,230,118,0.15) 0%, rgba(0,230,118,0.02) 100%)', color: 'var(--success)', border: '1px solid rgba(0,230,118,0.2)' }}>
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                </div>
+                <h3 className="font-bold text-base mb-1" style={{ color: 'var(--text-primary)' }}>Тотальный Контроль</h3>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Динамичные SL, каскадный TP и защита от убытка</p>
+              </div>
+              <div className="p-5 rounded-2xl border transition duration-300 hover:-translate-y-1 hover:shadow-lg sm:col-span-2" style={{ background: 'var(--bg-glass)', borderColor: 'rgba(255,255,255,0.05)' }}>
+                <div className="flex items-center gap-5">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-inner" style={{ background: 'linear-gradient(135deg, rgba(64,150,255,0.15) 0%, rgba(64,150,255,0.02) 100%)', color: '#4096ff', border: '1px solid rgba(64,150,255,0.2)' }}>
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base mb-1" style={{ color: 'var(--text-primary)' }}>Бесшовная Интеграция</h3>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Прямое исполнение ордеров на вашем счету Bitget с минимальной задержкой</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </Card>
+      </div>
+
 
       {/* Управление: Статус и таймер */}
-      <Card variant="glass" padding="normal">
+      <Card variant="glass" padding="spacious">
         <div className="flex flex-wrap items-center gap-3">
           <Badge variant={enabled && status === 'running' ? 'success' : status === 'stopped_daily_loss' ? 'warning' : 'neutral'} dot pulse={enabled && status === 'running'}>
             {enabled ? status === 'running' ? 'Анализ запущен' : status === 'error' ? 'Ошибка' : status === 'stopped_daily_loss' ? 'Дневной лимит' : 'Запуск...' : 'Выключено'}
@@ -1163,7 +1209,7 @@ export default function AutoDemoPage() {
       </Card >
 
       {/* Режим и настройки */}
-      < Card variant="glass" padding="normal" >
+      <Card variant="glass" padding="spacious">
         <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Режим и настройки</h2>
         <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Полный автомат (скринер + исполнение на Bitget) или ручной режим: пары, плечо, порог уверенности. Торговля на подключенном счёте.</p>
         <div className="flex flex-wrap items-center gap-4 sm:gap-6 mb-6">
@@ -1643,8 +1689,8 @@ export default function AutoDemoPage() {
         }
       </Card >
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card variant="glass" padding="normal">
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card variant="glass" padding="spacious">
           <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Баланс и статистика</h3>
           <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
             {settings.executeOrders
@@ -1699,7 +1745,7 @@ export default function AutoDemoPage() {
           </div>
         </Card>
 
-        <Card variant="glass" padding="normal">
+        <Card variant="glass" padding="spacious">
           <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Последний сигнал</h3>
           <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>Последний пришедший сигнал по выбранным парам или из скринера</p>
           {lastSignal ? (
@@ -1828,6 +1874,6 @@ export default function AutoDemoPage() {
         title="История сделок"
         subtitle={`${displayHistory.length} записей · ${token ? 'закрытые сделки с сервера (Bitget)' : 'локальная демо-история'}`}
       />
-    </div >
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import { normSymbol } from '../../utils/fetchPrice';
-
+import { Card } from '../ui/Card';
 export interface PositionItem {
   id: string;
   symbol: string;
@@ -30,11 +30,7 @@ export interface PositionsTableProps {
   subtitle?: string;
 }
 
-const cardStyle = {
-  background: 'var(--bg-card-solid)',
-  border: '1px solid var(--border)',
-  boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-};
+
 
 function SkeletonCard() {
   return (
@@ -63,10 +59,7 @@ export default function PositionsTable({
 }: PositionsTableProps) {
   if (loading) {
     return (
-      <section
-        className="rounded-lg overflow-hidden p-6 md:p-8"
-        style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}
-      >
+      <Card variant="glass" padding="spacious">
         <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>
           {title}
         </h3>
@@ -79,16 +72,13 @@ export default function PositionsTable({
           <SkeletonCard />
           <SkeletonCard />
         </div>
-      </section>
+      </Card>
     );
   }
 
   if (positions.length === 0) {
     return (
-      <section
-        className="rounded-lg overflow-hidden p-6 md:p-8"
-        style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}
-      >
+      <Card variant="glass" padding="spacious">
         <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>
           {title}
         </h3>
@@ -108,7 +98,7 @@ export default function PositionsTable({
           <p className="text-sm font-medium">Нет открытых позиций</p>
           <p className="text-xs mt-1">Позиции появятся здесь после исполнения ордеров</p>
         </div>
-      </section>
+      </Card>
     );
   }
 
@@ -116,10 +106,7 @@ export default function PositionsTable({
   const demoPositions = positions.filter((p) => p.source === 'demo');
 
   return (
-    <section
-      className="rounded-lg overflow-hidden p-6 md:p-8"
-      style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}
-    >
+    <Card variant="glass" padding="spacious">
       <h3 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>
         {title}
       </h3>
@@ -146,9 +133,9 @@ export default function PositionsTable({
               const amountStr =
                 pos.contracts != null
                   ? `${Math.abs(pos.contracts).toLocaleString('ru-RU', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 4,
-                    })} ${base}`
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 4,
+                  })} ${base}`
                   : '—';
 
               const lev = Math.max(1, pos.leverage || 1);
@@ -212,11 +199,10 @@ export default function PositionsTable({
                     </p>
                   )}
                   <p
-                    className={`text-sm font-medium ${
-                      (pos.pnl ?? 0) >= 0
-                        ? 'text-[var(--success)]'
-                        : 'text-[var(--danger)]'
-                    }`}
+                    className={`text-sm font-medium ${(pos.pnl ?? 0) >= 0
+                      ? 'text-[var(--success)]'
+                      : 'text-[var(--danger)]'
+                      }`}
                   >
                     P&L:{' '}
                     {pos.pnl != null
@@ -254,8 +240,8 @@ export default function PositionsTable({
               const pnl =
                 pos.pnl ??
                 ((pos.currentPrice ?? pos.openPrice) - pos.openPrice) *
-                  (pos.direction === 'SHORT' ? -1 : 1) *
-                  (pos.size / pos.openPrice);
+                (pos.direction === 'SHORT' ? -1 : 1) *
+                (pos.size / pos.openPrice);
 
               return (
                 <div
@@ -293,11 +279,10 @@ export default function PositionsTable({
                     {(pos.size ?? 0).toFixed(2)}
                   </p>
                   <p
-                    className={`text-sm font-medium ${
-                      pnl >= 0
-                        ? 'text-[var(--success)]'
-                        : 'text-[var(--danger)]'
-                    }`}
+                    className={`text-sm font-medium ${pnl >= 0
+                      ? 'text-[var(--success)]'
+                      : 'text-[var(--danger)]'
+                      }`}
                   >
                     P&L: {pnl >= 0 ? '+' : ''}
                     {pnl.toFixed(2)}
@@ -319,6 +304,6 @@ export default function PositionsTable({
           </div>
         </div>
       )}
-    </section>
+    </Card>
   );
 }

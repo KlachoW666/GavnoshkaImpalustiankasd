@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useTableSort } from '../../utils/useTableSort';
 import { SortableTh } from '../SortableTh';
-
+import { Card } from '../ui/Card';
 export interface HistoryEntry {
   id: string;
   pair: string;
@@ -30,11 +30,6 @@ export interface TradeHistoryProps {
   subtitle?: string;
 }
 
-const cardStyle = {
-  background: 'var(--bg-card-solid)',
-  border: '1px solid var(--border)',
-  boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-};
 
 function formatPrice(price: number): string {
   if (typeof price !== 'number' || !Number.isFinite(price)) return '—';
@@ -111,10 +106,7 @@ export default function TradeHistory({
     `${history.length} записей`;
 
   return (
-    <section
-      className="rounded-lg overflow-hidden p-6 md:p-8"
-      style={{ ...cardStyle, borderLeft: '4px solid var(--accent)' }}
-    >
+    <Card variant="glass" padding="spacious">
       <h3
         className="text-lg font-semibold mb-0.5"
         style={{ color: 'var(--text-primary)' }}
@@ -252,21 +244,20 @@ export default function TradeHistory({
                   <td className="py-3 px-3 font-medium">{h.pair}</td>
                   <td className="py-3 px-3">
                     <span
-                      className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
-                        h.direction === 'LONG'
-                          ? 'badge-long'
-                          : 'badge-short'
-                      }`}
+                      className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${h.direction === 'LONG'
+                        ? 'badge-long'
+                        : 'badge-short'
+                        }`}
                       style={
                         h.direction === 'LONG'
                           ? {
-                              background: 'rgba(34,197,94,0.15)',
-                              color: 'var(--success)',
-                            }
+                            background: 'rgba(34,197,94,0.15)',
+                            color: 'var(--success)',
+                          }
                           : {
-                              background: 'rgba(239,68,68,0.15)',
-                              color: 'var(--danger)',
-                            }
+                            background: 'rgba(239,68,68,0.15)',
+                            color: 'var(--danger)',
+                          }
                       }
                     >
                       {h.direction}
@@ -300,13 +291,12 @@ export default function TradeHistory({
                       : '—'}
                   </td>
                   <td
-                    className={`text-right py-3 px-3 font-semibold tabular-nums ${
-                      validClosePrice(h)
-                        ? h.pnl >= 0
-                          ? 'text-[var(--success)]'
-                          : 'text-[var(--danger)]'
-                        : ''
-                    }`}
+                    className={`text-right py-3 px-3 font-semibold tabular-nums ${validClosePrice(h)
+                      ? h.pnl >= 0
+                        ? 'text-[var(--success)]'
+                        : 'text-[var(--danger)]'
+                      : ''
+                      }`}
                   >
                     {validClosePrice(h)
                       ? (h.pnl >= 0 ? '+' : '') + h.pnl.toFixed(2)
@@ -324,6 +314,6 @@ export default function TradeHistory({
           </table>
         </div>
       )}
-    </section>
+    </Card>
   );
 }
