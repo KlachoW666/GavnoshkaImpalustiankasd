@@ -20,7 +20,12 @@ const cardStyle = {
   border: '1px solid var(--border)',
   boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
 };
-const miniCardStyle = { background: 'var(--bg-hover)' };
+const miniCardStyle = {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border-glass)',
+    backdropFilter: 'blur(8px)',
+    transition: 'all 0.2s ease-out'
+  };
 
 export default function AdminProxies() {
   const [proxies, setProxies] = useState<ProxyItem[]>([]);
@@ -148,7 +153,7 @@ export default function AdminProxies() {
             onChange={(e) => setNewUrl(e.target.value)}
             placeholder="http://user:pass@host:port"
             className="input-field flex-1 min-w-[280px] rounded-lg"
-            style={{ background: 'var(--bg-hover)' }}
+            style={{ background: 'var(--bg-card)', backdropFilter: 'blur(8px)' }}
           />
           <button
             type="button"

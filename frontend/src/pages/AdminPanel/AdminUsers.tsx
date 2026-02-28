@@ -315,7 +315,12 @@ export default function AdminUsers() {
     boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
     color: 'var(--text-primary)'
   };
-  const miniCardStyle = { background: 'var(--bg-hover)' };
+  const miniCardStyle = {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border-glass)',
+    backdropFilter: 'blur(8px)',
+    transition: 'all 0.2s ease-out'
+  };
 
   const openProfile = (userId: string) => setSelectedUserId(userId);
   const closeProfile = () => {

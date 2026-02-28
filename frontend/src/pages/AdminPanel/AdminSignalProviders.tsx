@@ -306,23 +306,23 @@ export default function AdminSignalProviders() {
                 </div>
 
                 <div className="grid grid-cols-4 gap-2">
-                  <div className="px-2 py-2 rounded text-center" style={{ background: 'var(--bg-hover)' }}>
+                  <div className="px-2 py-2 rounded text-center" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(8px)' }}>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>PnL</p>
                     <p className={`text-sm font-bold font-mono ${display.pnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
                       {display.pnl >= 0 ? '+' : ''}{(display.pnl / 1000).toFixed(1)}K
                     </p>
                   </div>
-                  <div className="px-2 py-2 rounded text-center" style={{ background: 'var(--bg-hover)' }}>
+                  <div className="px-2 py-2 rounded text-center" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(8px)' }}>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Win</p>
                     <p className="text-sm font-bold font-mono" style={{ color: 'var(--accent)' }}>
                       {display.winRate.toFixed(0)}%
                     </p>
                   </div>
-                  <div className="px-2 py-2 rounded text-center" style={{ background: 'var(--bg-hover)' }}>
+                  <div className="px-2 py-2 rounded text-center" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(8px)' }}>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Сделок</p>
                     <p className="text-sm font-bold font-mono">{display.trades}</p>
                   </div>
-                  <div className="px-2 py-2 rounded text-center" style={{ background: 'var(--bg-hover)' }}>
+                  <div className="px-2 py-2 rounded text-center" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(8px)' }}>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Подп.</p>
                     <p className="text-sm font-bold font-mono">{display.subscribers}</p>
                   </div>

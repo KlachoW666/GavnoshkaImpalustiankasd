@@ -135,11 +135,17 @@ export default function AdminAnalytics() {
 
   const a = analytics!;
   const cardStyle = {
-    background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
-    border: '1px solid var(--border)',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+    background: 'var(--bg-card)',
+    backdropFilter: 'blur(24px)',
+    border: '1px solid var(--border-strong)',
+    boxShadow: 'var(--shadow-lg)'
   };
-  const miniCardStyle = { background: 'var(--bg-hover)' };
+  const miniCardStyle = {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border-glass)',
+    backdropFilter: 'blur(8px)',
+    transition: 'all 0.2s ease-out'
+  };
 
   // Equity curve SVG
   const curve = a.equityCurve ?? [];
@@ -195,8 +201,8 @@ export default function AdminAnalytics() {
             ))}
           </select>
           <div className="flex flex-wrap items-center gap-2">
-            <input type="date" value={exportSince} onChange={(e) => setExportSince(e.target.value)} className="px-2 py-1.5 rounded border text-sm" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }} placeholder="С" />
-            <input type="date" value={exportUntil} onChange={(e) => setExportUntil(e.target.value)} className="px-2 py-1.5 rounded border text-sm" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }} placeholder="По" />
+            <input type="date" value={exportSince} onChange={(e) => setExportSince(e.target.value)} className="px-2 py-1.5 rounded border text-sm" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(16px)', borderColor: 'var(--border-strong)' }} placeholder="С" />
+            <input type="date" value={exportUntil} onChange={(e) => setExportUntil(e.target.value)} className="px-2 py-1.5 rounded border text-sm" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(16px)', borderColor: 'var(--border-strong)' }} placeholder="По" />
             <button onClick={exportCsv} className="px-4 py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: 'white' }}>Экспорт CSV</button>
           </div>
         </div>

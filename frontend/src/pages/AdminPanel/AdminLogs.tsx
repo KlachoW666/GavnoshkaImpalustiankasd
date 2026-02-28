@@ -75,9 +75,10 @@ export default function AdminLogs() {
   }
 
   const cardStyle = {
-    background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
-    border: '1px solid var(--border)',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+    background: 'var(--bg-card)',
+    backdropFilter: 'blur(24px)',
+    border: '1px solid var(--border-strong)',
+    boxShadow: 'var(--shadow-lg)'
   };
 
   return (

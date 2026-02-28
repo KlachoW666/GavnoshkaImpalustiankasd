@@ -82,11 +82,17 @@ export default function AdminSubscriptionPlans() {
   }
 
   const cardStyle = {
-    background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
-    border: '1px solid var(--border)',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+    background: 'var(--bg-card)',
+    backdropFilter: 'blur(24px)',
+    border: '1px solid var(--border-strong)',
+    boxShadow: 'var(--shadow-lg)'
   };
-  const miniCardStyle = { background: 'var(--bg-hover)' };
+  const miniCardStyle = {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border-glass)',
+    backdropFilter: 'blur(8px)',
+    transition: 'all 0.2s ease-out'
+  };
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -107,10 +113,10 @@ export default function AdminSubscriptionPlans() {
           </div>
         </div>
         <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
-          Бот должен отправлять заголовок <code className="px-1 rounded" style={{ background: 'var(--bg-hover)' }}>X-Bot-Token</code> со значением переменной окружения <code className="px-1 rounded" style={{ background: 'var(--bg-hover)' }}>BOT_WEBHOOK_SECRET</code>. Значение токена в интерфейсе не показывается.
+          Бот должен отправлять заголовок <code className="px-1 rounded" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(8px)' }}>X-Bot-Token</code> со значением переменной окружения <code className="px-1 rounded" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(8px)' }}>BOT_WEBHOOK_SECRET</code>. Значение токена в интерфейсе не показывается.
         </p>
         <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          Базовый URL: <code className="px-1 rounded" style={{ background: 'var(--bg-hover)' }}>{apiBase}</code>
+          Базовый URL: <code className="px-1 rounded" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(8px)' }}>{apiBase}</code>
         </p>
         <ul className="text-sm mt-2 list-disc list-inside" style={{ color: 'var(--text-muted)' }}>
           <li>POST /bot/register-key — body: key (32 символа), durationDays, telegramUserId (опционально)</li>

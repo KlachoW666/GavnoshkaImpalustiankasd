@@ -86,28 +86,28 @@ export default function AdminFinance() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="rounded-xl p-4" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+        <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(24px)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-lg)' }}>
           <p className="text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }}>В системе</p>
           <p className="text-2xl font-bold" style={{ color: 'var(--accent)' }}>${fmt(summary?.totals?.inSystem || 0)}</p>
         </div>
-        <div className="rounded-xl p-4" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+        <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(24px)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-lg)' }}>
           <p className="text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }}>Всего депозитов</p>
           <p className="text-2xl font-bold" style={{ color: 'var(--success)' }}>${fmt(summary?.wallet?.totalDeposits || 0)}</p>
           <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{summary?.wallet?.depositsCount || 0} операций</p>
         </div>
-        <div className="rounded-xl p-4" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+        <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(24px)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-lg)' }}>
           <p className="text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }}>Всего выводов</p>
           <p className="text-2xl font-bold" style={{ color: 'var(--danger)' }}>${fmt(summary?.wallet?.totalWithdrawals || 0)}</p>
           <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{summary?.wallet?.withdrawalsSent || 0} отправлено</p>
         </div>
-        <div className="rounded-xl p-4" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+        <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(24px)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-lg)' }}>
           <p className="text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }}>Общий доход</p>
           <p className="text-2xl font-bold" style={{ color: 'var(--accent)' }}>${fmt(summary?.totals?.totalRevenue || 0)}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-xl p-4" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+        <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(24px)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-lg)' }}>
           <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Ожидают обработки</h3>
           <div className="space-y-2">
             <div className="flex justify-between">
@@ -120,7 +120,7 @@ export default function AdminFinance() {
             </div>
           </div>
         </div>
-        <div className="rounded-xl p-4" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+        <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(24px)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-lg)' }}>
           <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Сегодня</h3>
           <div className="space-y-2">
             <div className="flex justify-between">
@@ -133,7 +133,7 @@ export default function AdminFinance() {
             </div>
           </div>
         </div>
-        <div className="rounded-xl p-4" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+        <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(24px)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-lg)' }}>
           <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>Подписки</h3>
           <div className="space-y-2">
             <div className="flex justify-between">
@@ -148,7 +148,7 @@ export default function AdminFinance() {
         </div>
       </div>
 
-      <div className="rounded-xl p-4" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+      <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(24px)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-lg)' }}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>График депозитов/выводов</h3>
           <div className="flex gap-2">

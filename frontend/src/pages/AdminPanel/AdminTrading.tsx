@@ -173,15 +173,15 @@ export default function AdminTrading() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Cooldown (мин)</label>
-              <input type="number" min={1} max={120} value={efForm.cooldownMinutes} onChange={(e) => setEfForm((p) => ({ ...p, cooldownMinutes: Math.max(1, Math.min(120, parseInt(e.target.value) || 30)) }))} className="w-full px-3 py-2 rounded border text-sm" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }} />
+              <input type="number" min={1} max={120} value={efForm.cooldownMinutes} onChange={(e) => setEfForm((p) => ({ ...p, cooldownMinutes: Math.max(1, Math.min(120, parseInt(e.target.value) || 30)) }))} className="w-full px-3 py-2 rounded border text-sm" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(16px)', borderColor: 'var(--border-strong)' }} />
             </div>
             <div>
               <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Max убытков подряд</label>
-              <input type="number" min={1} max={10} value={efForm.maxLossStreak} onChange={(e) => setEfForm((p) => ({ ...p, maxLossStreak: Math.max(1, Math.min(10, parseInt(e.target.value) || 3)) }))} className="w-full px-3 py-2 rounded border text-sm" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }} />
+              <input type="number" min={1} max={10} value={efForm.maxLossStreak} onChange={(e) => setEfForm((p) => ({ ...p, maxLossStreak: Math.max(1, Math.min(10, parseInt(e.target.value) || 3)) }))} className="w-full px-3 py-2 rounded border text-sm" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(16px)', borderColor: 'var(--border-strong)' }} />
             </div>
             <div>
               <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Дневной drawdown %</label>
-              <input type="number" min={1} max={50} value={efForm.maxDailyDrawdownPct} onChange={(e) => setEfForm((p) => ({ ...p, maxDailyDrawdownPct: Math.max(1, Math.min(50, parseInt(e.target.value) || 5)) }))} className="w-full px-3 py-2 rounded border text-sm" style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }} />
+              <input type="number" min={1} max={50} value={efForm.maxDailyDrawdownPct} onChange={(e) => setEfForm((p) => ({ ...p, maxDailyDrawdownPct: Math.max(1, Math.min(50, parseInt(e.target.value) || 5)) }))} className="w-full px-3 py-2 rounded border text-sm" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(16px)', borderColor: 'var(--border-strong)' }} />
             </div>
           </div>
           <button onClick={saveEfConfig} className="px-4 py-2 rounded-lg text-sm font-medium" style={{ background: 'var(--accent)', color: 'white' }}>Сохранить</button>

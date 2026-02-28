@@ -260,7 +260,7 @@ export default function AdminCopyTrading() {
             <div className="overflow-x-auto rounded-lg" style={{ border: '1px solid var(--border)' }}>
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ background: 'var(--bg-card-solid)' }}>
+                  <tr style={{ background: 'var(--bg-card)', backdropFilter: 'blur(16px)' }}>
                     <th className="py-3 px-3 text-left">Дата</th>
                     <th className="py-3 px-3 text-left">Пользователь</th>
                     <th className="py-3 px-3 text-left">Тип</th>
@@ -376,25 +376,25 @@ export default function AdminCopyTrading() {
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div className="px-3 py-2 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
+                      <div className="px-3 py-2 rounded-lg" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(8px)' }}>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>PnL</p>
                         <p className={`text-lg font-bold font-mono ${display.pnl >= 0 ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
                           {display.pnl >= 0 ? '+' : ''}{display.pnl.toFixed(2)}
                         </p>
                       </div>
-                      <div className="px-3 py-2 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
+                      <div className="px-3 py-2 rounded-lg" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(8px)' }}>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Win Rate</p>
                         <p className="text-lg font-bold font-mono" style={{ color: 'var(--accent)' }}>
                           {display.winRate.toFixed(1)}%
                         </p>
                       </div>
-                      <div className="px-3 py-2 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
+                      <div className="px-3 py-2 rounded-lg" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(8px)' }}>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Сделок</p>
                         <p className="text-lg font-bold font-mono" style={{ color: 'var(--text-primary)' }}>
                           {display.trades}
                         </p>
                       </div>
-                      <div className="px-3 py-2 rounded-lg" style={{ background: 'var(--bg-hover)' }}>
+                      <div className="px-3 py-2 rounded-lg" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(8px)' }}>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Подписчиков</p>
                         <p className="text-lg font-bold font-mono" style={{ color: 'var(--text-primary)' }}>
                           {display.subscribers}

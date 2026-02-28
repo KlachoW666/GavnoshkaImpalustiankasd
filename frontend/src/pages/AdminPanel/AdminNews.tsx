@@ -20,7 +20,12 @@ const cardStyle = {
   border: '1px solid var(--border)',
   boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
 };
-const miniCardStyle = { background: 'var(--bg-hover)' };
+const miniCardStyle = {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border-glass)',
+    backdropFilter: 'blur(8px)',
+    transition: 'all 0.2s ease-out'
+  };
 
 function formatDate(s: string) {
   try {

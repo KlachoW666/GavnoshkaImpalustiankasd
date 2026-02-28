@@ -70,7 +70,7 @@ export default function AdminPanel() {
 
   useEffect(() => {
     setAdminUnauthorizedCallback(() => setAuthenticated(false));
-    return () => setAdminUnauthorizedCallback(() => {});
+    return () => setAdminUnauthorizedCallback(() => { });
   }, []);
 
   useEffect(() => {
@@ -96,24 +96,27 @@ export default function AdminPanel() {
   const groups = Array.from(new Set(TABS.map((t) => t.group)));
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+    <div className="min-h-screen flex text-sm relative" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+      {/* Background Glows for Admin Layout */}
+      <div className="fixed top-[-10%] left-[-5%] w-[40%] h-[40%] rounded-full blur-[120px] pointer-events-none opacity-20" style={{ background: 'var(--accent)' }} />
+      <div className="fixed bottom-[-10%] right-[-5%] w-[30%] h-[30%] rounded-full blur-[100px] pointer-events-none opacity-10" style={{ background: 'var(--success)' }} />
+
       {/* Sidebar — desktop fixed, mobile overlay */}
       <aside
         className={`
-          fixed lg:sticky top-0 left-0 z-20 flex-shrink-0 w-64 h-screen flex flex-col
-          transition-transform duration-200 ease-out lg:translate-x-0
+          fixed lg:sticky top-0 left-0 z-30 flex-shrink-0 w-64 h-screen flex flex-col glass-strong
+          transition-transform duration-300 ease-out lg:translate-x-0
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
         style={{
-          background: 'var(--bg-card-solid)',
-          borderRight: '1px solid var(--border)',
-          boxShadow: sidebarOpen ? '4px 0 24px rgba(0,0,0,0.15)' : 'none'
+          borderRight: '1px solid var(--border-strong)',
+          boxShadow: sidebarOpen ? 'var(--shadow-xl)' : 'var(--shadow-lg)'
         }}
       >
-        <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
+        <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-strong)' }}>
           <div className="flex items-center gap-2">
-            <img src="/logo.svg" alt="" className="h-7 w-7 object-contain opacity-90" />
-            <span className="font-bold text-sm" style={{ color: 'var(--accent)' }}>CLABX Admin</span>
+            <img src="/logo.svg" alt="" className="h-7 w-7 object-contain" style={{ filter: 'drop-shadow(0 0 6px var(--accent-glow))' }} />
+            <span className="font-bold text-sm uppercase tracking-widest" style={{ color: 'var(--accent)', textShadow: '0 0 10px var(--accent-glow)' }}>CLABX Admin</span>
           </div>
           <button
             type="button"
@@ -139,11 +142,12 @@ export default function AdminPanel() {
                     <button
                       type="button"
                       onClick={() => { setTab(t.id); setSidebarOpen(false); }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm font-medium transition-colors rounded-none lg:rounded-r-lg"
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm font-medium transition-all duration-200 rounded-lg mx-2 w-[calc(100%-1rem)] ${tab === t.id ? 'shadow-lg' : 'hover:bg-[var(--bg-hover)]'}`}
                       style={{
                         background: tab === t.id ? 'var(--accent-dim)' : 'transparent',
                         color: tab === t.id ? 'var(--accent)' : 'var(--text-secondary)',
-                        borderLeft: tab === t.id ? '3px solid var(--accent)' : '3px solid transparent'
+                        border: tab === t.id ? '1px solid var(--border-accent)' : '1px solid transparent',
+                        boxShadow: tab === t.id ? 'var(--shadow-glow)' : 'none'
                       }}
                     >
                       <span className="text-base" aria-hidden>{t.icon}</span>
@@ -184,8 +188,8 @@ export default function AdminPanel() {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar — mobile: menu + title; desktop: title only */}
         <header
-          className="sticky top-0 z-10 flex items-center gap-4 px-4 py-3 lg:px-6 border-b shrink-0"
-          style={{ background: 'var(--bg-card-solid)', borderColor: 'var(--border)' }}
+          className="sticky top-0 z-20 flex items-center gap-4 px-4 py-4 lg:px-6 shrink-0 glass"
+          style={{ borderBottom: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-sm)' }}
         >
           <button
             type="button"
@@ -198,13 +202,13 @@ export default function AdminPanel() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <h1 className="text-lg font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+          <h1 className="text-xl font-bold truncate tracking-wide" style={{ color: 'var(--text-primary)', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
             {TABS.find((t) => t.id === tab)?.label ?? 'Админ-панель'}
           </h1>
         </header>
 
-        <main className="flex-1 py-6 px-4 lg:px-6 overflow-auto">
-          <div className="max-w-6xl mx-auto">
+        <main className="flex-1 py-8 px-4 lg:px-6 overflow-auto custom-scrollbar relative z-10">
+          <div className="max-w-7xl mx-auto">
             {tab === 'dashboard' && <AdminDashboard />}
             {tab === 'finance' && <AdminFinance />}
             {tab === 'transactions' && <AdminTransactions />}

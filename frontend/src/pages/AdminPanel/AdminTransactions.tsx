@@ -139,7 +139,7 @@ export default function AdminTransactions() {
       </div>
 
       {showFilters && (
-        <div className="rounded-xl p-4" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+        <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(24px)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-lg)' }}>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <div>
               <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Тип</label>
@@ -226,7 +226,7 @@ export default function AdminTransactions() {
         </div>
       ) : (
         <>
-          <div className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-card-solid)', border: '1px solid var(--border)' }}>
+          <div className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-card)', backdropFilter: 'blur(24px)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-lg)' }}>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>

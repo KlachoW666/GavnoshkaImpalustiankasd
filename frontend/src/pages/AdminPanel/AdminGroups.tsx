@@ -134,11 +134,17 @@ export default function AdminGroups() {
   }
 
   const cardStyle = {
-    background: 'linear-gradient(145deg, var(--bg-card-solid) 0%, var(--bg-hover) 100%)',
-    border: '1px solid var(--border)',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+    background: 'var(--bg-card)',
+    backdropFilter: 'blur(24px)',
+    border: '1px solid var(--border-strong)',
+    boxShadow: 'var(--shadow-lg)'
   };
-  const miniCardStyle = { background: 'var(--bg-hover)' };
+  const miniCardStyle = {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border-glass)',
+    backdropFilter: 'blur(8px)',
+    transition: 'all 0.2s ease-out'
+  };
 
   return (
     <div className="space-y-6 max-w-4xl">
