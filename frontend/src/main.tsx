@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { HelmetProvider } from 'react-helmet-async';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
@@ -12,15 +13,17 @@ import './styles/exchange.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ErrorBoundary>
-      <ThemeProvider>
-        <AuthProvider>
-          <NotificationProvider>
-            <App />
-            <ToastContainer />
-          </NotificationProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+    <HelmetProvider>
+      <ErrorBoundary>
+        <ThemeProvider>
+          <AuthProvider>
+            <NotificationProvider>
+              <App />
+              <ToastContainer />
+            </NotificationProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
+    </HelmetProvider>
   </React.StrictMode>
 );

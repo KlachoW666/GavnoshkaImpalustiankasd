@@ -14,6 +14,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import type { Provider } from '../components/CopyTrading/ProvidersTable';
 import { getDisplayStats as getProviderDisplayStats } from '../components/CopyTrading/ProvidersTable';
+import { SEO } from '../components/SEO';
 
 interface Subscription {
   providerId: string;
@@ -220,6 +221,21 @@ export default function CopyTradingPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-12 pb-16">
+      <SEO
+        title="Копитрейдинг на OKX и Bitget"
+        description="Подключите API ключи и копируйте сделки лучших трейдеров на платформе CLABX в полностью автоматическом режиме."
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          "name": "CLABX Copy Trading",
+          "operatingSystem": "All",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          }
+        }}
+      />
       {!termsAccepted && <CopyTradingTerms onAccept={() => setTermsAccepted(true)} />}
       <RiskDisclaimer storageKey="copy-trading" />
 

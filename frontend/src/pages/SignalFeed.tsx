@@ -7,6 +7,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Tabs } from '../components/ui/Tabs';
+import { SEO } from '../components/SEO';
 
 type DirectionFilter = 'all' | 'LONG' | 'SHORT';
 type SortBy = 'time' | 'confidence' | 'rr';
@@ -133,6 +134,11 @@ export default function SignalFeed() {
 
   return (
     <div className="space-y-5">
+      <SEO
+        title="Торговые Сигналы"
+        description="Крипто сигналы в реальном времени. Входы, стоп-лоссы и тейк-профиты с высоким Risk:Reward."
+        type="website"
+      />
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>

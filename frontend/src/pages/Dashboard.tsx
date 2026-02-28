@@ -8,6 +8,7 @@ import { Card, StatCard } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { SEO } from '../components/SEO';
 
 export interface DisplayStats {
   volumeEarned: number;
@@ -161,6 +162,22 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 animate-page-in">
+      <SEO
+        title="Главная — Выжать максимум с рынка"
+        description="CLABX — инновационная платформа авто-трейдинга и аналитики. Используйте продвинутые сигналы и AI."
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          "name": "CLABX Crypto Platform",
+          "operatingSystem": "All",
+          "applicationCategory": "FinanceApplication",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          }
+        }}
+      />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         {statsLoading ? (
           [1, 2, 3, 4].map((i) => <StatSkeleton key={i} />)
