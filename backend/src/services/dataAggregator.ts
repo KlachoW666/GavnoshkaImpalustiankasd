@@ -691,16 +691,19 @@ export class DataAggregator {
     const candles: OHLCVCandle[] = [];
     let price = basePrice;
     for (let i = limit; i >= 0; i--) {
-      const change = (Math.random() - 0.48) * basePrice * 0.002;
+      // Имитируем высокую волатильность (до 5% за свечу), чтобы сканер подхватывал монеты
+      const change = (Math.random() - 0.48) * basePrice * 0.05;
       const open = price;
       price = price + change;
+      // Объём должен быть большим, чтобы пройти фильтр 300k (например, 10k монет * цена)
+      const baseVol = 100_000 / basePrice + Math.random() * (50_000 / basePrice);
       candles.push({
         timestamp: now - i * tfMs,
         open,
-        high: Math.max(open, price) * (1 + Math.random() * 0.001),
-        low: Math.min(open, price) * (1 - Math.random() * 0.001),
+        high: Math.max(open, price) * (1 + Math.random() * 0.02),
+        low: Math.min(open, price) * (1 - Math.random() * 0.02),
         close: price,
-        volume: (basePrice * 0.01 + Math.random() * basePrice * 0.02)
+        volume: baseVol
       });
     }
     return candles;
