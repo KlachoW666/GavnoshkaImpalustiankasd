@@ -8,7 +8,7 @@ import { initDb, insertOrder, updateOrderClose, listOrders, getOrderById } from 
 import { feedOrderToML } from '../services/onlineMLService';
 import { handleCopyOrderPnL, distributePoolPnLToCopyTrading, ADMIN_POOL_CLIENT_ID } from '../services/copyTradingProfitShareService';
 import { syncClosedOrdersFromBitget, pullClosedOrdersFromBitget } from '../services/autoTrader';
-import { getBitgetCredentials } from '../db/authDb';
+import { getBitgetCredentials, getBitgetDemoCredentials } from '../db/authDb';
 import { logger } from '../lib/logger';
 import { optionalAuth } from './auth';
 import { orderCloseSchema } from '../schemas/orders';
@@ -136,7 +136,7 @@ router.get('/', optionalAuth, async (req: Request, res: Response) => {
     const useTestnet = req.query.useTestnet === 'true';
     if (userId && clientId) {
       try {
-        const userCreds = getBitgetCredentials(userId);
+        const userCreds = useTestnet ? getBitgetDemoCredentials(userId) : getBitgetCredentials(userId);
         if (userCreds?.apiKey && userCreds?.secret) {
           await syncClosedOrdersFromBitget(useTestnet, userCreds, clientId);
           await pullClosedOrdersFromBitget(useTestnet, userCreds, clientId);

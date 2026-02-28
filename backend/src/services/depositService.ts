@@ -4,7 +4,7 @@
 
 import ccxt from 'ccxt';
 import { HttpsProxyAgent } from 'https-proxy-agent';
-import TronWebModule from 'tronweb';
+import { TronWeb, TronWebOptions } from 'tronweb';
 import { config } from '../config';
 import { getProxy } from '../db/proxies';
 import { logger } from '../lib/logger';
@@ -161,35 +161,35 @@ function getDepositNetwork(address: string): string | null {
 
 export function createDepositRequest(userId: string, amount: number, txHash: string, network?: string): { success: boolean; error?: string; txId?: number } {
   initDb();
-  
+
   if (!txHash || txHash.trim().length < 10) {
     return { success: false, error: 'Неверный хэш транзакции' };
   }
-  
+
   if (amount < 10) {
     return { success: false, error: 'Минимальная сумма пополнения: 10 USDT' };
   }
-  
+
   const detectedNetwork = network || 'TRC20';
-  
+
   if (isMemoryStore()) {
     return { success: true, txId: Date.now() };
   }
-  
+
   const db = getDb();
   if (!db) return { success: false, error: 'DB error' };
-  
+
   try {
     const existing = db.prepare('SELECT id FROM copy_trading_transactions WHERE tx_hash = ? AND type = ?').get(txHash.trim(), 'deposit');
     if (existing) {
       return { success: false, error: 'Транзакция уже обрабатывается' };
     }
-    
+
     const result = db.prepare(`
       INSERT INTO copy_trading_transactions (user_id, type, amount_usdt, tx_hash, status, admin_note)
       VALUES (?, 'deposit', ?, ?, 'pending', ?)
     `).run(userId, amount, txHash.trim(), `Network: ${detectedNetwork}`);
-    
+
     return { success: true, txId: result.lastInsertRowid as number };
   } catch (e) {
     logger.error('DepositService', `createDepositRequest error: ${(e as Error).message}`);
@@ -199,14 +199,14 @@ export function createDepositRequest(userId: string, amount: number, txHash: str
 
 export function getPendingDeposits(): PendingDeposit[] {
   initDb();
-  
+
   if (isMemoryStore()) {
     return [];
   }
-  
+
   const db = getDb();
   if (!db) return [];
-  
+
   try {
     const rows = db.prepare(`
       SELECT id, user_id, amount_usdt, tx_hash, admin_note, status, created_at
@@ -214,7 +214,7 @@ export function getPendingDeposits(): PendingDeposit[] {
       WHERE type = 'deposit' AND status = 'pending'
       ORDER BY created_at DESC
     `).all() as any[];
-    
+
     return rows.map(r => ({
       id: r.id,
       user_id: r.user_id,
@@ -231,37 +231,37 @@ export function getPendingDeposits(): PendingDeposit[] {
 
 export function approveDeposit(txId: number, adminNote?: string): { success: boolean; error?: string } {
   initDb();
-  
+
   if (isMemoryStore()) {
     return { success: true };
   }
-  
+
   const db = getDb();
   if (!db) return { success: false, error: 'DB error' };
-  
+
   try {
     const tx = db.prepare('SELECT * FROM copy_trading_transactions WHERE id = ?').get(txId) as CopyTradingTransaction | undefined;
     if (!tx) return { success: false, error: 'Транзакция не найдена' };
     if (tx.status !== 'pending') return { success: false, error: 'Транзакция уже обработана' };
     if (tx.type !== 'deposit') return { success: false, error: 'Неверный тип транзакции' };
-    
+
     const result = db.prepare(`
       UPDATE copy_trading_transactions 
       SET status = 'completed', admin_note = ?, processed_at = datetime('now')
       WHERE id = ?
     `).run(adminNote || 'Подтверждено администратором', txId);
-    
+
     if (result.changes > 0) {
       updateCopyTradingBalance(tx.user_id, { balance: tx.amount_usdt, deposit: tx.amount_usdt });
-      
+
       const balance = getOrCreateCopyTradingBalance(tx.user_id);
       logger.info('DepositService', `Deposit approved: ${tx.amount_usdt} USDT to user ${tx.user_id}`, {
         newBalance: balance.balance_usdt
       });
-      
+
       return { success: true };
     }
-    
+
     return { success: false, error: 'Ошибка обновления' };
   } catch (e) {
     logger.error('DepositService', `approveDeposit error: ${(e as Error).message}`);
@@ -271,25 +271,25 @@ export function approveDeposit(txId: number, adminNote?: string): { success: boo
 
 export function rejectDeposit(txId: number, adminNote?: string): { success: boolean; error?: string } {
   initDb();
-  
+
   if (isMemoryStore()) {
     return { success: true };
   }
-  
+
   const db = getDb();
   if (!db) return { success: false, error: 'DB error' };
-  
+
   try {
     const result = db.prepare(`
       UPDATE copy_trading_transactions 
       SET status = 'rejected', admin_note = ?, processed_at = datetime('now')
       WHERE id = ? AND status = 'pending'
     `).run(adminNote || 'Отклонено администратором', txId);
-    
+
     if (result.changes > 0) {
       return { success: true };
     }
-    
+
     return { success: false, error: 'Транзакция не найдена или уже обработана' };
   } catch (e) {
     return { success: false, error: 'Ошибка базы данных' };
@@ -327,14 +327,14 @@ export function stopCopyTradingDepositScanner(): void {
 
 function getExchange(): any {
   if (exchangeInstance) return exchangeInstance;
-  
+
   if (!config.bitget.hasCredentials) {
     return null;
   }
-  
+
   const proxyUrl = getProxy(config.proxyList) || config.proxy;
   const agent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
-  
+
   exchangeInstance = new ccxt.bitget({
     apiKey: config.bitget.apiKey,
     secret: config.bitget.secret,
@@ -342,7 +342,7 @@ function getExchange(): any {
     enableRateLimit: true,
     agent: agent
   });
-  
+
   return exchangeInstance;
 }
 
@@ -352,19 +352,19 @@ export async function checkDepositOnBitget(txHash: string): Promise<{ found: boo
     logger.warn('DepositService', 'Bitget credentials not configured');
     return { found: false, confirmed: false };
   }
-  
+
   const depositAddresses = getDepositAddresses();
-  
+
   try {
     for (const depositAddr of depositAddresses) {
       try {
         const deposits = await (exchange as any).fetchDeposits('USDT', undefined, 50, { network: depositAddr.network });
-        
+
         for (const deposit of deposits) {
           if (deposit.txid && deposit.txid.toLowerCase() === txHash.toLowerCase()) {
             const isConfirmed = deposit.status === 'ok' || deposit.status === 'success';
             const amount = parseFloat(deposit.amount) || 0;
-            
+
             logger.info('DepositService', `Found deposit on Bitget`, {
               txHash,
               network: depositAddr.network,
@@ -372,7 +372,7 @@ export async function checkDepositOnBitget(txHash: string): Promise<{ found: boo
               status: deposit.status,
               confirmed: isConfirmed
             });
-            
+
             return {
               found: true,
               confirmed: isConfirmed,
@@ -388,7 +388,7 @@ export async function checkDepositOnBitget(txHash: string): Promise<{ found: boo
   } catch (e) {
     logger.error('DepositService', `checkDepositOnBitget error: ${(e as Error).message}`);
   }
-  
+
   return { found: false, confirmed: false };
 }
 
@@ -408,9 +408,8 @@ export async function verifyDepositOnBlockchain(
   }
 
   try {
-    const TronWebClass = (TronWebModule as { default?: unknown }).default ?? TronWebModule;
-    const tronWeb = new (TronWebClass as new (opts: { fullHost: string }) => { trx: { getTransactionInfo: (id: string) => Promise<TronTxInfo> }; address: { toHex: (addr: string) => string } })({ fullHost: 'https://api.trongrid.io' });
-    const info = await tronWeb.trx.getTransactionInfo(hash);
+    const tronWeb = new TronWeb({ fullHost: 'https://api.trongrid.io' });
+    const info = await (tronWeb as any).trx.getTransactionInfo(hash);
     if (!info) {
       return { verified: false, error: 'Транзакция не найдена' };
     }
@@ -418,10 +417,10 @@ export async function verifyDepositOnBlockchain(
       return { verified: false, error: 'Транзакция ещё не подтверждена или неуспешна' };
     }
 
-    const ourHex = tronWeb.address.toHex(ourAddress).toLowerCase().replace('0x', '').replace(/^41/, '');
+    const ourHex = (tronWeb as any).address.toHex(ourAddress).toLowerCase().replace('0x', '').replace(/^41/, '');
     const ourHex20 = ourHex.length >= 40 ? ourHex.slice(-40) : ourHex.padStart(40, '0').slice(-40);
 
-    const usdtContractHex = tronWeb.address.toHex(TRC20_USDT_CONTRACT).toLowerCase().replace('0x', '').replace(/^41/, '').slice(-40);
+    const usdtContractHex = (tronWeb as any).address.toHex(TRC20_USDT_CONTRACT).toLowerCase().replace('0x', '').replace(/^41/, '').slice(-40);
     const log = (info.log || []).find((l: TronLogEntry) => {
       const addr = String(l.address || '').toLowerCase().replace('0x', '').slice(-40);
       return addr === usdtContractHex;

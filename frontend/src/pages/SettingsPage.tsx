@@ -20,6 +20,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>(getSettings);
   const [connStatus, setConnStatus] = useState<Record<string, { ok?: boolean; msg?: string; checking?: boolean }>>({});
   const [saveBitgetStatus, setSaveBitgetStatus] = useState<{ ok?: boolean; msg?: string; saving?: boolean }>({});
+  const [saveBitgetDemoStatus, setSaveBitgetDemoStatus] = useState<{ ok?: boolean; msg?: string; saving?: boolean }>({});
   const [saveMassiveStatus, setSaveMassiveStatus] = useState<{ ok?: boolean; msg?: string; saving?: boolean }>({});
   const [tgTestStatus, setTgTestStatus] = useState<{ ok?: boolean; msg?: string; testing?: boolean }>({});
 
@@ -44,10 +45,11 @@ export default function SettingsPage() {
     setSettings(getSettings());
   };
 
-  const checkConnection = async () => {
-    setConnStatus((s) => ({ ...s, bitget: { checking: true } }));
+  const checkConnection = async (isTestnet = false) => {
+    const key = isTestnet ? 'bitget_demo' : 'bitget';
+    setConnStatus((s) => ({ ...s, [key]: { checking: true } }));
     try {
-      const conn = settings.connections.bitget;
+      const conn = isTestnet ? settings.connections.bitgetDemo : settings.connections.bitget;
       const proxy = (settings.connections.proxy ?? user?.proxyUrl ?? '').trim() || undefined;
       const res = await fetch(`${API}/connections/check`, {
         method: 'POST',
@@ -57,20 +59,22 @@ export default function SettingsPage() {
           apiKey: conn.apiKey,
           apiSecret: conn.apiSecret,
           passphrase: conn.passphrase,
-          proxy
+          proxy,
+          isTestnet
         })
       });
       const data = await res.json();
-      setConnStatus((s) => ({ ...s, bitget: { ok: data.ok, msg: data.message } }));
+      setConnStatus((s) => ({ ...s, [key]: { ok: data.ok, msg: data.message } }));
       if (data.ok && token && conn.apiKey?.trim() && conn.apiSecret?.trim()) {
-        fetch(`${API}/auth/me/bitget-connection`, {
+        const endpoint = isTestnet ? '/auth/me/bitget-demo-connection' : '/auth/me/bitget-connection';
+        fetch(`${API}${endpoint}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ apiKey: conn.apiKey.trim(), secret: conn.apiSecret.trim(), passphrase: (conn.passphrase ?? '').trim() })
-        }).catch(() => {});
+        }).catch(() => { });
       }
     } catch (e: any) {
-      setConnStatus((s) => ({ ...s, bitget: { ok: false, msg: e?.message || 'Ошибка сети' } }));
+      setConnStatus((s) => ({ ...s, [key]: { ok: false, msg: e?.message || 'Ошибка сети' } }));
     }
   };
 
@@ -109,33 +113,35 @@ export default function SettingsPage() {
     }
   };
 
-  const saveBitgetForTrading = async () => {
-    const conn = settings.connections.bitget;
+  const saveBitgetForTrading = async (isTestnet = false) => {
+    const conn = isTestnet ? settings.connections.bitgetDemo : settings.connections.bitget;
+    const setStatus = isTestnet ? setSaveBitgetDemoStatus : setSaveBitgetStatus;
     if (!conn.apiKey?.trim() || !conn.apiSecret?.trim()) {
-      setSaveBitgetStatus({ ok: false, msg: 'Введите API Key и Secret' });
+      setStatus({ ok: false, msg: 'Введите API Key и Secret' });
       return;
     }
     if (!token) {
-      setSaveBitgetStatus({ ok: false, msg: 'Войдите в аккаунт, чтобы сохранить ключи на сервер' });
+      setStatus({ ok: false, msg: 'Войдите в аккаунт, чтобы сохранить ключи на сервер' });
       return;
     }
-    setSaveBitgetStatus({ saving: true });
+    setStatus({ saving: true });
     try {
-      const res = await fetch(`${API}/auth/me/bitget-connection`, {
+      const endpoint = isTestnet ? '/auth/me/bitget-demo-connection' : '/auth/me/bitget-connection';
+      const res = await fetch(`${API}${endpoint}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ apiKey: conn.apiKey.trim(), secret: conn.apiSecret.trim(), passphrase: (conn.passphrase ?? '').trim() })
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {
-        setSaveBitgetStatus({ ok: true, msg: 'Ключи Bitget сохранены. Автоторговля и баланс будут использовать их.' });
+        setStatus({ ok: true, msg: `Ключи Bitget${isTestnet ? ' Demo' : ''} сохранены.` });
       } else {
-        setSaveBitgetStatus({ ok: false, msg: (data as { error?: string }).error || 'Ошибка сохранения' });
+        setStatus({ ok: false, msg: (data as { error?: string }).error || 'Ошибка сохранения' });
       }
     } catch (e: any) {
-      setSaveBitgetStatus({ ok: false, msg: e?.message || 'Ошибка сети' });
+      setStatus({ ok: false, msg: e?.message || 'Ошибка сети' });
     } finally {
-      setSaveBitgetStatus((s) => ({ ...s, saving: false }));
+      setStatus((s: any) => ({ ...s, saving: false }));
     }
   };
 
@@ -212,9 +218,8 @@ export default function SettingsPage() {
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
-            className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === t.id ? 'text-white' : 'hover:opacity-90'
-            }`}
+            className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === t.id ? 'text-white' : 'hover:opacity-90'
+              }`}
             style={{
               background: activeTab === t.id ? 'var(--accent)' : 'var(--bg-hover)',
               color: activeTab === t.id ? 'white' : 'var(--text-secondary)'
@@ -315,7 +320,7 @@ export default function SettingsPage() {
               </div>
               <div className="flex flex-wrap items-center gap-3 mt-4">
                 <button
-                  onClick={checkConnection}
+                  onClick={() => checkConnection(false)}
                   disabled={connStatus.bitget?.checking}
                   className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
                   style={{ background: 'var(--accent)', color: 'white' }}
@@ -323,7 +328,7 @@ export default function SettingsPage() {
                   {connStatus.bitget?.checking ? 'Проверка…' : 'Проверить подключение'}
                 </button>
                 <button
-                  onClick={saveBitgetForTrading}
+                  onClick={() => saveBitgetForTrading(false)}
                   disabled={saveBitgetStatus.saving}
                   className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
                   style={{ background: 'var(--success)', color: 'white' }}
@@ -349,7 +354,81 @@ export default function SettingsPage() {
                 <p className={`mt-1 text-sm ${connStatus.public_bitget.ok ? 'text-[var(--success)]' : 'text-[var(--warning)]'}`}>Публичный API: {connStatus.public_bitget.msg}</p>
               )}
             </section>
-            <section className="rounded-lg p-6 shadow-lg" style={{ ...cardStyle, borderLeft: '4px solid #853bb6' }}>
+            <section className="rounded-lg p-6 shadow-lg mt-6" style={{ ...cardStyle, borderLeft: '4px solid #F0B90B' }}>
+              <div className="flex items-center gap-3 mb-5">
+                <span className="text-2xl">🧪</span>
+                <div>
+                  <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Bitget Demo</h2>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Ключи для тестовой торговли (Testnet/Авто-Демо).</p>
+                </div>
+                <label className="flex items-center gap-2 ml-auto">
+                  <input
+                    type="checkbox"
+                    checked={settings.connections.bitgetDemo?.enabled ?? false}
+                    onChange={(e) => update({ connections: { ...settings.connections, bitgetDemo: { ...settings.connections.bitgetDemo, enabled: e.target.checked } } })}
+                    className="rounded"
+                  />
+                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Включено</span>
+                </label>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-lg p-3" style={miniCardStyle}>
+                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>API Key</label>
+                  <input
+                    type="password"
+                    value={settings.connections.bitgetDemo?.apiKey ?? ''}
+                    onChange={(e) => update({ connections: { ...settings.connections, bitgetDemo: { ...settings.connections.bitgetDemo, apiKey: e.target.value } } })}
+                    placeholder="Bitget Testnet Key"
+                    className="input-field w-full rounded-lg"
+                  />
+                </div>
+                <div className="rounded-lg p-3" style={miniCardStyle}>
+                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Secret</label>
+                  <input
+                    type="password"
+                    value={settings.connections.bitgetDemo?.apiSecret ?? ''}
+                    onChange={(e) => update({ connections: { ...settings.connections, bitgetDemo: { ...settings.connections.bitgetDemo, apiSecret: e.target.value } } })}
+                    placeholder="Bitget Testnet Secret"
+                    className="input-field w-full rounded-lg"
+                  />
+                </div>
+                <div className="rounded-lg p-3 sm:col-span-2" style={miniCardStyle}>
+                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Passphrase</label>
+                  <input
+                    type="password"
+                    value={settings.connections.bitgetDemo?.passphrase ?? ''}
+                    onChange={(e) => update({ connections: { ...settings.connections, bitgetDemo: { ...settings.connections.bitgetDemo, passphrase: e.target.value } } })}
+                    placeholder="Задаётся при создании тестнет-ключа"
+                    className="input-field w-full rounded-lg"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 mt-4">
+                <button
+                  onClick={() => checkConnection(true)}
+                  disabled={connStatus.bitget_demo?.checking}
+                  className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                  style={{ background: 'var(--accent)', color: 'white' }}
+                >
+                  {connStatus.bitget_demo?.checking ? 'Проверка…' : 'Проверить подключение (Demo)'}
+                </button>
+                <button
+                  onClick={() => saveBitgetForTrading(true)}
+                  disabled={saveBitgetDemoStatus.saving}
+                  className="px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                  style={{ background: 'var(--success)', color: 'white' }}
+                >
+                  {saveBitgetDemoStatus.saving ? 'Сохранение…' : 'Сохранить для торговли Demo'}
+                </button>
+              </div>
+              {connStatus.bitget_demo?.msg && (
+                <p className={`mt-2 text-sm ${connStatus.bitget_demo.ok ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{connStatus.bitget_demo.msg}</p>
+              )}
+              {saveBitgetDemoStatus.msg && (
+                <p className={`mt-2 text-sm ${saveBitgetDemoStatus.ok ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>{saveBitgetDemoStatus.msg}</p>
+              )}
+            </section>
+            <section className="rounded-lg p-6 shadow-lg mt-6" style={{ ...cardStyle, borderLeft: '4px solid #853bb6' }}>
               <div className="flex items-center gap-3 mb-5">
                 <span className="text-2xl">🌐</span>
                 <div>
@@ -577,14 +656,14 @@ export default function SettingsPage() {
                       const enabled = e.target.checked;
                       update({ notifications: { ...settings.notifications, desktop: enabled } });
                       if (enabled && typeof Notification !== 'undefined' && Notification.permission === 'default') {
-                        Notification.requestPermission().catch(() => {});
+                        Notification.requestPermission().catch(() => { });
                       }
                     }}
                     className="rounded"
                   />
                   <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Уведомления на рабочем столе</span>
                   {settings.notifications.desktop && typeof Notification !== 'undefined' && Notification.permission !== 'granted' && (
-                    <button type="button" onClick={() => Notification.requestPermission().catch(() => {})} className="text-xs ml-auto" style={{ color: 'var(--accent)' }}>Разрешить</button>
+                    <button type="button" onClick={() => Notification.requestPermission().catch(() => { })} className="text-xs ml-auto" style={{ color: 'var(--accent)' }}>Разрешить</button>
                   )}
                 </label>
                 <label className="flex items-center gap-3 py-2 px-3 rounded-lg cursor-pointer" style={miniCardStyle}>

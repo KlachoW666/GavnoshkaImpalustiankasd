@@ -144,6 +144,13 @@ export function initDb(): any {
           passphrase TEXT DEFAULT '',
           updated_at TEXT DEFAULT (datetime('now'))
         );
+        CREATE TABLE IF NOT EXISTS user_bitget_demo_connections (
+          user_id TEXT PRIMARY KEY,
+          api_key TEXT NOT NULL,
+          secret TEXT NOT NULL,
+          passphrase TEXT DEFAULT '',
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
         CREATE TABLE IF NOT EXISTS user_massive_api (
           user_id TEXT PRIMARY KEY,
           api_key TEXT DEFAULT '',
@@ -301,22 +308,22 @@ export function initDb(): any {
         CREATE INDEX IF NOT EXISTS idx_market_data_cache_updated ON market_data_cache(symbol, data_type, updated_at);
       `);
     } catch { /* migration: table may already exist */ }
-    
+
     // User mode (auto_trading | copy_trading)
     try {
       db.prepare("ALTER TABLE users ADD COLUMN user_mode TEXT DEFAULT 'auto_trading'").run();
     } catch { /* migration: column may already exist */ }
-    
+
     // Orders: copy_provider_id for profit sharing
     try {
       db.prepare('ALTER TABLE orders ADD COLUMN copy_provider_id TEXT').run();
     } catch { /* migration: column may already exist */ }
-    
+
     // Copy subscriptions: profit_share_percent
     try {
       db.prepare('ALTER TABLE copy_subscriptions ADD COLUMN profit_share_percent REAL NOT NULL DEFAULT 10').run();
     } catch { /* migration: column may already exist */ }
-    
+
     // Copy subscription profit state table (high water mark)
     try {
       db.exec(`
@@ -329,7 +336,7 @@ export function initDb(): any {
         );
       `);
     } catch { /* migration: table may already exist */ }
-    
+
     // Copy trading balance (separate from main wallet)
     try {
       db.exec(`
@@ -385,20 +392,20 @@ export function initDb(): any {
       `);
     } catch { /* migration: table may already exist */ }
     // Migrations for existing tables - add fake stats columns
-    try { 
-      db.exec(`ALTER TABLE copy_trading_providers ADD COLUMN fake_pnl REAL DEFAULT 0`); 
+    try {
+      db.exec(`ALTER TABLE copy_trading_providers ADD COLUMN fake_pnl REAL DEFAULT 0`);
       logger.info('DB', 'Added fake_pnl column to copy_trading_providers');
     } catch (e) { /* column exists */ }
-    try { 
-      db.exec(`ALTER TABLE copy_trading_providers ADD COLUMN fake_win_rate REAL DEFAULT 0`); 
+    try {
+      db.exec(`ALTER TABLE copy_trading_providers ADD COLUMN fake_win_rate REAL DEFAULT 0`);
       logger.info('DB', 'Added fake_win_rate column to copy_trading_providers');
     } catch (e) { /* column exists */ }
-    try { 
-      db.exec(`ALTER TABLE copy_trading_providers ADD COLUMN fake_trades INTEGER DEFAULT 0`); 
+    try {
+      db.exec(`ALTER TABLE copy_trading_providers ADD COLUMN fake_trades INTEGER DEFAULT 0`);
       logger.info('DB', 'Added fake_trades column to copy_trading_providers');
     } catch (e) { /* column exists */ }
-    try { 
-      db.exec(`ALTER TABLE copy_trading_providers ADD COLUMN fake_subscribers INTEGER DEFAULT 0`); 
+    try {
+      db.exec(`ALTER TABLE copy_trading_providers ADD COLUMN fake_subscribers INTEGER DEFAULT 0`);
       logger.info('DB', 'Added fake_subscribers column to copy_trading_providers');
     } catch (e) { /* column exists */ }
     try {
@@ -411,7 +418,7 @@ export function initDb(): any {
       const cols = db.prepare("PRAGMA table_info(copy_trading_providers)").all();
       logger.info('DB', 'copy_trading_providers columns', { columns: cols.map((c: any) => c.name) });
     } catch (e) { /* ignore */ }
-    
+
     // Deposit addresses for copy trading
     try {
       db.exec(`
@@ -435,7 +442,7 @@ export function initDb(): any {
         logger.info('DB', 'Inserted default deposit addresses');
       }
     } catch (e) { /* table exists */ }
-    
+
     // News table for announcements
     try {
       db.exec(`
@@ -452,7 +459,7 @@ export function initDb(): any {
     } catch (e) { /* table exists */ }
     try { db.prepare('ALTER TABLE news ADD COLUMN image_url TEXT').run(); } catch { /* column exists */ }
     try { db.prepare('ALTER TABLE news ADD COLUMN media_urls TEXT').run(); } catch { /* column exists */ }
-    
+
     return db;
   } catch (err) {
     logger.error('DB', `SQLite init failed, falling back to in-memory store: ${(err as Error).message}`);

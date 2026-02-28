@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { adminApi, clearAdminToken } from '../../utils/adminApi';
 
-const TAB_IDS = ['dashboard', 'signals', 'chart', 'trade', 'demo', 'autotrade', 'scanner', 'pnl', 'analytics', 'backtest', 'copy', 'social', 'trader', 'wallet', 'settings', 'activate', 'profile', 'help', 'admin'] as const;
+const TAB_IDS = ['dashboard', 'signals', 'chart', 'trade', 'demo', 'autotrade', 'autodemo', 'scanner', 'pnl', 'analytics', 'backtest', 'copy', 'social', 'trader', 'wallet', 'settings', 'activate', 'profile', 'help', 'admin'] as const;
 const TAB_LABELS: Record<string, string> = {
   dashboard: 'Главная',
   signals: 'Сигналы',
@@ -9,6 +9,7 @@ const TAB_LABELS: Record<string, string> = {
   trade: 'Торговля',
   demo: 'Демо',
   autotrade: 'Авто',
+  autodemo: 'Авто-Демо',
   scanner: 'Скринер',
   pnl: 'PNL',
   analytics: 'Аналитика',
@@ -36,8 +37,8 @@ export default function AdminGroups() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState<number | null>(null);
   const [draft, setDraft] = useState<Record<number, string[]>>({});
-   const [newName, setNewName] = useState('');
-   const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const fetchGroups = async () => {
     setLoading(true);

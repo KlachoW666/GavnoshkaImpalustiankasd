@@ -4,6 +4,8 @@ export interface Settings {
   connections: {
     /** Bitget — биржа для автоторговли (API Key, Secret, Passphrase). */
     bitget: { enabled: boolean; apiKey: string; apiSecret: string; passphrase: string };
+    /** Bitget Demo — ключи для тестирования стратегий. */
+    bitgetDemo: { enabled: boolean; apiKey: string; apiSecret: string; passphrase: string };
     /** Прокси для биржи: http://user:pass@ip:port */
     proxy?: string;
     /** Massive.com — API key и/или S3 (Access Key ID, Secret, Endpoint, Bucket) */
@@ -52,15 +54,16 @@ export interface Settings {
 const defaults: Settings = {
   connections: {
     bitget: { enabled: true, apiKey: '', apiSecret: '', passphrase: '' },
+    bitgetDemo: { enabled: false, apiKey: '', apiSecret: '', passphrase: '' },
     proxy: '',
     massive: {
-    enabled: false,
-    apiKey: '',
-    accessKeyId: '',
-    secretAccessKey: '',
-    s3Endpoint: 'https://files.massive.com',
-    bucket: 'flatfiles'
-  },
+      enabled: false,
+      apiKey: '',
+      accessKeyId: '',
+      secretAccessKey: '',
+      s3Endpoint: 'https://files.massive.com',
+      bucket: 'flatfiles'
+    },
     tradingview: { enabled: true },
     scalpboard: { enabled: false, apiKey: '' }
   },
@@ -109,27 +112,28 @@ function load(): Settings {
           ...defaults.connections,
           ...parsed.connections,
           bitget: { ...defaults.connections.bitget, ...(parsed.connections.bitget ?? parsed.connections.okx) },
+          bitgetDemo: { ...defaults.connections.bitgetDemo, ...parsed.connections.bitgetDemo },
           proxy: parsed.connections?.proxy ?? defaults.connections.proxy ?? '',
           massive: {
-          ...defaults.connections.massive,
-          ...parsed.connections.massive,
-          s3Endpoint: parsed.connections?.massive?.s3Endpoint ?? defaults.connections.massive.s3Endpoint,
-          bucket: parsed.connections?.massive?.bucket ?? defaults.connections.massive.bucket
-        },
+            ...defaults.connections.massive,
+            ...parsed.connections.massive,
+            s3Endpoint: parsed.connections?.massive?.s3Endpoint ?? defaults.connections.massive.s3Endpoint,
+            bucket: parsed.connections?.massive?.bucket ?? defaults.connections.massive.bucket
+          },
           tradingview: { ...defaults.connections.tradingview, ...parsed.connections.tradingview },
           scalpboard: { ...defaults.connections.scalpboard, ...parsed.connections.scalpboard }
         };
       }
       return merged;
     }
-  } catch {}
+  } catch { }
   return { ...defaults };
 }
 
 function save(s: Settings) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-  } catch {}
+  } catch { }
 }
 
 let settings = load();

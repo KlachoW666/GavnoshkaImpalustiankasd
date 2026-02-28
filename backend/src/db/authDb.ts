@@ -45,6 +45,7 @@ export interface UserBitgetConnectionRow {
 const memoryUsers: UserRow[] = [];
 const memoryOkxConnections: Map<string, UserOkxConnectionRow> = new Map();
 const memoryBitgetConnections: Map<string, UserBitgetConnectionRow> = new Map();
+const memoryBitgetDemoConnections: Map<string, UserBitgetConnectionRow> = new Map();
 export type MassiveCredentialsRow = {
   user_id: string;
   api_key: string;
@@ -771,6 +772,7 @@ export function deleteUser(userId: string): void {
     }
     memoryOkxConnections.delete(userId);
     memoryBitgetConnections.delete(userId);
+    memoryBitgetDemoConnections.delete(userId);
     memoryMassiveApi.delete(userId);
     const i = memoryUsers.findIndex((u) => u.id === userId);
     if (i >= 0) memoryUsers.splice(i, 1);
@@ -781,6 +783,7 @@ export function deleteUser(userId: string): void {
   try {
     db.prepare('DELETE FROM user_okx_connections WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM user_bitget_connections WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM user_bitget_demo_connections WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM user_massive_api WHERE user_id = ?').run(userId);
   } catch (err) { logger.warn('AuthDB', (err as Error).message); }
   db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
@@ -891,6 +894,45 @@ export function setBitgetCredentials(userId: string, creds: { apiKey: string; se
   if (!db) return;
   db.prepare(
     'INSERT INTO user_bitget_connections (user_id, api_key, secret, passphrase, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET api_key = ?, secret = ?, passphrase = ?, updated_at = ?'
+  ).run(userId, apiKey, secret, passphrase, now, apiKey, secret, passphrase, now);
+}
+
+/** Bitget Demo ключи пользователя (testnet автоторговля). */
+export function getBitgetDemoCredentials(userId: string): { apiKey: string; secret: string; passphrase: string } | null {
+  ensureAuthTables();
+  if (isMemoryStore()) {
+    const row = memoryBitgetDemoConnections.get(userId);
+    return row ? { apiKey: row.api_key, secret: row.secret, passphrase: row.passphrase ?? '' } : null;
+  }
+  const db = getDb();
+  if (!db) return null;
+  try {
+    const row = db.prepare('SELECT api_key, secret, passphrase FROM user_bitget_demo_connections WHERE user_id = ?').get(userId) as
+      | { api_key: string; secret: string; passphrase: string | null }
+      | undefined;
+    if (!row) return null;
+    return { apiKey: row.api_key, secret: row.secret, passphrase: row.passphrase ?? '' };
+  } catch (err) {
+    // В случае если таблица не существует на старых бд без рестарта
+    return null;
+  }
+}
+
+/** Сохранить Bitget Demo ключи пользователя. */
+export function setBitgetDemoCredentials(userId: string, creds: { apiKey: string; secret: string; passphrase?: string }): void {
+  ensureAuthTables();
+  const now = new Date().toISOString();
+  const apiKey = (creds.apiKey ?? '').trim();
+  const secret = (creds.secret ?? '').trim();
+  const passphrase = (creds.passphrase ?? '').trim();
+  if (isMemoryStore()) {
+    memoryBitgetDemoConnections.set(userId, { user_id: userId, api_key: apiKey, secret: secret, passphrase: passphrase, updated_at: now });
+    return;
+  }
+  const db = getDb();
+  if (!db) return;
+  db.prepare(
+    'INSERT INTO user_bitget_demo_connections (user_id, api_key, secret, passphrase, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET api_key = ?, secret = ?, passphrase = ?, updated_at = ?'
   ).run(userId, apiKey, secret, passphrase, now, apiKey, secret, passphrase, now);
 }
 

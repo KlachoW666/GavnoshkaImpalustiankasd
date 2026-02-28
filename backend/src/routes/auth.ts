@@ -18,6 +18,8 @@ import {
   redeemActivationKeyForUser,
   setOkxCredentials,
   setBitgetCredentials,
+  getBitgetDemoCredentials,
+  setBitgetDemoCredentials,
   getMassiveCredentials,
   setMassiveCredentials,
   consumeTelegramRegisterToken,
@@ -321,6 +323,25 @@ router.put('/me/bitget-connection', requireAuth, (req: Request, res: Response) =
       return;
     }
     setBitgetCredentials(userId, { apiKey, secret, passphrase });
+    res.json({ ok: true });
+  } catch (e) {
+    logger.error('Auth', (e as Error).message);
+    res.status(500).json({ error: (e as Error).message });
+  }
+});
+
+/** PUT /api/auth/me/bitget-demo-connection — сохранить Bitget Demo ключи (автоторговля testnet) */
+router.put('/me/bitget-demo-connection', requireAuth, (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    const apiKey = (req.body?.apiKey as string)?.trim();
+    const secret = (req.body?.secret as string)?.trim();
+    const passphrase = (req.body?.passphrase as string)?.trim() ?? '';
+    if (!apiKey || !secret) {
+      res.status(400).json({ error: 'API Key и Secret обязательны для Bitget Demo' });
+      return;
+    }
+    setBitgetDemoCredentials(userId, { apiKey, secret, passphrase });
     res.json({ ok: true });
   } catch (e) {
     logger.error('Auth', (e as Error).message);

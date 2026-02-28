@@ -8,7 +8,7 @@ import { setNotificationConfig, getNotificationConfig } from '../services/notifi
 import { getPositionsAndBalanceForApi, syncClosedOrdersFromBitget, pullClosedOrdersFromBitget } from '../services/autoTrader';
 import { getBearerToken } from './auth';
 import { findSessionUserId } from '../db/authDb';
-import { getBitgetCredentials } from '../db/authDb';
+import { getBitgetCredentials, getBitgetDemoCredentials } from '../db/authDb';
 import { config } from '../config';
 import { logger } from '../lib/logger';
 
@@ -110,7 +110,7 @@ router.get('/positions', async (req: Request, res: Response) => {
     let userCreds: { apiKey: string; secret: string; passphrase?: string } | null = null;
     try {
       userId = token ? findSessionUserId(token) : null;
-      userCreds = userId ? getBitgetCredentials(userId) : null;
+      userCreds = userId ? (useTestnet ? getBitgetDemoCredentials(userId) : getBitgetCredentials(userId)) : null;
     } catch (e) {
       logger.warn('Trading', 'positions: get user creds failed', { error: (e as Error).message });
     }

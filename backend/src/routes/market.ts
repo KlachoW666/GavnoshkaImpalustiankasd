@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { DataAggregator } from '../services/dataAggregator';
 import { getBroadcastSignal } from '../websocket';
-import { findSessionUserId, getBitgetCredentials } from '../db/authDb';
+import { findSessionUserId, getBitgetCredentials, getBitgetDemoCredentials } from '../db/authDb';
 import { requireAuth } from './auth';
 import { rateLimit } from '../middleware/rateLimit';
 import { validateBody } from '../middleware/validate';
@@ -1113,7 +1113,7 @@ async function runAutoTradingBestCycleInner(
   getBroadcastSignal()?.(best.signal, best.breakdown, userId);
   logger.info('runAutoTradingBestCycle', `Best: ${best.signal.symbol} ${best.signal.direction} conf=${((best.signal.confidence ?? 0) * 100).toFixed(0)}% score=${best.score.toFixed(3)}`);
 
-  const userCreds = userId ? getBitgetCredentials(userId) : null;
+  const userCreds = userId ? (useTestnet ? getBitgetDemoCredentials(userId) : getBitgetCredentials(userId)) : null;
   const hasUserCreds = userCreds && (userCreds.apiKey ?? '').trim() && (userCreds.secret ?? '').trim();
   const canExecute = config.autoTradingExecutionEnabled && executeOrders && (config.bitget.hasCredentials || hasUserCreds);
 
@@ -1349,7 +1349,7 @@ async function runManualCycle(
 ): Promise<void> {
   const minConf = Math.max(0.5, Math.min(0.95, opts.minConfidence ?? 0.72));
   if (opts.executeOrders && !config.autoTradingExecutionEnabled) return;
-  const creds = opts.executeOrders ? getBitgetCredentials(userId) : null;
+  const creds = opts.executeOrders ? (opts.useTestnet ? getBitgetDemoCredentials(userId) : getBitgetCredentials(userId)) : null;
   const hasCreds = creds && (creds.apiKey ?? '').trim() && (creds.secret ?? '').trim();
   if (opts.executeOrders && !hasCreds && !config.bitget.hasCredentials) return;
 

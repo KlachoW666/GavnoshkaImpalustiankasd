@@ -97,12 +97,13 @@ function buildBitgetExchange(
     },
     timeout: config.bitget.timeout
   };
-  if (useTestnet) (opts.options as any).sandboxMode = true;
+  if (useTestnet) (opts as any).enableRateLimit = true; // Temporary placeholder, handled below
   const proxyUrl = getProxy(config.proxyList) || config.proxy;
   if (proxyUrl) (opts as any).httpsProxy = proxyUrl;
   const agent = exchangeProxyAgent();
   if (agent) (opts as any).agent = agent;
   const exchange = new ccxt.bitget(opts);
+  if (useTestnet) exchange.setSandboxMode(true);
   /** Bitget только для фьючерсов: отключаем fetchCurrencies (spot API /v2/spot/public/coins). */
   (exchange as any).fetchCurrencies = async () => ({});
   if (skipMarketLoad) {

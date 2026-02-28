@@ -66,6 +66,8 @@ router.post('/check', async (req, res) => {
       const secret = (apiSecret || '').trim();
       const passphrase = (req.body?.passphrase as string)?.trim() ?? '';
       const proxy = (req.body?.proxy as string)?.trim() || null;
+      const isTestnet = Boolean(req.body?.isTestnet);
+
       if (!key || !secret) {
         res.status(400).json({ ok: false, message: 'API Key и Secret обязательны для Bitget' });
         return;
@@ -78,10 +80,13 @@ router.post('/check', async (req, res) => {
         options: { defaultType: 'swap' },
         timeout: 30000
       };
+      if (isTestnet) {
+        (opts.options as any).sandboxMode = true;
+      }
       if (proxy) opts.httpsProxy = proxy;
       const ex = new ccxt.bitget(opts);
       await ex.fetchBalance();
-      res.json({ ok: true, message: 'Bitget: подключение успешно' });
+      res.json({ ok: true, message: `Bitget${isTestnet ? ' Demo' : ''}: подключение успешно` });
       return;
     }
 
