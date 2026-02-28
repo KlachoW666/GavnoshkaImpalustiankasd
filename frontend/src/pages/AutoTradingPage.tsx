@@ -1024,10 +1024,14 @@ export default function AutoTradingPage() {
     <div className="space-y-6 pb-12">
       <RiskDisclaimer storageKey="trading" />
       {/* Hero — Status hero with glow */}
-      <Card variant="glass" padding="normal">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <Card className="glass-strong border border-[var(--border-accent)] shadow-[0_0_30px_rgba(255,199,0,0.1)] p-6 relative overflow-hidden">
+        {/* Фоновое свечение для кибер-эффекта */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--accent)] rounded-full blur-[100px] opacity-10 pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 w-40 h-40 bg-[var(--success)] rounded-full blur-[80px] opacity-5 pointer-events-none"></div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 relative z-10">
           <div className="flex items-start gap-4">
-            <div className={`w-14 h-14 rounded-lg flex items-center justify-center shrink-0 ${enabled ? 'animate-pulse-glow' : ''}`} style={{ background: 'var(--accent-dim)' }}>
+            <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 border border-[var(--border-accent)] shadow-[0_0_15px_rgba(255,199,0,0.2)] ${enabled ? 'animate-pulse-glow' : ''}`} style={{ background: 'var(--bg-card-solid)' }}>
               <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} style={{ color: 'var(--accent)' }}>
                 <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -1076,7 +1080,7 @@ export default function AutoTradingPage() {
       </Card>
 
       {/* Управление: Статус и таймер */}
-      <Card variant="glass" padding="normal">
+      <Card className="glass-strong border border-[var(--border)] shadow-[var(--shadow-lg)] p-5">
         <div className="flex flex-wrap items-center gap-3">
           <Badge variant={enabled && status === 'running' ? 'success' : status === 'stopped_daily_loss' ? 'warning' : 'neutral'} dot pulse={enabled && status === 'running'}>
             {enabled ? status === 'running' ? 'Анализ запущен' : status === 'error' ? 'Ошибка' : status === 'stopped_daily_loss' ? 'Дневной лимит' : 'Запуск...' : 'Выключено'}
@@ -1163,7 +1167,7 @@ export default function AutoTradingPage() {
       </Card >
 
       {/* Режим и настройки */}
-      < Card variant="glass" padding="normal" >
+      <Card className="glass-strong border border-[var(--border)] shadow-[var(--shadow-lg)] p-6">
         <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--text-primary)' }}>Режим и настройки</h2>
         <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>Полный автомат (скринер + исполнение на Bitget) или ручной режим: пары, плечо, порог уверенности. Торговля только на реальном счёте.</p>
         <div className="flex flex-wrap items-center gap-4 sm:gap-6 mb-6">
@@ -1644,7 +1648,7 @@ export default function AutoTradingPage() {
       </Card >
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card variant="glass" padding="normal">
+        <Card className="glass-strong border border-[var(--border)] shadow-[var(--shadow-md)] p-6">
           <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Баланс и статистика</h3>
           <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
             {settings.executeOrders
@@ -1699,7 +1703,7 @@ export default function AutoTradingPage() {
           </div>
         </Card>
 
-        <Card variant="glass" padding="normal">
+        <Card className="glass-strong border border-[var(--border)] shadow-[var(--shadow-md)] p-6">
           <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>Последний сигнал</h3>
           <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>Последний пришедший сигнал по выбранным парам или из скринера</p>
           {lastSignal ? (

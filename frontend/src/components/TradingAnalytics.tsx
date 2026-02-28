@@ -197,7 +197,7 @@ interface TradingAnalyticsProps {
 export default function TradingAnalytics({ history, minConfidence, hideSuggestions }: TradingAnalyticsProps) {
   if (!history.length) {
     return (
-      <section className="card p-6 md:p-8">
+      <section className="glass-strong rounded-lg border border-[var(--border)] shadow-[var(--shadow-md)] p-6 md:p-8">
         <h3 className="text-lg font-bold mb-4 tracking-tight">Аналитика и улучшения</h3>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Нет сделок для анализа. Совершите несколько сделок, чтобы получить рекомендации.</p>
       </section>
@@ -207,7 +207,7 @@ export default function TradingAnalytics({ history, minConfidence, hideSuggestio
   const a = computeAnalytics(history, minConfidence);
 
   return (
-    <section className="card p-6 md:p-8">
+    <section className="glass-strong rounded-lg border border-[var(--border)] shadow-[var(--shadow-md)] p-6 md:p-8">
       <h3 className="text-lg font-bold mb-4 tracking-tight">Аналитика и улучшения</h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

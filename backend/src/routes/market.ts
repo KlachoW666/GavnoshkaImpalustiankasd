@@ -37,7 +37,7 @@ import { executeSignal, type DensityOptions } from '../services/autoTrader';
 import { ADMIN_POOL_CLIENT_ID } from '../services/copyTradingProfitShareService';
 import { subscribeSymbols } from '../services/bitgetOrderBookStream';
 import { subscribeMarketSymbols } from '../services/bitgetMarketStream';
-import { initDb, insertOrder, getSetting, setSetting } from '../db';
+import { initDb, insertOrder, getSetting, setSetting, listOrders } from '../db';
 import { analyzeBtcTrend, applyBtcCorrelation, type BtcTrendResult } from '../services/btcCorrelation';
 import { getCurrentSession, applySessionFilter } from '../services/sessionFilter';
 
@@ -629,7 +629,9 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
       confidence = Math.min(confidence, 0.88);
     }
     // Усиленный штраф против HTF — часто приводит к убыткам
-    if (againstHTF) confidence = Math.max(0.50, Math.min(confidence - 0.15, 0.70));
+    if (againstHTF) {
+      confidence = Math.max(0.40, Math.min(confidence - 0.25, 0.65));
+    }
     // Freqtrade: бонус при совпадении HLHB/VolatilityBreakout/Supertrend
     if (hlhbDir === direction) totalBonus += 0.04;
     if (volBreakout === direction) totalBonus += 0.03;
@@ -719,6 +721,9 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
     }
   }
 
+  // Блокировка авто-входа при отсутствии confluence (fallback)
+  const isFallback = !confluence || !confluentDir;
+
   const breakdownInput = { ...signalResult, direction, confidence, reason: fallbackReason ?? signalResult.reason };
   const breakdown = buildAnalysisBreakdown(obSignal, tapeSignal, candlesSignal, breakdownInput);
   (breakdown as any).multiTF = { ...mtfResults, alignCount: mtfAlignCount };
@@ -785,8 +790,9 @@ export async function runAnalysis(symbol: string, timeframe = '5m', mode = 'defa
     if (!opts?.silent) logger.info('runAnalysis', 'confidence reduced: short against up move (5m)', { symbol: sym });
   }
 
-  // Блокировка авто-входа при против HTF и низком confidence после штрафа
+  // Блокировка авто-входа при против HTF и низком confidence после штрафа, либо при отсутствии confluence (Fallback)
   (breakdown as any).blockEntryWhenAgainstHTF = againstHTF && confidence < AGAINST_HTF_MIN_CONFIDENCE;
+  (breakdown as any).isFallback = isFallback;
 
   let signal = signalGenerator.generateSignal({
     symbol: sym.replace('-', '/'),
@@ -892,9 +898,9 @@ function scannerSymbolToMarket(s: string): string {
  */
 const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 мин — при превышении новый цикл может стартовать (долгий цикл не блокирует очередь)
 const QUEUED_LOG_COOLDOWN_MS = 180 * 1000; // не спамить лог «queued» чаще раза в 3 мин по ключу
-const ANALYSIS_SYMBOL_TIMEOUT_MS = 90_000; // 90s на символ — защита от зависания при долгом ответе API/прокси
-const BTC_FETCH_TIMEOUT_MS = 30_000; // 30s на загрузку свечей BTC
-const SCANNER_TIMEOUT_MS = 25_000; // 25s на сканер — быстрее fallback на дефолтные символы при задержках
+const ANALYSIS_SYMBOL_TIMEOUT_MS = 120_000; // Увеличен таймаут анализа до 120s на символ
+const BTC_FETCH_TIMEOUT_MS = 60_000;      // 60s для получения базовых BTC данных
+const SCANNER_TIMEOUT_MS = 60_000;        // Увеличен таймаут скринера до 60s
 /** Фильтр SHORT после резкого падения (5m): число свечей и порог падения (%) — не шортить вдогонку */
 const SHARP_DROP_CANDLES = 8;
 const SHARP_DROP_PCT = 1.5;
@@ -1165,9 +1171,34 @@ async function runAutoTradingBestCycleInner(
     return;
   }
 
+  /** Блокировка входа: Cooldown после убытков (защита от "мести рынку" и пилы) */
+  if (userId) {
+    const closedOrders = listOrders({ status: 'closed', clientId: userId, limit: 10 });
+    const recentLosses = closedOrders.filter(o =>
+      o.pair === best.signal.symbol &&
+      o.direction === best.signal.direction &&
+      (o.pnl ?? 0) < 0 &&
+      o.close_time && (Date.now() - new Date(o.close_time).getTime()) < 45 * 60 * 1000 // 45 минут
+    );
+    if (recentLosses.length >= 2) {
+      const skipReason = `Ордер отменен: сработал Cooldown (45 мин). Зафиксировано ${recentLosses.length} недавних убытка по ${best.signal.symbol} в направлении ${best.signal.direction}.`;
+      logger.info('runAutoTradingBestCycle', skipReason, { symbol: best.signal.symbol });
+      setLastExecution(undefined, undefined, skipReason, aiInfoForExecution(undefined, false));
+      return;
+    }
+  }
+
   /** Блокировка входа против HTF при низком confidence после штрафа */
   if ((best.breakdown as any)?.blockEntryWhenAgainstHTF) {
     const skipReason = 'Сигнал против старшего тренда (HTF), confidence ниже порога. Ордер не открыт.';
+    logger.info('runAutoTradingBestCycle', skipReason, { symbol: best.signal.symbol });
+    setLastExecution(undefined, undefined, skipReason, aiInfoForExecution(undefined, false));
+    return;
+  }
+
+  /** Блокировка входа если сигнал получен как Fallback без консенсуса индикаторов */
+  if ((best.breakdown as any)?.isFallback) {
+    const skipReason = 'Сигнал без полного консенсуса индикаторов (Fallback). В авто-режиме ордер не открыт.';
     logger.info('runAutoTradingBestCycle', skipReason, { symbol: best.signal.symbol });
     setLastExecution(undefined, undefined, skipReason, aiInfoForExecution(undefined, false));
     return;

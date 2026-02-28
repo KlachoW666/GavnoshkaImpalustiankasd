@@ -73,8 +73,8 @@ export class CoinScanner {
 
     logger.debug('CoinScanner', `Scanning ${symbols.length} coins...`);
 
-    // Parallelize with smaller batches to prevent timeout
-    const batchSize = 5;
+    // Parallelize with smaller batches to prevent timeout from Rate Limiter (max 6 req/s)
+    const batchSize = 5; // Уменьшаем батч, чтобы соответствовать 6 req/sec (getOHLCV)
     for (let i = 0; i < symbols.length; i += batchSize) {
       const batch = symbols.slice(i, i + batchSize);
       const batchPromises = batch.map(symbol =>
@@ -266,18 +266,8 @@ export class CoinScanner {
 
     // Funding rate (OKX Futures): нейтральный = бонус (предсказуемые условия)
     let fundingRatePct: number | undefined;
-    try {
-      const funding = await this.fundingMonitor.getFundingRate(symbol);
-      if (funding) {
-        fundingRatePct = funding.rate * 100; // в %
-        if (funding.interpretation === 'neutral') {
-          score += 1;
-          reasons.push('Neutral funding');
-        }
-      }
-    } catch {
-      // ignore — funding не критичен для скоринга
-    }
+    // (Отключено в скринере для скорости, так как CCXT fetchFundingRate по 25 монетам давал таймауты >25s)
+    // Перед самим исполнением ордера funding все равно проверяется
 
     if (score === 0) return null; // no signals
 

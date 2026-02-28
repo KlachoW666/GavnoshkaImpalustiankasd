@@ -42,7 +42,7 @@ export const config = {
   binance: {
     apiKey: envStr('BINANCE_API_KEY'),
     secret: envStr('BINANCE_API_SECRET'),
-    timeout: Math.max(15000, envNum('BINANCE_TIMEOUT', 30000)),
+    timeout: Math.max(5000, envNum('BINANCE_TIMEOUT', 10000)),
     get hasCredentials(): boolean {
       return Boolean(this.apiKey && this.secret);
     },
