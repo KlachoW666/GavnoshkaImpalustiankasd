@@ -222,9 +222,9 @@ export class DataAggregator {
 
     promise = (async (): Promise<OHLCVCandle[]> => {
       if (config.useBinanceForMarketData) {
-        // Circuit breaker: если Binance лежит — сразу мок
+        // Circuit breaker: если Binance лежит — выбрасываем ошибку
         if (Date.now() < binanceCircuitOpenUntil) {
-          return this.getMockCandles(symbol, timeframe, limit);
+          throw new Error('Binance circuit breaker OPEN');
         }
         const ccxtSymbol = this.toCcxtSymbol(symbol);
         try {
@@ -254,9 +254,9 @@ export class DataAggregator {
           if (this.isBinanceNetworkError(e)) this.logBinanceNetworkErrorOnce('OHLCV');
           else if (/does not have market symbol/i.test(msg)) logger.debug('DataAggregator', 'Binance: symbol not listed', { symbol });
           else logger.warn('DataAggregator', 'Binance OHLCV fetch failed', { symbol, error: msg });
-          return this.getMockCandles(symbol, timeframe, limit);
+          throw new Error(`Binance OHLCV fetch failed: ${msg}`);
         }
-        return this.getMockCandles(symbol, timeframe, limit);
+        throw new Error('Binance OHLCV fetch failed: unknown error');
       }
 
       let useBitget = !config.useMassiveForMarketData || Date.now() < massiveBackoffUntil;
@@ -278,7 +278,7 @@ export class DataAggregator {
             massiveBackoffUntil = Date.now() + MASSIVE_BACKOFF_MS;
             useBitget = true;
           } else {
-            return this.getMockCandles(symbol, timeframe, limit);
+            throw e;
           }
         }
       }
@@ -315,13 +315,12 @@ export class DataAggregator {
               this.exchange = this.createExchange();
               await new Promise((r) => setTimeout(r, 1500));
               continue;
-            }
           }
           break;
         }
-        return this.getMockCandles(symbol, timeframe, limit);
+        throw new Error('Bitget OHLCV fetch failed after retries');
       }
-      return this.getMockCandles(symbol, timeframe, limit);
+      throw new Error('No available exchange for OHLCV');
     })();
     ohlcvInFlight.set(cacheKey, promise);
     try {
@@ -379,9 +378,9 @@ export class DataAggregator {
 
     promise = (async (): Promise<{ bids: [number, number][]; asks: [number, number][] }> => {
       if (config.useBinanceForMarketData) {
-        // Circuit breaker: если Binance лежит — сразу мок
+        // Circuit breaker: если Binance лежит — ошибка
         if (Date.now() < binanceCircuitOpenUntil) {
-          return this.getMockOrderBook(symbol, limit);
+          throw new Error('Binance circuit breaker OPEN');
         }
         const ccxtSymbol = this.toCcxtSymbol(symbol);
         const requested = Math.min(limit, config.limits.orderBook);
@@ -413,7 +412,7 @@ export class DataAggregator {
           }
           if (this.isBinanceNetworkError(e)) this.logBinanceNetworkErrorOnce('OrderBook');
           else logger.warn('DataAggregator', 'Binance OrderBook fetch failed', { symbol, error: (e as Error).message });
-          return this.getMockOrderBook(symbol, limit);
+          throw new Error('Binance OrderBook fetch failed');
         }
       }
 
@@ -443,7 +442,7 @@ export class DataAggregator {
           if (this.isMassivePlanLimitOrRateLimit(e)) {
             massiveBackoffUntil = Date.now() + MASSIVE_BACKOFF_MS;
             useBitgetOb = true;
-          } else return this.getMockOrderBook(symbol, limit);
+          } else throw e;
         }
       }
       if (useBitgetOb) {
@@ -477,12 +476,12 @@ export class DataAggregator {
               await new Promise((r) => setTimeout(r, 1500));
               continue;
             }
-            return this.getMockOrderBook(symbol, limit);
+            return this.getMockOrderBook(symbol, limit); // Заменим на throw Error ниже
           }
         }
-        return this.getMockOrderBook(symbol, limit);
+        throw new Error('Bitget OrderBook fetch failed after retries');
       }
-      return this.getMockOrderBook(symbol, limit);
+      throw new Error('No available exchange for OrderBook');
     })();
     obInFlight.set(obCacheKey, promise);
     try {
@@ -499,7 +498,7 @@ export class DataAggregator {
     if (config.useBinanceForMarketData) {
       // Circuit breaker
       if (Date.now() < binanceCircuitOpenUntil) {
-        return this.getSymbolBasePrice(symbol);
+        throw new Error('Binance circuit breaker OPEN');
       }
       const ccxtSymbol = this.toCcxtSymbol(symbol);
       try {
@@ -526,7 +525,7 @@ export class DataAggregator {
         if (this.isBinanceNetworkError(err)) this.logBinanceNetworkErrorOnce('getCurrentPrice(ob)');
         else logger.warn('DataAggregator', 'Binance getCurrentPrice(ob) failed', { symbol, error: (err as Error).message });
       }
-      return this.getSymbolBasePrice(symbol);
+      throw new Error('Failed to get current price from Binance');
     }
 
     if (config.useMassiveForMarketData && Date.now() >= massiveBackoffUntil) {
@@ -537,13 +536,12 @@ export class DataAggregator {
           this.priceCache.set(symbol, p);
           return p;
         }
-        return this.getSymbolBasePrice(symbol);
+        return 0; // Better to return 0 than a fake mock price
       } catch (e) {
         if (this.isMassivePlanLimitOrRateLimit(e)) {
           massiveBackoffUntil = Date.now() + MASSIVE_BACKOFF_MS;
-        } else {
-          return this.getSymbolBasePrice(symbol);
         }
+        throw e;
       }
     }
 
@@ -577,7 +575,7 @@ export class DataAggregator {
       if (this.isBitgetNetworkError(err)) this.logBitgetNetworkErrorOnce('getCurrentPrice(ob)');
       else logger.warn('DataAggregator', (err as Error).message);
     }
-    return this.getSymbolBasePrice(symbol);
+    throw new Error('Failed to get current price from Bitget');
   }
 
   /** Tickers for markets list: symbol, last, change24h (%), volume24h, high24h, low24h */
@@ -615,8 +613,7 @@ export class DataAggregator {
           const low24h = lastC ? lastC.low : last;
           return { symbol, last, change24h, volume24h, high24h, low24h };
         } catch (e) {
-          const base = this.getSymbolBasePrice(symbol);
-          return { symbol, last: base, change24h: 0, volume24h: 0, high24h: base, low24h: base };
+          return { symbol, last: 0, change24h: 0, volume24h: 0, high24h: 0, low24h: 0 };
         }
       })
     );
@@ -634,7 +631,7 @@ export class DataAggregator {
 
     // Circuit breaker for Binance
     if (config.useBinanceForMarketData && Date.now() < binanceCircuitOpenUntil) {
-      return this.getMockTrades(symbol, limit);
+      throw new Error('Binance circuit breaker OPEN');
     }
 
     const ccxtSymbol = this.toCcxtSymbol(symbol);
@@ -669,77 +666,11 @@ export class DataAggregator {
         if (this.isBitgetNetworkError(e)) this.logBitgetNetworkErrorOnce('Trades');
         else logger.warn('DataAggregator', 'Trades fetch failed', { symbol, error: (e as Error).message });
       }
-      return this.getMockTrades(symbol, limit);
+      throw new Error('Trades fetch failed');
     }
   }
 
-  /** Базовые цены для мок-свечей (DOGE и др. — единая нормализация символа в lib/symbol) */
-  private getSymbolBasePrice(symbol: string): number {
-    const s = symbol.toUpperCase();
-    if (s.includes('BTC')) return 97000;
-    if (s.includes('ETH')) return 3500;
-    if (s.includes('SOL')) return 220;
-    if (s.includes('BNB')) return 350;
-    if (s.includes('DOGE')) return 0.4;
-    return 1;
-  }
-
-  private getMockCandles(symbol: string, timeframe: string, limit: number): OHLCVCandle[] {
-    const basePrice = this.getSymbolBasePrice(symbol);
-    const tfMs = this.timeframeToMs(timeframe);
-    const now = Date.now();
-    const candles: OHLCVCandle[] = [];
-    let price = basePrice;
-    for (let i = limit; i >= 0; i--) {
-      // Имитируем высокую волатильность (до 5% за свечу), чтобы сканер подхватывал монеты
-      const change = (Math.random() - 0.48) * basePrice * 0.05;
-      const open = price;
-      price = price + change;
-      // Объём должен быть большим, чтобы пройти фильтр 300k (например, 10k монет * цена)
-      const baseVol = 100_000 / basePrice + Math.random() * (50_000 / basePrice);
-      candles.push({
-        timestamp: now - i * tfMs,
-        open,
-        high: Math.max(open, price) * (1 + Math.random() * 0.02),
-        low: Math.min(open, price) * (1 - Math.random() * 0.02),
-        close: price,
-        volume: baseVol
-      });
-    }
-    return candles;
-  }
-
-  private getMockTrades(symbol: string, limit: number): { price: number; amount: number; time: number; isBuy: boolean; quoteQuantity?: number }[] {
-    const base = this.getSymbolBasePrice(symbol);
-    const trades: { price: number; amount: number; time: number; isBuy: boolean; quoteQuantity?: number }[] = [];
-    let t = Date.now();
-    for (let i = 0; i < limit; i++) {
-      const price = base * (1 + (Math.random() - 0.5) * 0.001);
-      const amount = Math.random() * 0.1 + 0.001;
-      trades.push({
-        price,
-        amount,
-        time: t - i * 2000,
-        isBuy: Math.random() > 0.5,
-        quoteQuantity: price * amount
-      });
-    }
-    return trades;
-  }
-
-  private getMockOrderBook(symbol: string, limit: number): { bids: [number, number][]; asks: [number, number][] } {
-    const base = this.getSymbolBasePrice(symbol);
-    const spread = base * 0.0001;
-    const bids: [number, number][] = [];
-    const asks: [number, number][] = [];
-    for (let i = 0; i < limit; i++) {
-      bids.push([base - spread * (i + 1), Math.random() * 0.5 + 0.01]);
-      asks.push([base + spread * (i + 1), Math.random() * 0.5 + 0.01]);
-    }
-    return { bids, asks };
-  }
-
-  private timeframeToMs(tf: string): number {
+    const ccxtSymbol = this.toCcxtSymbol(symbol);
     const m: Record<string, number> = {
       '1m': 60000, '5m': 300000, '15m': 900000,
       '1h': 3600000, '4h': 14400000, '1d': 86400000
