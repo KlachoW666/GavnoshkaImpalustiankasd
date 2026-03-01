@@ -1,18 +1,14 @@
 import { Telegraf, Scenes, session } from 'telegraf';
-import type { WizardContext } from 'telegraf/typings/scenes';
 import { config } from '../config';
 import { setupCommands } from '../handlers/commands';
 import { setupPayments } from '../handlers/payments';
 import { registerScene } from '../scenes/registerScene';
 import { resetPasswordScene } from '../scenes/resetPasswordScene';
 
-// Типизированный контекст бота с поддержкой session и wizard-сцен
-export type BotContext = Telegraf.Context & WizardContext;
-
-// Инициализация бота с типом any чтобы не конфликтовал с Context в сценах
+// Инициализация бота
 export const bot = new Telegraf<any>(config.TELEGRAM_BOT_TOKEN);
 
-// Инициализация сцен
+// Инициализация сцен (Stage<any> — обходит несовместимость WizardScene vs BaseScene)
 const stage = new Scenes.Stage<any>([registerScene as any, resetPasswordScene as any]);
 
 // Глобальные Middleware
