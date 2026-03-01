@@ -315,6 +315,7 @@ export class DataAggregator {
               this.exchange = this.createExchange();
               await new Promise((r) => setTimeout(r, 1500));
               continue;
+            }
           }
           break;
         }
@@ -476,7 +477,7 @@ export class DataAggregator {
               await new Promise((r) => setTimeout(r, 1500));
               continue;
             }
-            return this.getMockOrderBook(symbol, limit); // Заменим на throw Error ниже
+            throw new Error('Bitget OrderBook fetch failed');
           }
         }
         throw new Error('Bitget OrderBook fetch failed after retries');
@@ -670,7 +671,7 @@ export class DataAggregator {
     }
   }
 
-    const ccxtSymbol = this.toCcxtSymbol(symbol);
+  private timeframeToMs(tf: string): number {
     const m: Record<string, number> = {
       '1m': 60000, '5m': 300000, '15m': 900000,
       '1h': 3600000, '4h': 14400000, '1d': 86400000
