@@ -13,7 +13,7 @@ export const registerScene = new Scenes.WizardScene(
         return ctx.wizard.next();
     },
     async (ctx) => {
-        if ('text' in ctx.message) {
+        if (ctx.message && 'text' in ctx.message) {
             if (ctx.message.text === '❌ Отмена') {
                 await ctx.reply('Действие отменено.', Keyboards.mainMenu());
                 return ctx.scene.leave();

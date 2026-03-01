@@ -9,7 +9,7 @@ import { resetPasswordScene } from '../scenes/resetPasswordScene';
 export const bot = new Telegraf<any>(config.TELEGRAM_BOT_TOKEN);
 
 // Инициализация сцен (Stage)
-const stage = new Scenes.Stage([registerScene, resetPasswordScene]);
+const stage = new Scenes.Stage<Scenes.WizardContext>([registerScene, resetPasswordScene]);
 
 // Глобальные Middleware
 bot.use(session());
